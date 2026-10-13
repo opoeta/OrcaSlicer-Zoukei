@@ -63,9 +63,6 @@ Http Moonraker::request(const std::string &path, bool post) const
 
 void Moonraker::set_auth(Http &http) const
 {
-    //ORCA: Moonraker accepts unauthenticated requests by default; X-Api-Key is the only auth header
-    //      defined by the Moonraker spec. HTTP Basic / Digest do NOT belong here even if the user
-    //      filled the user/password fields — those are PrusaLink/OctoPrint conventions.
     if (!m_apikey.empty())
         http.header("X-Api-Key", m_apikey);
     if (!m_cafile.empty())
@@ -191,7 +188,7 @@ bool Moonraker::upload(PrintHostUpload upload_data, ProgressFn progress_fn, Erro
     //ORCA: POST /server/files/upload as multipart/form-data with:
     //          file = <gcode file>
     //          root = <storage root>     (Moonraker default: "gcodes")
-    //      Successful response shape:
+    //      The reply is a bare object (no {"result": ...} envelope):
     //          { "item": { "path": "<name>.gcode", "root": "<root>" }, "print_started": <bool> }
     //      Upload never requests automatic printing. Start separately so Box can
     //      verify the uploaded file and install its selected map before execution.
@@ -243,7 +240,7 @@ bool Moonraker::upload(PrintHostUpload upload_data, ProgressFn progress_fn, Erro
         % root
         % upload_filename.string()
         % (plateindex.empty() ? "-" : plateindex)
-        % (upload_data.post_action == PrintHostPostUploadAction::StartPrint ? "true" : "false");
+        % (start_print ? "true" : "false");
 
     auto http = Http::post(std::move(url));
     set_auth(http);
@@ -259,8 +256,8 @@ bool Moonraker::upload(PrintHostUpload upload_data, ProgressFn progress_fn, Erro
                 pt::read_json(ss, ptree);
 
                 //ORCA: Moonraker confirms the storage-relative path in item.path. We pass exactly
-                //      that string to /printer/print/start so any server-side renaming (collision suffix,
-                //      etc.) is respected.
+                //      that string to the print start so any server-side renaming (.ufp stored as
+                //      .gcode, surrounding whitespace and leading slashes stripped) is respected.
                 const auto stored_path = ptree.get_optional<std::string>("item.path");
                 uploaded_root = ptree.get<std::string>("item.root", root);
                 if (stored_path) {
