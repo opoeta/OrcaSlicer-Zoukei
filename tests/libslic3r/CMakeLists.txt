@@ -81,6 +81,16 @@ add_executable(${_TEST_NAME}_tests
     test_wipe_tower.cpp
     test_wipe_path.cpp
     test_wave_overhangs.cpp
+	test_custom_gcode.cpp
+	test_full_spectrum_ks_pair_residual.cpp
+	test_mixed_filament.cpp
+	test_obj_image_map.cpp
+	test_mixed_filament_color_golden.cpp
+	test_paint_transfer.cpp
+	test_local_z_order_optimizer.cpp
+	test_sml_copy.cpp
+	test_gradient_port.cpp
+	test_profile_load_util.cpp
     test_optimizers.cpp
     test_ordering_strategies.cpp
     test_shortest_path.cpp

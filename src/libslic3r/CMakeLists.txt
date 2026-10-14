@@ -508,6 +508,8 @@ set(lisbslic3r_sources
     PrintBase.hpp
     MaterialType.cpp
     MaterialType.hpp
+    PaintTransfer.cpp
+    PaintTransfer.hpp
     PrintConfig.cpp
     PrintConfig.hpp
     Print.cpp
