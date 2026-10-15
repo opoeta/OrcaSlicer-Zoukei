@@ -3,6 +3,7 @@
 #include "IPrinterAgent.hpp"
 #include "CalibUtils.hpp"
 #include "Flashforge.hpp"
+#include "RemoteAPI/RemoteAPIController.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r_version.h"
 
@@ -371,7 +372,7 @@ static std::string get_diameter_string(float diameter)
     std::string s = stream.str();
     if (s.find('.') != std::string::npos) {   // Remove trailing zeros, but keep at least one decimal if needed
         s.erase(s.find_last_not_of('0') + 1);
-        if (s.back() == '.') s += '0';        // Ensure "1." → "1.0"
+        if (s.back() == '.') s += '0';        // Ensure "1." -> "1.0"
     }
     return s;
 }
@@ -6059,7 +6060,7 @@ void Sidebar::on_bed_type_change(BedType bed_type)
  *       ↓
  *   MachineObject::parse_json() (updates device state)
  *       ├── vt_slot (std::vector<DevAmsTray>) - virtual tray data for external filament
- *       └── DevFilaSystem → DevAms → DevAmsTray - AMS unit hierarchy
+ *       └── DevFilaSystem -> DevAms -> DevAmsTray - AMS unit hierarchy
  *       ↓
  *   build_filament_ams_list() [THIS FUNCTION] - aggregates into DynamicPrintConfig maps
  *
@@ -9940,7 +9941,10 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                 // convert_model_if(model, answer_convert_from_imperial_units == wxID_YES);
             }
 
-             if (!is_project_file && model.looks_like_multipart_object()) {
+             // Remote API loads must not block on a modal; keep the solids as separate
+             // objects (the dialog's No answer) and let the client decide.
+             if (!is_project_file && model.looks_like_multipart_object()
+                 && !RemoteAPI::Controller::api_ui_task_active()) {
                MessageDialog msg_dlg(q, _L("This file contains several objects positioned at multiple heights.\nInstead of considering them as multiple objects, should \nthe file be loaded as a single object with multiple parts\?") + "\n",
                     _L("Multi-part object detected"), wxICON_WARNING | wxYES | wxNO);
                 if (msg_dlg.ShowModal() == wxID_YES) {
@@ -16215,6 +16219,8 @@ void Plater::load_project(wxString const& filename2,
     sidebar().set_flushing_volume_warning(has_modify);
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " load project done";
+    m_loading_project = false;
+    Slic3r::GUI::RemoteAPI::Controller::notify_project_opened();
 }
 
 // BBS: save logic
@@ -23406,6 +23412,14 @@ void Plater::set_bed_position(Vec2d& pos)
 bool Plater::is_background_process_slicing() const
 {
     return p->m_is_slicing;
+}
+
+// Remote API (F2): abort the background slice from the API's cancel route.
+void Plater::stop_background_slicing()
+{
+    if (p->background_process.running())
+        p->background_process.stop();
+    p->m_is_slicing = false;
 }
 
 //BBS: update slicing context
