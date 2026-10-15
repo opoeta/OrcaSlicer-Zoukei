@@ -591,6 +591,8 @@ set(lisbslic3r_sources
     SurfaceCollection.hpp
     Surface.cpp
     Surface.hpp
+    SurfaceExtrude.cpp
+    SurfaceExtrude.hpp
     SurfaceMesh.hpp
     SVG.cpp
     SVG.hpp
