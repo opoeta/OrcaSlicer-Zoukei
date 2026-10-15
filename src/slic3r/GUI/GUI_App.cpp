@@ -6271,6 +6271,12 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
+    // Orca Zoukei: a custom build (Jacob10383 + WaveOverhangs + Remote API). The official releases
+    // would replace it with a stock OrcaSlicer, so there is nothing to check for.
+    (void) show_tips;
+    if (by_user != 0)
+        this->no_new_version();
+    return;
     AppConfig* app_config = wxGetApp().app_config;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");
     auto version_check_url = app_config->version_check_url();

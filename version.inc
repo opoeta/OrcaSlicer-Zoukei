@@ -3,6 +3,9 @@
 
 set(SLIC3R_APP_NAME "OrcaSlicer")
 set(SLIC3R_APP_KEY "OrcaSlicer")
+# The name shown to the user. SLIC3R_APP_NAME stays "OrcaSlicer": it goes into the G-code header,
+# where Moonraker, Fluidd and printer firmware use it to recognise the slicer.
+set(ORCA_BRAND_NAME "Orca Zoukei")
 
 if(NOT DEFINED BBL_INTERNAL_TESTING)
 set(BBL_INTERNAL_TESTING "0")

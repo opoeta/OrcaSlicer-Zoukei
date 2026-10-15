@@ -7,9 +7,9 @@ PRODUCTVERSION @SLIC3R_VERSION@
   BLOCK "040904E4"
   {
    VALUE "CompanyName", "SoftFever"
-   VALUE "FileDescription", "@SLIC3R_APP_NAME@"
+   VALUE "FileDescription", "@ORCA_BRAND_NAME@"
    VALUE "FileVersion", "@SLIC3R_BUILD_ID@"
-   VALUE "ProductName", "@SLIC3R_APP_NAME@"
+   VALUE "ProductName", "@ORCA_BRAND_NAME@"
    VALUE "ProductVersion", "@SLIC3R_BUILD_ID@"
    VALUE "InternalName", "@SLIC3R_APP_NAME@"
    VALUE "LegalCopyright", ""
