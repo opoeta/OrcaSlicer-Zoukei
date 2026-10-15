@@ -1,6 +1,7 @@
 // src/slic3r/GUI/RemoteAPI/RemoteAPIController.cpp
 #include "RemoteAPIController.hpp"
 
+#include <boost/nowide/convert.hpp>
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -1250,7 +1251,7 @@ Response Controller::handle_load_model(const std::string &body)
             cfg->set_bool("enable_step_mesh_setting", false);
             cfg->set_bool("step_not_utf8_no_warn", true);
         }
-        std::vector<size_t> idxs = plater->load_files(std::vector<std::string>{ path },
+        std::vector<size_t> idxs = plater->load_files(std::vector<boost::filesystem::path>{ boost::filesystem::path(boost::nowide::widen(path)) },
                                                       LoadStrategy::LoadModel);
         if (is_step) {
             cfg->set_bool("enable_step_mesh_setting", prev_mesh_dlg);
