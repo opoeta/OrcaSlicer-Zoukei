@@ -320,6 +320,8 @@ public:
     void                load_mesh_object(const TriangleMesh &mesh, const wxString &name, bool center = true);
     // One object holding one part per mesh; the parts keep their placement relative to each other.
     void                load_mesh_object(const std::vector<std::pair<const TriangleMesh*, wxString>> &parts, const wxString &name, bool center = true);
+    // A world-space mesh as a new part of obj_idx, in place. Returns the new part (nullptr: none).
+    ModelVolume*        add_mesh_part_in_place(int obj_idx, TriangleMesh mesh_world, const std::string &name);
     // BBS
     void                switch_to_object_process();
     bool                del_object(const int obj_idx, bool refresh_immediately = true);
