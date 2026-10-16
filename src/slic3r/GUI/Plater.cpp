@@ -952,6 +952,9 @@ struct Sidebar::priv
     ScalableButton*   m_btn_mixed_del_all{nullptr};
     wxScrolledWindow* m_mixed_scroll_area{nullptr};       // independent scrollbar for mixed rows
     wxPanel*          m_panel_mixed_content{nullptr};
+    wxBoxSizer*       sizer_cfs_ext{nullptr};            // Creality: "external / no slot" rows under the two columns
+    std::vector<wxSizer*> cfs_rows;                      // Creality: row sizers per filament while grouped by CFS
+    bool              cfs_active{false};
     wxBoxSizer*       m_sizer_mixed_filaments{nullptr};   // two-column, mirrors sizer_filaments
     wxPanel*          m_panel_mixed_warning{nullptr};     // red bar for broken/mismatched mixes
     wxStaticText*     m_text_mixed_warning{nullptr};
@@ -3425,8 +3428,10 @@ Sidebar::Sidebar(Plater *parent)
 
     //bSizer_filament_content->Add(p->sizer_filaments, 1, wxALIGN_CENTER | wxALL);
     wxSizer *sizer_filaments2 = new wxBoxSizer(wxVERTICAL);
-    sizer_filaments2->Add(new CfsUi::Strip(p->m_panel_filament_content), 0, wxEXPAND, 0);
     sizer_filaments2->Add(p->sizer_filaments, 0, wxEXPAND, 0);
+    p->sizer_cfs_ext = new wxBoxSizer(wxVERTICAL);
+    sizer_filaments2->Add(p->sizer_cfs_ext, 0, wxEXPAND, 0);
+    new CfsUi::Watcher(p->m_panel_filament_content, [this] { return (int) p->combos_filament.size(); }, [this] { cfs_relayout(); });
     p->m_panel_filament_content->SetSizer(sizer_filaments2);
     p->m_panel_filament_content->Layout();
     
@@ -3710,8 +3715,94 @@ void Sidebar::create_printer_preset()
     }
 }
 
+// Creality: back to Orca's index-based two columns (rows are only moved, never recreated).
+void Sidebar::cfs_restore()
+{
+    if (!p->cfs_active)
+        return;
+    wxSizer* cols[2] = {p->sizer_filaments->GetItem((size_t) 0)->GetSizer(), p->sizer_filaments->GetItem((size_t) 1)->GetSizer()};
+    for (wxSizer* r : p->cfs_rows)
+        for (wxSizer* c : {cols[0], cols[1], (wxSizer*) p->sizer_cfs_ext})
+            c->Detach(r);
+    cols[0]->Clear(true); // headers
+    cols[1]->Clear(true);
+    p->sizer_cfs_ext->Clear(true);
+    const size_t n = p->cfs_rows.size();
+    for (size_t i = 0; i < n; ++i)
+        cols[i % 2]->Add(p->cfs_rows[i], 1, wxEXPAND);
+    if (n > 1 && n % 2 == 1)
+        cols[1]->AddStretchSpacer(1);
+    p->cfs_rows.clear();
+    p->cfs_active = false;
+}
+
+// Creality: with CFS data, group the rows by CFS unit (left CFS 1, right CFS 2, rest below). Visual only.
+void Sidebar::cfs_relayout()
+{
+    cfs_restore();
+    const int n = (int) p->combos_filament.size();
+    std::vector<int> box;
+    if (n > 0 && CfsUi::grouping(n, box)) {
+        wxSizer* cols[2] = {p->sizer_filaments->GetItem((size_t) 0)->GetSizer(), p->sizer_filaments->GetItem((size_t) 1)->GetSizer()};
+        std::vector<wxSizer*> rows((size_t) n, nullptr);
+        bool ok = true;
+        for (int i = 0; i < n && ok; ++i) {
+            auto* it = cols[i % 2]->GetItem((size_t) (i / 2));
+            rows[i]  = it ? it->GetSizer() : nullptr;
+            ok       = rows[i] != nullptr;
+        }
+        if (ok) {
+            for (wxSizer* r : rows)
+                for (wxSizer* c : cols)
+                    c->Detach(r);
+            cols[0]->Clear(true); // spacers
+            cols[1]->Clear(true);
+            const int row_h = rows[0]->GetMinSize().y;
+            auto header = [&](wxSizer* target, const wxString& text) {
+                auto* s  = new wxBoxSizer(wxHORIZONTAL);
+                auto* t  = new wxStaticText(p->m_panel_filament_content, wxID_ANY, text);
+                wxFont f = t->GetFont();
+                f.SetWeight(wxFONTWEIGHT_BOLD);
+                f.SetPointSize(std::max(7, f.GetPointSize() - 1));
+                t->SetFont(f);
+                t->SetForegroundColour(wxGetApp().get_label_clr_default());
+                s->AddSpacer(FromDIP(12));
+                s->Add(t, 0, wxALIGN_CENTER_VERTICAL);
+                s->SetMinSize(-1, row_h);
+                target->Add(s, 0, wxEXPAND);
+            };
+            header(cols[0], "CFS 1");
+            header(cols[1], "CFS 2");
+            std::vector<int> ext;
+            for (int u = 1; u <= 2; ++u)
+                for (int i = 0; i < n; ++i)
+                    if (box[i] == u)
+                        cols[u - 1]->Add(rows[i], 0, wxEXPAND);
+            for (int i = 0; i < n; ++i)
+                if (box[i] != 1 && box[i] != 2)
+                    ext.push_back(i);
+            if (!ext.empty()) {
+                header(p->sizer_cfs_ext, wxString("Externo / sem slot"));
+                for (int i : ext)
+                    p->sizer_cfs_ext->Add(rows[i], 0, wxEXPAND);
+            }
+            p->cfs_rows   = rows;
+            p->cfs_active = true;
+        } else {
+            wxLogWarning("CFS layout skipped: unexpected filament grid");
+        }
+    }
+    if (p->m_panel_filament_content->GetSizer() != nullptr) {
+        p->m_panel_filament_content->Layout();
+        p->m_panel_filament_content->FitInside();
+    }
+    update_filaments_area_height();
+    Layout();
+}
+
 void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filament_idx)
 {
+    cfs_restore();
     *combo = new PlaterPresetComboBox(p->m_panel_filament_content, Slic3r::Preset::TYPE_FILAMENT);
     (*combo)->set_filament_idx(filament_idx);
 
@@ -3785,6 +3876,7 @@ void Sidebar::remove_unused_filament_combos(const size_t current_extruder_count)
 {
     if (current_extruder_count >= p->combos_filament.size())
         return;
+    cfs_restore();
     while (p->combos_filament.size() > current_extruder_count) {
         const int last = p->combos_filament.size() - 1;
         auto sizer_filaments = this->p->sizer_filaments->GetItem(last % 2)->GetSizer();
@@ -5772,6 +5864,7 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     recalc_filament_scroll_sizes();
     update_mixed_filament_list();
 
+    cfs_relayout();
     Layout();
     p->m_panel_filament_title->Refresh();
     update_ui_from_settings();

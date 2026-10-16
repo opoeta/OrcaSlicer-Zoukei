@@ -27,6 +27,7 @@ using namespace CrealityCfs;
 namespace {
 
 std::set<Badge*>                   s_badges;
+Watcher*                           s_watcher = nullptr;
 
 PrinterSnapshot snapshot()
 {
@@ -316,65 +317,51 @@ std::optional<std::pair<int, int>> mapped_slot(int idx)
     return std::make_pair(e->box, e->slot);
 }
 
-// ---- Strip -------------------------------------------------------------------------------------
+// ---- Watcher -----------------------------------------------------------------------------------
 
-Strip::Strip(wxWindow* parent) : wxPanel(parent, wxID_ANY), m_timer(this)
+bool grouping(int n, std::vector<int>& box_of)
 {
-    SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetBackgroundColour(bg_col());
-    SetMinSize(FromDIP(wxSize(-1, 26)));
-    Bind(wxEVT_PAINT, &Strip::on_paint, this);
-    Bind(wxEVT_TIMER, &Strip::on_tick, this);
-    m_timer.Start(2000);
-    Hide();
+    const auto es = entries(snapshot());
+    if (es.empty())
+        return false;
+    box_of.assign(size_t(std::max(n, 0)), -1);
+    for (int i = 0; i < n; ++i) {
+        const Entry* e = nullptr;
+        label_of(i, es, &e);
+        if (e != nullptr)
+            box_of[i] = e->box;
+    }
+    return true;
 }
 
-void Strip::on_tick(wxTimerEvent&)
+Watcher::Watcher(wxWindow* parent, std::function<int()> count, std::function<void()> on_change)
+    : wxPanel(parent, wxID_ANY), m_timer(this), m_count(std::move(count)), m_change(std::move(on_change))
 {
-    const PrinterSnapshot snap = snapshot();
-    const auto            es   = entries(snap);
-    const bool            want = snap.connected && !es.empty();
-    size_t                sig  = want ? es.size() + 1 : 0;
-    for (const Entry& e : es)
-        sig = sig * 131 + std::hash<std::string>{}(e.type) + (e.colour.IsOk() ? e.colour.GetRGB() : 0) + e.box;
-    if (want != IsShown()) {
-        Show(want);
-        if (GetParent() != nullptr) {
-            GetParent()->Layout();
-            GetParent()->FitInside();
-        }
-    }
-    if (sig != m_sig) {
+    Hide();
+    s_watcher = this;
+    Bind(wxEVT_TIMER, [this](wxTimerEvent&) { check(); });
+    m_timer.Start(2000);
+}
+
+Watcher::~Watcher()
+{
+    if (s_watcher == this)
+        s_watcher = nullptr;
+}
+
+void Watcher::check(bool force)
+{
+    std::vector<int> box;
+    size_t sig = grouping(m_count(), box) ? box.size() + 1 : 0;
+    for (int b : box)
+        sig = sig * 131 + size_t(b + 2);
+    if (force || sig != m_sig) {
         m_sig = sig;
-        Refresh();
+        if (m_change)
+            m_change();
     }
     for (Badge* b : s_badges)
         b->refresh_state();
-}
-
-void Strip::on_paint(wxPaintEvent&)
-{
-    wxAutoBufferedPaintDC dc(this);
-    dc.SetBackground(bg_col());
-    dc.Clear();
-    dc.SetFont(GetFont());
-    const auto es  = entries(snapshot());
-    const int  cw  = FromDIP(26), ch = FromDIP(18), gap = FromDIP(4), y = (GetClientSize().y - ch) / 2;
-    int        x   = FromDIP(12), cur_box = -1;
-    for (const Entry& e : es) {
-        if (e.box != cur_box) {
-            cur_box        = e.box;
-            const wxString t  = e.box == 0 ? wxString("EXT") : wxString::Format("CFS%d", e.box);
-            const wxSize   ts = dc.GetTextExtent(t);
-            dc.SetTextForeground(fg_col());
-            dc.DrawText(t, x, y + (ch - ts.y) / 2);
-            x += ts.x + gap * 2;
-        }
-        draw_chip(dc, wxRect(x, y, cw, ch), e.label == "Ext" ? wxString("") : e.label, e.colour, e.loaded);
-        x += cw + gap;
-        if (e.box == 0)
-            x += gap * 2;
-    }
 }
 
 // ---- Badge -------------------------------------------------------------------------------------
@@ -389,6 +376,8 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
         auto* p = new Picker(this, m_idx, entries(snapshot()), [this] {
             for (Badge* b : s_badges)
                 b->Refresh();
+            if (s_watcher != nullptr)
+                s_watcher->check();
         }, [this] {
             wxCommandEvent ev(wxEVT_BUTTON, m_btn->GetId());
             ev.SetEventObject(m_btn);

@@ -1,9 +1,11 @@
-// Sidebar widgets for Creality printers: a live CFS strip (EXT + CFS1/CFS2 chips) and a per-filament
+// Sidebar widgets for Creality printers: a per-filament
 // slot badge/picker. Own code, inspired by Creality Print's PrinterBoxFilamentPanel / MaterialMapPanel.
 #ifndef slic3r_GUI_CrealityCfsUi_hpp_
 #define slic3r_GUI_CrealityCfsUi_hpp_
 
 #include <cstddef>
+#include <functional>
+#include <vector>
 #include <optional>
 #include <utility>
 #include <wx/panel.h>
@@ -15,17 +17,23 @@ namespace Slic3r { namespace GUI { namespace CfsUi {
 // Explicit choices persist per project file (app config); otherwise a default is derived.
 std::optional<std::pair<int, int>> mapped_slot(int filament_idx);
 
-// Live strip at the top of the Filament section; hidden unless a Creality printer with CFS data is connected.
-class Strip : public wxPanel
+// Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
+bool grouping(int n, std::vector<int>& box_of);
+
+// Invisible helper: polls the printer every 2 s, refreshes the badges and calls on_change when the
+// CFS grouping (or its availability) changed. Also called right after a slot was picked.
+class Watcher : public wxPanel
 {
 public:
-    explicit Strip(wxWindow* parent);
+    Watcher(wxWindow* parent, std::function<int()> count, std::function<void()> on_change);
+    ~Watcher() override;
+    void check(bool force = false);
 
 private:
-    void    on_paint(wxPaintEvent&);
-    void    on_tick(wxTimerEvent&);
-    wxTimer m_timer;
-    size_t  m_sig{0};
+    wxTimer               m_timer;
+    std::function<int()>  m_count;
+    std::function<void()> m_change;
+    size_t                m_sig{0};
 };
 
 // Combined "2 . 1A <->" box (filament no. + slot) replacing the colour box on Creality rows; click opens the slot picker.
