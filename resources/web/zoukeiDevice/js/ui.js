@@ -73,6 +73,7 @@
         warn: '<path d="M12 3l10 18H2zM12 10v5M12 18h.01"/>',
         feed: '<path d="M12 4v13M6 12l6 6 6-6"/>',
         chart: '<path d="M3 20h18M5 16l4-5 4 3 6-8"/>',
+        expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
         retract: '<path d="M12 20V7M6 12l6-6 6 6"/>'
     };
 

@@ -19,8 +19,23 @@
             this.msg = h('div.cam-msg');
             this.el = h('div.cam',
                 this.video, this.img, this.msg,
-                h('button.icon-btn.cam-btn', { type: 'button', title: Z.t('camera_reconnect'), onclick: () => this.start() }, icon('refresh')));
+                h('button.icon-btn.cam-btn', { type: 'button', title: Z.t('camera_reconnect'), onclick: () => this.start() }, icon('refresh')),
+                h('button.icon-btn.cam-btn.cam-full-btn', { type: 'button', title: Z.t('fullscreen'), 'aria-label': Z.t('fullscreen'), onclick: () => this.toggleFull() }, icon('expand')));
             this.img.hidden = true;
+            this.el.addEventListener('dblclick', () => this.toggleFull());
+            document.addEventListener('keydown', this._esc = e => { if (e.key === 'Escape' && this.el.classList.contains('cam-full')) this.toggleFull(); });
+        }
+
+        // Element fullscreen when the webview allows it, otherwise a fixed overlay over the panel.
+        toggleFull() {
+            const el = this.el;
+            if (document.fullscreenElement === el) { document.exitFullscreen(); return; }
+            if (el.classList.contains('cam-full')) { el.classList.remove('cam-full'); return; }
+            const overlay = () => el.classList.add('cam-full');
+            try {
+                const p = el.requestFullscreen && el.requestFullscreen();
+                if (p && p.catch) p.catch(overlay); else if (!p) overlay();
+            } catch (e) { overlay(); }
         }
 
         status(text) { this.msg.textContent = text || ''; this.msg.hidden = !text; }
