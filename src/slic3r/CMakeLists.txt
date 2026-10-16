@@ -65,6 +65,16 @@ set(SLIC3R_GUI_SOURCES
     GUI/BuildCommit.hpp
     GUI/CrealityDiscoveryDialog.cpp
     GUI/CrealityDiscoveryDialog.hpp
+    GUI/CrealityDevicePanel.cpp
+    GUI/CrealityDevicePanel.hpp
+    GUI/CrealityDevice/DeviceStore.cpp
+    GUI/CrealityDevice/DeviceStore.hpp
+    GUI/CrealityDevice/ImageServer.cpp
+    GUI/CrealityDevice/ImageServer.hpp
+    GUI/CrealityDevice/LanDeviceProbe.cpp
+    GUI/CrealityDevice/LanDeviceProbe.hpp
+    GUI/CrealityDevice/WsProxy.cpp
+    GUI/CrealityDevice/WsProxy.hpp
     GUI/calib_dlg.cpp
     GUI/calib_dlg.hpp
     GUI/Calibration.cpp

@@ -21,6 +21,7 @@
 #include "slic3r/GUI/LazyPage.hpp"
 #include "slic3r/GUI/Monitor.hpp"
 #include "slic3r/GUI/PrinterWebView.hpp"
+#include "slic3r/GUI/CrealityDevicePanel.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
 #include "slic3r/GUI/CalibrationPanel.hpp"
 #include "slic3r/GUI/ReleaseNote.hpp"
@@ -1542,7 +1543,11 @@ void MainFrame::init_tabpanel() {
     m_lazy_pages.push_back(m_monitor_page);
     m_tabpanel->AddPage(TAB_ID_MONITOR, m_monitor_page, _L("Device"), "tab_monitor_active");
 
-    m_printer_view_page = new LazyPage<PrinterWebView>(m_tabpanel, TAB_ID_MONITOR_WEB, 50, [this](wxWindow* parent) {
+    // Not in the book until show_device() puts it at TAB_ID_MONITOR for a Creality printer.
+    m_creality_device_page = new LazyPage<CrealityDevicePanel>(m_tabpanel, "creality_device", 21);
+    m_lazy_pages.push_back(m_creality_device_page);
+
+    m_printer_view_page =new LazyPage<PrinterWebView>(m_tabpanel, TAB_ID_MONITOR_WEB, 50, [this](wxWindow* parent) {
         auto* view = new PrinterWebView(parent);
         if (!m_printer_url.empty())
             view->load_url(m_printer_url, m_printer_api_key);
@@ -1604,6 +1609,16 @@ void MainFrame::show_device(bool should_use_native) {
     const bool want_web_device_tab = use_printer_agents && wxGetApp().preset_bundle != nullptr &&
                                      !wxGetApp().preset_bundle->use_bbl_device_tab();
 
+    // A Creality printer's Device tab is Creality Print's own panel instead of the Bambu one.
+    const bool want_creality_device = wxGetApp().preset_bundle != nullptr &&
+                                      CrealityDevicePanel::is_creality_printer(*wxGetApp().preset_bundle);
+    wxWindow* device_page = want_creality_device ? static_cast<wxWindow*>(m_creality_device_page) : static_cast<wxWindow*>(m_monitor_page);
+    wxWindow* other_device_page = want_creality_device ? static_cast<wxWindow*>(m_monitor_page) : static_cast<wxWindow*>(m_creality_device_page);
+    if ((idx = m_tabpanel->FindPage(other_device_page)) != wxNOT_FOUND) {
+        other_device_page->Show(false);
+        m_tabpanel->RemovePage(idx);
+    }
+
     // Remove the extra page before switching to any layout that shouldn't have it.
     if (!want_web_device_tab) {
         if ((idx = m_tabpanel->FindPageByName(TAB_ID_MONITOR_WEB)) != wxNOT_FOUND) {
@@ -1613,13 +1628,13 @@ void MainFrame::show_device(bool should_use_native) {
     }
 
     if (use_printer_agents) {
-        if (!m_monitor_page->in_book()) {
+        if (m_tabpanel->FindPage(device_page) == wxNOT_FOUND) {
             if ((idx = m_tabpanel->FindPage(m_printer_view_page)) != wxNOT_FOUND) {
                 m_printer_view_page->Show(false);
                 m_tabpanel->RemovePage(idx);
             }
-            m_monitor_page->Show(false);
-            m_tabpanel->InsertPage(m_tabpanel->PositionAfter({TAB_ID_PREVIEW}), TAB_ID_MONITOR, m_monitor_page,
+            device_page->Show(false);
+            m_tabpanel->InsertPage(m_tabpanel->PositionAfter({TAB_ID_PREVIEW}), TAB_ID_MONITOR, device_page,
                                    _L("Device"), "tab_monitor_active");
         }
 
@@ -1662,7 +1677,7 @@ void MainFrame::show_device(bool should_use_native) {
     }
 
     if (should_use_native) {
-        if (m_monitor_page->in_book()) {
+        if (m_tabpanel->FindPage(device_page) != wxNOT_FOUND) {
             fit_tab_labels(); // ORCA on printer change - same button layout
             return;
         }
@@ -1673,8 +1688,8 @@ void MainFrame::show_device(bool should_use_native) {
         }
 
         // Insert monitor page
-        m_monitor_page->Show(false);
-        m_tabpanel->InsertPage(m_tabpanel->PositionAfter({TAB_ID_PREVIEW}), TAB_ID_MONITOR, m_monitor_page,
+        device_page->Show(false);
+        m_tabpanel->InsertPage(m_tabpanel->PositionAfter({TAB_ID_PREVIEW}), TAB_ID_MONITOR, device_page,
                                _L("Device"), "tab_monitor_active");
 
         if (wxGetApp().is_enable_multi_machine()) {
@@ -1708,6 +1723,10 @@ void MainFrame::show_device(bool should_use_native) {
         }
         if ((idx = m_tabpanel->FindPage(m_monitor_page)) != wxNOT_FOUND) {
             m_monitor_page->Show(false);
+            m_tabpanel->RemovePage(idx);
+        }
+        if ((idx = m_tabpanel->FindPage(m_creality_device_page)) != wxNOT_FOUND) {
+            m_creality_device_page->Show(false);
             m_tabpanel->RemovePage(idx);
         }
         m_printer_view_page->Show(false);
@@ -2785,6 +2804,8 @@ void MainFrame::on_sys_color_changed()
     // update Plater
     wxGetApp().plater()->sys_color_changed();
     MonitorPanel::when_built([](MonitorPanel& monitor) { monitor.on_sys_color_changed(); });
+    if (CrealityDevicePanel* creality = CrealityDevicePanel::if_built())
+        creality->on_sys_color_changed();
     CalibrationPanel::when_built([](CalibrationPanel& calibration) { calibration.on_sys_color_changed(); });
 #ifdef SLIC3R_CAD
     DesignPanel::when_built([](DesignPanel& design) { design.on_sys_color_changed(); });

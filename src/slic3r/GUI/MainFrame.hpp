@@ -87,6 +87,7 @@ class DesignPanel;
 #endif
 class MainFrame;
 class WebViewPanel;
+class CrealityDevicePanel;
 class ParamsDialog;
 enum class Shortcut : uint8_t;
 struct KeyChord;
@@ -515,6 +516,8 @@ public:
     void set_undo_redo_enabled(bool undo, bool redo);
     //BBS: GUI refactor
     LazyPage<MonitorPanel>* m_monitor_page{ nullptr };
+    // Device tab for Creality printers (Creality Print's own panel), in place of m_monitor_page.
+    LazyPage<CrealityDevicePanel>* m_creality_device_page{ nullptr };
 
     //AuxiliaryPanel*       m_auxiliary{ nullptr };
     LazyPage<MultiMachinePage>* m_multi_machine_page{ nullptr };

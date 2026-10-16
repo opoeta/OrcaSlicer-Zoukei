@@ -1,0 +1,16 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+<foreignObject x="-10" y="-10" width="116" height="116"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(5px);clip-path:url(#bgblur_1_3206_436086_clip_path);height:100%;width:100%"></div></foreignObject><g id="&#229;&#136;&#183;&#230;&#150;&#176;" data-figma-bg-blur-radius="10">
+<g clip-path="url(#clip0_3206_436086)">
+<rect width="96" height="96" rx="48" fill="white" fill-opacity="0.25"/>
+<g id="&#230;&#142;&#167;&#229;&#136;&#182;&#230;&#150;&#185;&#229;&#144;&#145;">
+<path id="Polygon 5" d="M71.3843 48.166C71.6786 47.9678 71.6786 47.5348 71.3843 47.3366L36.7793 24.0275C36.4472 23.8038 36 24.0418 36 24.4422L36 71.0604C36 71.4608 36.4472 71.6988 36.7793 71.4751L71.3843 48.166Z" fill="white"/>
+</g>
+</g>
+</g>
+<defs>
+<clipPath id="bgblur_1_3206_436086_clip_path" transform="translate(10 10)"><rect width="96" height="96" rx="48"/>
+</clipPath><clipPath id="clip0_3206_436086">
+<rect width="96" height="96" rx="48" fill="white"/>
+</clipPath>
+</defs>
+</svg>

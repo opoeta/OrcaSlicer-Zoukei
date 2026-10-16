@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- Orca Zoukei: page scripts only from this folder; no remote scripts (no analytics). -->
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self' file: 'unsafe-inline' 'unsafe-eval' blob:; object-src 'none'" />
+        <title>DevicePage</title>
+        <link rel="stylesheet" href="./orca-theme.css" />
+        <script src="./orca-theme.js"></script>
+      <script  defer src="./assets/BZCDzYbb.js"></script>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script>
+            (function () {
+                if (!Array.isArray(window.__studioCmdQueue__)) {
+                    window.__studioCmdQueue__ = [];
+                }
+                if (typeof window.handleStudioCmd !== 'function') {
+                    window.handleStudioCmd = function (jsonData) {
+                        window.__studioCmdQueue__.push(jsonData);
+                    };
+                }
+            })();
+        </script>
+    </body>
+</html>
