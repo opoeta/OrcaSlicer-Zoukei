@@ -30,8 +30,18 @@
         } }, icon('retract'), Z.t('ifs_unload'));
         const unlockBtn = h('button.btn', { type: 'button', onclick: () => { if (!ctx.busy()) link.ifsUnlock(); } }, icon('lock'), Z.t('ifs_unlock'));
         const editBtn = h('button.btn', { type: 'button', onclick: () => openSlotEditor(ctx, sel) }, icon('edit'), Z.t('edit_slot'));
+        const repairBtn = h('button.btn', { type: 'button', hidden: true, title: Z.t('ifs_repair_info'), onclick: () => {
+            if (ctx.busy()) return;
+            Z.confirm(Z.t('ifs_repair_info'), { okLabel: Z.t('ifs_repair') }).then(yes => {
+                if (!yes) return;
+                Z.Host.request('ifs_repair', {}, 'ifs_repair', 15000).then(r => {
+                    if (!r.ok) Z.toast(Z.t('ifs_write_blocked', { reason: r.reason || '' }), 'err');
+                    else Z.toast(Z.t('ifs_repair_started'));
+                }).catch(() => Z.toast(Z.t('err_send'), 'err'));
+            });
+        } }, icon('refresh'), Z.t('ifs_repair'));
         const note = h('p.note');
-        const el = h('div.cfs-tab', head, grid, h('div.cfs-actions', editBtn, loadBtn, unloadBtn, unlockBtn), note, lw);
+        const el = h('div.cfs-tab', head, grid, h('div.cfs-actions', editBtn, loadBtn, unloadBtn, unlockBtn, repairBtn), note, lw);
 
         function uiLabel(ifs) {
             if (!ifs) return '';
@@ -68,7 +78,8 @@
             // 2x2 like the printer: slots 1-2 on the first row, 3-4 on the second
             ifs.slots.slice(0, 4).forEach(s => grid.appendChild(slotEl(s)));
             const busy = ctx.busy() || !link.online;
-            [editBtn, loadBtn, unloadBtn, unlockBtn].forEach(b => { b.disabled = busy; });
+            [editBtn, loadBtn, unloadBtn, unlockBtn, repairBtn].forEach(b => { b.disabled = busy; });
+            repairBtn.hidden = ifs.ui !== 'helix';
             loadBtn.disabled = busy || !(ifs.slots.find(s => s.id === sel) || {}).present;
             note.textContent = ctx.busy() ? Z.t('cfs_locked') : Z.t('ifs_hint');
             if (w) {

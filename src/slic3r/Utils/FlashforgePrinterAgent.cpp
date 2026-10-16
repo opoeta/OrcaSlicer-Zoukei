@@ -865,7 +865,8 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     }
     json rec = existing;
     const std::string material = base_type(w.type).empty() ? upper(w.type) : base_type(w.type);
-    const bool changed_identity = norm_color(str(existing, "color")) != w.color || upper(str(existing, "material")) != upper(material);
+    const bool changed_identity = norm_color(str(existing, "color")) != w.color || upper(str(existing, "material")) != upper(material) ||
+                                  (!zmod_type.empty() && upper(str(existing, "helix_material")) != upper(zmod_type)); // PLA <-> SILK
     rec["lane"]     = std::to_string(w.port - 1);
     rec["color"]    = w.color;
     rec["material"] = material;
@@ -925,6 +926,81 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     return ok;
 }
 
+// Owner-initiated repair: a lane_data record that contradicts what the firmware reports (colour / material) is rewritten from the firmware,
+// with the stale spool identity (Spoolman binding, name, vendor) dropped. HelixScreen ranks a declaring or spool-bound record above the firmware,
+// so an old pink "SILK" spool would otherwise keep painting the slot. Lanes that agree are not touched.
+void FlashforgePrinterAgent::repair_lane_data()
+{
+    if (m_writing.exchange(true))
+        return;
+    std::weak_ptr<FlashforgePrinterAgent> weak = weak_from_this();
+    std::thread([weak]() {
+        auto self = weak.lock();
+        if (!self)
+            return;
+        std::string base_url, api_key;
+        {
+            std::lock_guard<std::mutex> lock(self->m_mutex);
+            base_url = self->m_zmod_url;
+            api_key  = self->m_zmod_key;
+        }
+        std::string          fixed, failed;
+        std::vector<IfsSlot> live;
+        if (self->ui() != Ui::helix || base_url.empty() || self->m_busy || !self->fetch_zmod_slots(base_url, api_key, live)) {
+            CrealityCfsAgent::notify("Flashforge IFS: nothing to repair (needs ZMOD + HelixScreen, idle, reachable).", true);
+            self->m_writing = false;
+            return;
+        }
+        for (const IfsSlot& s : live) {
+            const std::string key = "lane" + std::to_string(s.port);
+            std::string       body;
+            if (!http_get(base_url + "/server/database/item?namespace=lane_data&key=" + key, api_key, body))
+                continue;
+            const json r = json::parse(body, nullptr, false);
+            if (r.is_discarded() || !r.contains("result") || !r["result"].contains("value") || !r["result"]["value"].is_object())
+                continue;
+            json              rec      = r["result"]["value"];
+            const std::string rec_type = rec.contains("helix_material") ? str(rec, "helix_material") : str(rec, "material");
+            const bool        color_bad = !s.color.empty() && norm_color(str(rec, "color")) != s.color;
+            const bool        type_bad  = !s.material.empty() && upper(rec_type) != upper(s.material) && upper(str(rec, "material")) != upper(s.material);
+            if (!color_bad && !type_bad)
+                continue;
+            if (!s.color.empty())
+                rec["color"] = s.color;
+            if (!s.material.empty()) {
+                rec["material"]       = base_type(s.material).empty() ? upper(s.material) : base_type(s.material);
+                rec["helix_material"] = s.material;
+            }
+            rec["color_name"] = "";
+            for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id", "helix_product_name",
+                                      "remaining_weight_g", "total_weight_g", "name", "spool_name", "vendor", "vendor_name", "scan_time"})
+                rec.erase(stale);
+            rec["helix_declared"]        = json::array({"color_rgb", "material"});
+            rec["helix_locked_color"]    = true;
+            rec["helix_locked_material"] = true;
+            bool ok   = false;
+            auto http = Http::post(base_url + "/server/database/item");
+            if (!api_key.empty())
+                http.header("X-Api-Key", api_key);
+            http.header("Content-Type", "application/json")
+                .set_post_body(json{{"namespace", "lane_data"}, {"key", key}, {"value", rec}}.dump())
+                .timeout_connect(5)
+                .timeout_max(10)
+                .on_complete([&](std::string, unsigned status) { ok = status == 200; })
+                .on_error([](std::string, std::string, unsigned) {})
+                .perform_sync();
+            std::string& list = ok ? fixed : failed;
+            list += (list.empty() ? "" : ", ") + std::string("IFS") + std::to_string(s.port);
+        }
+        if (!failed.empty())
+            CrealityCfsAgent::notify("Flashforge IFS: HelixScreen data not repaired for " + failed, true);
+        else
+            CrealityCfsAgent::notify(fixed.empty() ? std::string("Flashforge IFS: HelixScreen data already matches the printer.") :
+                                                      "Flashforge IFS: HelixScreen data repaired for " + fixed + ".");
+        self->m_writing = false;
+    }).detach();
+}
+
 void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
 {
     std::string base_url, api_key;
@@ -968,6 +1044,11 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
             script += " HEX=" + hex;
             ok      = send_gcode_sync(device_info.dev_id, script);
             any_cmd = true;
+            // ZMOD opens its "Material carregado / Selecione uma bobina" prompt (Mainsail/Fluidd) from inside CHANGE_ZCOLOR itself, there is no
+            // silent parameter (the console shows prompt_end + prompt_begin..prompt_show during the command). Closing it afterwards only
+            // dismisses the web dialog; the slot data is already saved.
+            if (ok)
+                send_gcode_sync(device_info.dev_id, "RESPOND TYPE=command MSG=action:prompt_end");
             BOOST_LOG_TRIVIAL(info) << "Flashforge agent: " << script << (ok ? "" : " FAILED");
         }
         if (ok && ui() == Ui::helix)

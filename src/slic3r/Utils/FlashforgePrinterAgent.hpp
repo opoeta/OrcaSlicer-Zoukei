@@ -72,6 +72,8 @@ public:
     // a worker thread and reports through a plater notification.
     std::string write_block_reason() const;
     void        write_slots(std::vector<SlotWrite> writes);
+    // Owner-initiated: reconcile HelixScreen's lane_data with the firmware for lanes that contradict it (async, plater notification).
+    void        repair_lane_data();
 
     // The vendor model_id of the selected printer ("Flashforge-AD5X"), UI thread.
     static std::string current_model_id();

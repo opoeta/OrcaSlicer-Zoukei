@@ -373,6 +373,21 @@ void FlashforgeDevicePanel::route_ifs_write_slot(const json& j)
     post_command("ifs_write_slot", std::move(out));
 }
 
+void FlashforgeDevicePanel::route_ifs_repair(const json& j)
+{
+    json       out   = {{"requestId", json_string(j, "requestId")}, {"ok", false}, {"reason", ""}};
+    const auto agent = CfsUi::ifs_agent();
+    if (!agent)
+        out["reason"] = "no Flashforge printer selected";
+    else if (const std::string reason = agent->write_block_reason(); !reason.empty())
+        out["reason"] = reason;
+    else {
+        agent->repair_lane_data();
+        out["ok"] = true;
+    }
+    post_command("ifs_repair", std::move(out));
+}
+
 void FlashforgeDevicePanel::register_routes()
 {
     auto& h = m_handlers;
@@ -382,6 +397,7 @@ void FlashforgeDevicePanel::register_routes()
     h["moonraker_http"] = [this](const json& j) { route_moonraker_http(j); };
     h["get_filament_presets"] = [this](const json& j) { route_get_filament_presets(j); };
     h["ifs_write_slot"]       = [this](const json& j) { route_ifs_write_slot(j); };
+    h["ifs_repair"]           = [this](const json& j) { route_ifs_repair(j); };
 }
 
 }} // namespace Slic3r::GUI

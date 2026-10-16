@@ -51,6 +51,7 @@ private:
     void route_moonraker_http(const json& j);
     void route_get_filament_presets(const json& j);
     void route_ifs_write_slot(const json& j);
+    void route_ifs_repair(const json& j);
 
     wxWebView*                               m_browser{nullptr};
     std::shared_ptr<Bridge>                  m_bridge;
