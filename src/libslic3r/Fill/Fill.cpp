@@ -1965,6 +1965,8 @@ void Layer::make_ironing()
 
         // Create the filler object.
         f->spacing = ironing_params.line_spacing;
+        // Archimedean spiral: iron from the center of each surface outwards, as one continuous pass.
+        fill_params.fill_order = f_pattern == ipArchimedeanChords ? SurfaceFillOrder::Outward : SurfaceFillOrder::Default;
         f->angle = float(ironing_params.angle);
         f->fixed_angle = ironing_params.fixed_angle;
         f->link_max_length = (coord_t) scale_(3. * f->spacing);
