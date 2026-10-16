@@ -24,6 +24,9 @@ std::optional<std::pair<int, int>> mapped_slot(int filament_idx);
 
 // The same as the print dialog's tray id: CFS unit index * 4 + slot, 255 for the external spool.
 std::optional<int> mapped_tray(int filament_idx);
+// The filament maps to a CFS/IFS slot that holds no filament (never true for the external spool). Label as shown on the badge.
+bool     mapped_slot_empty(int filament_idx);
+wxString mapped_slot_label(int filament_idx);
 // Stores a choice made in the print dialog (tray id as above) in the project's filament_cfs_slot.
 void set_mapped_tray(int filament_idx, int tray_id);
 

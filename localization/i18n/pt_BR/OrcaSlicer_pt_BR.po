@@ -36414,3 +36414,15 @@ msgid ""
 msgstr ""
 "Para o IFS da Flashforge: quando um slot é alterado na impressora (HelixScreen, Mainsail, a tela), aplica aos filamentos do projeto "
 "mapeados a esse slot, em vez de só mostrar uma notificação."
+
+msgid "empty"
+msgstr "vazio"
+
+msgid "Empty slot on the printer"
+msgstr "Slot vazio na impressora"
+
+msgid "Empty slot"
+msgstr "Slot vazio"
+
+msgid "These filaments are mapped to an empty printer slot. Load them, choose another slot, or use \"Send only\"."
+msgstr "Estes filamentos estão mapeados para um slot vazio da impressora. Carregue-os, escolha outro slot ou use \"Enviar somente\"."

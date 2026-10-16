@@ -2789,6 +2789,20 @@ void SelectMachineDialog::on_ok_btn(wxCommandEvent &event)
     MachineObject* obj_ = dev->get_selected_machine();
     if (!obj_) return;
 
+    // Creality / Flashforge: a used filament mapped to an empty slot cannot be printed (sending only is fine).
+    if (is_creality_dialog() && !m_creality_send_only && m_checkbox_list["filament_src"]->getValue() != "spool") {
+        wxString empties;
+        for (const FilamentInfo& f : m_ams_mapping_result)
+            if (CfsUi::mapped_slot_empty(f.id))
+                empties += wxString::Format(L"\n  \u2022 %s %d \u2192 %s", _L("Filament"), f.id + 1, CfsUi::mapped_slot_label(f.id));
+        if (!empties.empty()) {
+            MessageDialog dlg(this, _L("These filaments are mapped to an empty printer slot. Load them, choose another slot, or use \"Send only\".") + empties,
+                              _L("Empty slot"), wxICON_WARNING | wxOK);
+            dlg.ShowModal();
+            return;
+        }
+    }
+
     std::vector<ConfirmBeforeSendInfo> confirm_text;
 
     // check more than one using in same external spool

@@ -232,6 +232,9 @@ wxString label_of(int idx, const std::vector<Entry>& es, const Entry** found = n
     return e != nullptr ? e->label : wxString("-");
 }
 
+// Mapped to a real (non-external) slot that holds no filament.
+bool entry_empty(const Entry* e) { return e != nullptr && e->box != 0 && !e->loaded; }
+
 class Picker : public wxPopupTransientWindow
 {
 public:
@@ -286,9 +289,10 @@ private:
         const auto v = shown();
         for (size_t i = 0; i < v.size(); ++i) {
             const wxRect r = row_rect(i);
+            const bool ext = v[i]->box == 0;
             draw_chip(dc, wxRect(r.x, r.y, FromDIP(48), r.height), v[i]->label, v[i]->colour, v[i]->loaded);
-            dc.SetTextForeground(fg_col());
-            dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : wxString("-"), r.x + FromDIP(56), r.y + FromDIP(4));
+            dc.SetTextForeground(v[i]->loaded || ext ? fg_col() : wxColour(150, 150, 150));
+            dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : (ext ? wxString("-") : _L("Empty") + L" \u26A0"), r.x + FromDIP(56), r.y + FromDIP(4));
         }
         if (m_edit) {
             const wxRect r = edit_rect();
@@ -342,6 +346,20 @@ std::optional<std::pair<int, int>> mapped_slot(int idx)
     if (e == nullptr)
         return std::nullopt;
     return std::make_pair(e->box, e->slot);
+}
+
+bool mapped_slot_empty(int idx)
+{
+    const Entry* e  = nullptr;
+    const auto   es = current_entries();
+    label_of(idx, es, &e);
+    return entry_empty(e);
+}
+
+wxString mapped_slot_label(int idx)
+{
+    const auto es = current_entries();
+    return label_of(idx, es);
 }
 
 std::optional<int> mapped_tray(int idx)
@@ -450,7 +468,7 @@ void Watcher::check(bool force)
 Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, wxID_ANY), m_idx(idx), m_btn(colour_btn)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(FromDIP(wxSize(76, 20)));
+    SetMinSize(FromDIP(wxSize(96, 20)));
     SetToolTip(_L("Printer slot for this filament"));
     Bind(wxEVT_PAINT, &Badge::on_paint, this);
     Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) {
