@@ -726,6 +726,8 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     if (w.bed_temp > 0)
         rec["bed_temp"] = w.bed_temp;
     if (changed_identity)
+        rec["color_name"] = ""; // stale HelixScreen colour name (e.g. "Bronze") no longer matches
+    if (changed_identity)
         for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id", "helix_product_name",
                                   "remaining_weight_g", "total_weight_g"})
             rec.erase(stale);

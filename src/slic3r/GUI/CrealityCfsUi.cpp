@@ -406,7 +406,7 @@ bool grouping(int n, std::vector<int>& box_of)
         const Entry* e = nullptr;
         label_of(i, es, &e);
         if (e != nullptr)
-            box_of[i] = e->box;
+            box_of[i] = (flashforge_agent() && e->box == 1) ? (e->slot >= 2 ? 2 : 1) : e->box; // IFS: slots 1-2 left, 3-4 right
     }
     return true;
 }
