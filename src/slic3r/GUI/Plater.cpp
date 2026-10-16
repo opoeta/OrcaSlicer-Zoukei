@@ -2329,6 +2329,25 @@ void Sidebar::priv::update_extruder_separator_icon(bool show, bool ready)
         m_panel_printer_content->Refresh();
 }
 
+// Printer preset to select for a connected machine's system preset `machine`; empty when the current preset already is it,
+// derives from it, or has the same printer_model and nozzle (so user presets with agent/host/mapping are kept).
+// Otherwise prefers a user preset inheriting from `machine`.
+static std::string printer_preset_to_select(const Preset &machine)
+{
+    PresetBundle *pb  = wxGetApp().preset_bundle;
+    const Preset &cur = pb->printers.get_selected_preset();
+    if (cur.name == machine.name || cur.inherits() == machine.name)
+        return {};
+    auto model = [](const Preset &p) { auto *o = p.config.option<ConfigOptionString>("printer_model"); return o ? o->value : std::string(); };
+    auto nozzle = [](const Preset &p) { auto *o = p.config.option<ConfigOptionFloats>("nozzle_diameter"); return o && !o->values.empty() ? o->values[0] : 0.; };
+    if (!model(cur).empty() && model(cur) == model(machine) && nozzle(cur) == nozzle(machine))
+        return {};
+    for (const Preset &p : pb->printers)
+        if (!p.is_system && p.is_visible && p.inherits() == machine.name)
+            return p.name;
+    return machine.name;
+}
+
 bool Sidebar::priv::sync_extruder_list(bool &only_external_material, bool is_manual)
 {
     MachineObject *obj = wxGetApp().getDeviceManager()->get_selected_machine();
@@ -2358,7 +2377,8 @@ bool Sidebar::priv::sync_extruder_list(bool &only_external_material, bool is_man
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << "check error: machine_preset empty";
         return false;
     }
-    if (!optional_printer_model && !optional_target_model && machine_print_name != target_model_id) {
+    if (!optional_printer_model && !optional_target_model && machine_print_name != target_model_id &&
+        machine_preset && !printer_preset_to_select(*machine_preset).empty()) {
         MessageDialog dlg(this->plater, _L("The currently selected machine preset is inconsistent with the connected printer type.\n"
                                             "Are you sure to continue syncing?"), _L("Sync printer information"), wxICON_WARNING | wxYES | wxNO);
         if (dlg.ShowModal() == wxID_NO) {
@@ -2368,9 +2388,9 @@ bool Sidebar::priv::sync_extruder_list(bool &only_external_material, bool is_man
         if (!this->plater)
             return false;
 
-        this->plater->update_objects_position_when_select_preset([machine_preset]() {
+        this->plater->update_objects_position_when_select_preset([name = printer_preset_to_select(*machine_preset)]() {
             Tab *printer_tab = GUI::wxGetApp().get_tab(Preset::Type::TYPE_PRINTER);
-            printer_tab->select_preset(machine_preset->name);
+            printer_tab->select_preset(name);
         });
     }
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " go on sync_extruder_list";
@@ -10137,7 +10157,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     bool nozzle_mismatch = !obj->GetExtderSystem()->NozzleDiameterMatchesOrUnknown(0, (float) preset_nozzle_diameter);
                     if (printer_preset.get_current_printer_type(preset_bundle) != machine_type || nozzle_mismatch) {
                         Preset *machine_preset = get_printer_preset(obj);
-                        if (machine_preset != nullptr) {
+                        if (machine_preset != nullptr && !printer_preset_to_select(*machine_preset).empty()) {
                             std::string printer_model = machine_preset->config.option<ConfigOptionString>("printer_model")->value;
                             bool sync_printer_info = false;
                             if (!wxGetApp().app_config->has("sync_after_load_file_show_flag")) {
@@ -10152,7 +10172,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             }
                             if (sync_printer_info) {
                                 Tab *printer_tab = GUI::wxGetApp().get_tab(Preset::Type::TYPE_PRINTER);
-                                printer_tab->select_preset(machine_preset->name);
+                                printer_tab->select_preset(printer_preset_to_select(*machine_preset));
                                 if (obj->is_multi_extruders()) GUI::wxGetApp().sidebar().sync_extruder_list();
                             }
                         }
