@@ -179,6 +179,9 @@ void host_bindings::register_app(py::module_& host)
              "The running app: version, build, mode, language, app_config_version (the version that wrote the app config "
              "before this run, empty when there was none), stealth_mode, is_signed_in (Orca Cloud), is_bambu_signed_in (Bambu Cloud), network_plugin_version (empty "
              "when the Bambu network plugin is not loaded) and network_plugin_error (empty unless it failed to load).");
+    // Orca Zoukei: plugins written for upstream Orca ask for the UI language through app_language().
+    host.def("app_language", []() { return GUI::into_u8(current_app().current_language_code_safe()); },
+             "Language code of OrcaSlicer's interface, e.g. 'pt_BR' or 'en'.");
     host.def("gl_info", &gl_info,
              "OpenGL vendor, renderer, version, glsl_version and core_profile of the 3D view; None before it has been created.");
     host.def("selected_printer", &selected_printer,
