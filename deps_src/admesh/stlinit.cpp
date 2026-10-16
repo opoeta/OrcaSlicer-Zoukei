@@ -58,6 +58,11 @@ static FILE *stl_open_count_facets(stl_file *stl, const char *file, unsigned int
   	// Find size of file.
   	fseek(fp, 0, SEEK_END);
   	long file_size = ftell(fp);
+  	if (file_size < 0) {
+		BOOST_LOG_TRIVIAL(error) << "stl_open_count_facets: Couldn't determine the size of " << file;
+		fclose(fp);
+		return nullptr;
+  	}
 
   	// Check for binary or ASCII file.
     int header_size = custom_header_length + NUM_FACET_SIZE;
@@ -148,7 +153,12 @@ static FILE *stl_open_count_facets(stl_file *stl, const char *file, unsigned int
     
     	// Get the header.
 		int i = 0;
-    	for (; i < custom_header_length && (stl->stats.header[i] = getc(fp)) != '\n'; ++ i) ;
+    	for (; i < custom_header_length; ++ i) {
+    		const int c = getc(fp);
+    		if (c == EOF || c == '\n')
+    			break;
+    		stl->stats.header[i] = char(c);
+    	}
     	stl->stats.header[i] = '\0'; // Lose the '\n'
         stl->stats.header[custom_header_length] = '\0';
 
@@ -183,7 +193,8 @@ static bool stl_read(stl_file *stl, FILE *fp, int first_facet, bool first, Impor
                     char version_str[16];
                     char model_id_str[128]; 
                     char country_code_str[16];
-                    int num_values = sscanf(mw_position + 3, "%15s %127s %15s", version_str, model_id_str, country_code_str);
+                    // "MW" may be the last thing in the solid name: do not read past its terminator.
+                    int num_values = strlen(mw_position) > 3 ? sscanf(mw_position + 3, "%15s %127s %15s", version_str, model_id_str, country_code_str) : 0;
                     if (num_values == 3) {
                         if (strcmp(version_str, "1.0") == 0) {
                             model_id = model_id_str;
@@ -255,12 +266,15 @@ static bool stl_read(stl_file *stl, FILE *fp, int first_facet, bool first, Impor
 			int res_vertex3    = fscanf(fp, " vertex %f %f %f ", &facet.vertex[2](0), &facet.vertex[2](1), &facet.vertex[2](2));
 			assert(res_vertex3 == 3);
 			// Some G-code generators tend to produce text after "endloop" and "endfacet". Just ignore it.
+			// A truncated file must not leave buf uninitialized for the checks below.
 			char buf[2048];
+			buf[0] = '\0';
             [[maybe_unused]] auto unused_result2 = fgets(buf, 2047, fp);
 			bool endloop_ok = strncmp(buf, "endloop", 7) == 0 && (buf[7] == '\r' || buf[7] == '\n' || buf[7] == ' ' || buf[7] == '\t');
 			assert(endloop_ok);
 			// Skip the trailing whitespaces and empty lines.
             unused_result = fscanf(fp, " ");
+			buf[0] = '\0';
             unused_result2 = fgets(buf, 2047, fp);
 			bool endfacet_ok = strncmp(buf, "endfacet", 8) == 0 && (buf[8] == '\r' || buf[8] == '\n' || buf[8] == ' ' || buf[8] == '\t');
 			assert(endfacet_ok);
