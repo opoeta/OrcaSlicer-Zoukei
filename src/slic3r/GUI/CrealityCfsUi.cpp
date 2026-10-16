@@ -471,19 +471,32 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
     SetMinSize(FromDIP(wxSize(96, 20)));
     SetToolTip(_L("Printer slot for this filament"));
     Bind(wxEVT_PAINT, &Badge::on_paint, this);
-    Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) {
+    auto edit_colour = [this] {
+        if (!m_btn)
+            return;
+        wxCommandEvent ev(wxEVT_BUTTON, m_btn->GetId());
+        ev.SetEventObject(m_btn);
+        m_btn->GetEventHandler()->ProcessEvent(ev); // works while the colour box is hidden
+    };
+    // Left part (index + colour) edits the colour, right part ("slot ⇄") opens the slot picker.
+    auto in_colour_part = [this](const wxPoint& pt) { return pt.x < FromDIP(30); };
+    Bind(wxEVT_MOTION, [this, in_colour_part](wxMouseEvent& ev) {
+        const bool left = in_colour_part(ev.GetPosition());
+        SetCursor(wxCursor(wxCURSOR_HAND));
+        SetToolTip(left ? _L("Edit color") : _L("Swap slot"));
+        ev.Skip();
+    });
+    Bind(wxEVT_LEFT_DOWN, [this, edit_colour, in_colour_part](wxMouseEvent& ev) {
+        if (in_colour_part(ev.GetPosition())) {
+            wxTheApp->CallAfter(edit_colour);
+            return;
+        }
         auto* p = new Picker(this, m_idx, current_entries(), [this] {
             for (Badge* b : s_badges)
                 b->Refresh();
             if (s_watcher != nullptr)
                 s_watcher->check();
-        }, [this] {
-            if (!m_btn)
-                return;
-            wxCommandEvent ev(wxEVT_BUTTON, m_btn->GetId());
-            ev.SetEventObject(m_btn);
-            m_btn->GetEventHandler()->ProcessEvent(ev);
-        });
+        }, edit_colour);
         p->Position(ClientToScreen(wxPoint(0, GetSize().y)), wxSize(0, 0));
         p->Popup();
     });

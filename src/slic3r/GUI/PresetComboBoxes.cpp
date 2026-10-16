@@ -1,4 +1,6 @@
 #include "PresetComboBoxes.hpp"
+#include "CrealityCfsUi.hpp"
+#include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 
 #include <climits>
 #include <boost/log/trivial.hpp>
@@ -276,7 +278,17 @@ int PresetComboBox::update_ams_color()
         auto *preset = m_collection->find_preset(name);
         if (preset)
             color = preset->config.opt_string("default_filament_colour", 0u);
-        if (color.empty()) return -1;
+        if (color.empty()) {
+            // Zoukei: preset without a colour -> keep the filament's project colour, or take the colour of the IFS slot it is mapped to.
+            if (const auto agent = CfsUi::ifs_agent(); agent && CfsUi::mapped_slot(m_filament_idx)) {
+                const auto slot = CfsUi::mapped_slot(m_filament_idx);
+                if (slot->first == 1)
+                    for (const auto& s : agent->ifs_slots())
+                        if (s.port == slot->second + 1 && s.has_filament && s.color.size() == 7)
+                            color = s.color;
+            }
+            if (color.empty()) return -1;
+        }
     } else {
         auto &ams_list = wxGetApp().preset_bundle->filament_ams_list;
         auto  iter     = ams_list.find(idx);

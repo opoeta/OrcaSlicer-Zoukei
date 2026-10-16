@@ -36426,3 +36426,10 @@ msgstr "Slot vazio"
 
 msgid "These filaments are mapped to an empty printer slot. Load them, choose another slot, or use \"Send only\"."
 msgstr "Estes filamentos estão mapeados para um slot vazio da impressora. Carregue-os, escolha outro slot ou use \"Enviar somente\"."
+
+
+msgid "Edit color"
+msgstr "Editar cor"
+
+msgid "Swap slot"
+msgstr "Trocar slot"
