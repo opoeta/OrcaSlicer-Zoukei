@@ -6240,7 +6240,7 @@ std::map<int, DynamicPrintConfig> Sidebar::build_filament_ams_list(MachineObject
         return tray_config;
     };
 
-    if (obj->ams_support_virtual_tray) {
+    if (obj->ams_support_virtual_tray && !is_creality_printer_selected()) { // Creality: the Ext tray only serves the print dialog
         int extruder = 0x10000; // Main (first) extruder at right
         for (auto & vt_tray : obj->vt_slot) {
             filament_ams_list.emplace(extruder + stoi(vt_tray.id), build_tray_config(vt_tray, "Ext",vt_tray.id, "0"));//254 or 255

@@ -2,6 +2,9 @@
 #include "CrealityCfsAgent.hpp"
 
 #include "CrealityCfsClient.hpp"
+#include "CrealityPrint.hpp"
+#include "Http.hpp"
+#include "slic3r/GUI/CrealityDevice/DeviceStore.hpp"
 
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -12,7 +15,11 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
+
 #include <chrono>
+#include <map>
 #include <thread>
 
 namespace Slic3r {
@@ -159,8 +166,17 @@ int CrealityCfsAgent::connect_printer(const PrinterConnectionParams& params)
         m_dev_id             = params.dev_id;
         m_host               = host;
         m_model_id           = current_model_id();
+        m_store_name.clear();
+        if (const auto device = GUI::CrealityDevice::DeviceStore::Ins().FindByAddress(host))
+            m_store_name = device->name;
+        m_nozzle_diameter.clear();
+        if (PresetBundle* preset_bundle = GUI::wxGetApp().preset_bundle)
+            if (const auto* nozzle = preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter");
+                nozzle != nullptr && !nozzle->values.empty() && nozzle->values.front() > 0.)
+                m_nozzle_diameter = (boost::format("%.1f") % nozzle->values.front()).str();
         m_connected_reported = false;
         m_announced          = false;
+        m_announced_name.clear();
         m_client             = client;
         std::weak_ptr<CrealityCfsAgent> weak = weak_from_this();
         m_listener = client->add_listener([weak](const json& msg) {
@@ -249,6 +265,8 @@ void CrealityCfsAgent::on_printer_message(const json& msg)
         publish_status(true);
         return;
     }
+    if (msg.contains("hostname"))
+        announce(client->snapshot());
     static const char* interesting[] = {"boxsInfo", "deviceState", "state", "nozzleTemp", "bedTemp0", "printProgress", "boxConfig"};
     for (const char* key : interesting)
         if (msg.contains(key)) {
@@ -263,10 +281,16 @@ void CrealityCfsAgent::announce(const PrinterSnapshot& snap)
     json           payload;
     {
         std::lock_guard<std::recursive_mutex> lock(m_mutex);
-        if (m_announced || !m_on_ssdp)
+        if (!m_on_ssdp)
+            return;
+        // The device name the user knows: the printer's hostname (K2Plus-5D3C), else its entry in the Creality
+        // device list, else the model. The hostname often arrives after connecting: announce again when it does.
+        const std::string name = !snap.hostname.empty() ? snap.hostname : !m_store_name.empty() ? m_store_name :
+                                 !snap.model.empty() ? snap.model : m_host;
+        if (m_announced && name == m_announced_name)
             return;
         ssdp    = m_on_ssdp;
-        payload = {{"dev_name", !snap.hostname.empty() ? snap.hostname : !snap.model.empty() ? snap.model : m_host},
+        payload = {{"dev_name", name},
                    {"dev_id", m_dev_id},
                    {"dev_ip", m_host},
                    {"dev_type", !m_model_id.empty() ? m_model_id : !snap.model.empty() ? snap.model : std::string("Creality")},
@@ -275,7 +299,8 @@ void CrealityCfsAgent::announce(const PrinterSnapshot& snap)
                    {"bind_state", "free"},
                    {"sec_link", "secure"},
                    {"ssdp_version", "v1"}};
-        m_announced = true;
+        m_announced      = true;
+        m_announced_name = name;
         if (m_selected_machine.empty())
             m_selected_machine = m_dev_id;
     }
@@ -319,7 +344,17 @@ void CrealityCfsAgent::publish_status(bool force)
     m_last_push_ms = now;
     const std::vector<PresetInfo> preset_list = presets();
     const PrinterSnapshot         snap        = client->snapshot();
-    publish(build_push_status(snap, ++m_sequence, [&preset_list](const CfsSlot& slot) { return match_preset_for_slot(preset_list, slot); }));
+    json status = build_push_status(snap, ++m_sequence, [&preset_list](const CfsSlot& slot) { return match_preset_for_slot(preset_list, slot); });
+    std::string nozzle;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        nozzle = m_nozzle_diameter;
+    }
+    if (!nozzle.empty()) { // lets Orca show the nozzle in the printer card instead of "Unknown"
+        status["print"]["nozzle_diameter"] = nozzle;
+        status["print"]["nozzle_type"]     = "N/A"; // unknown: keeps the hardness check of Orca inert
+    }
+    publish(status);
 }
 
 int CrealityCfsAgent::send_message(std::string dev_id, std::string json_str, int qos, int flag)
@@ -420,6 +455,115 @@ int CrealityCfsAgent::handle_print_command(const json& cmd)
     }
     BOOST_LOG_TRIVIAL(info) << "Creality CFS agent: print command not supported: " << command;
     return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED;
+}
+
+int CrealityCfsAgent::upload_job(const PrintParams& params, const OnUpdateStatusFn& update_fn, const WasCancelledFn& cancel_fn, bool start)
+{
+    std::shared_ptr<Client> client;
+    std::string             host;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        client = m_client;
+        host   = m_host;
+    }
+    auto report = [&](int stage, int code, const std::string& text) {
+        if (update_fn)
+            update_fn(stage, code, text);
+    };
+    auto fail = [&](const std::string& text) {
+        BOOST_LOG_TRIVIAL(error) << "Creality CFS agent: " << text;
+        report(PrintingStageERROR, -1, text);
+        return -1;
+    };
+    if (!client || host.empty())
+        return fail("not connected to the printer");
+
+    const json extra = json::parse(params.extra_options, nullptr, false);
+    if (extra.is_discarded() || !extra.contains("files") || !extra["files"].is_array() || extra["files"].empty())
+        return fail("no G-code file to send");
+
+    // Every project filament -> the slot (CFS box/slot, or the external spool = box 0) the dialog mapped it to.
+    std::map<std::string, std::string> info;
+    info["enableSelfTest"] = extra.value("self_test", 0) ? "1" : "0";
+    if (start) {
+        const json            mapping = json::parse(params.ams_mapping_info, nullptr, false);
+        const PrinterSnapshot snap    = client->snapshot();
+        const auto            boxes   = snap.cfs_boxes();
+        const CfsSlot*        ext     = nullptr;
+        for (const CfsBox& box : snap.boxes)
+            if (box.type == BOX_TYPE_EXTERNAL && !box.slots.empty())
+                ext = &box.slots.front();
+        int n = 0;
+        if (mapping.is_array())
+            for (size_t i = 0; i < mapping.size(); ++i) {
+                const json& item = mapping[i];
+                const int   tray = item.is_object() && item.contains("ams") && item["ams"].is_number_integer() ? item["ams"].get<int>() : -1;
+                if (tray < 0)
+                    continue; // unmapped
+                int         box_id = 0, slot_id = 0;
+                std::string type  = item.value("filamentType", std::string());
+                std::string color = normalize_hex(item.value("sourceColor", std::string("#FFFFFF")));
+                const CfsSlot* slot = nullptr;
+                if (tray == 254 || tray == 255) {
+                    slot = ext;
+                } else if (size_t(tray / 4) < boxes.size()) {
+                    box_id  = boxes[size_t(tray / 4)].id;
+                    slot_id = tray % 4;
+                    slot    = snap.find_slot(box_id, slot_id);
+                } else {
+                    return fail("filament " + std::to_string(i + 1) + " is mapped to a CFS slot that does not exist");
+                }
+                if (slot != nullptr) {
+                    type = slot->type;
+                    if (!slot->color.empty())
+                        color = slot->color;
+                }
+                // The gcode tool of filament i is T<n>A..D; the firmware matches by it, not by the destination slot.
+                const std::string tool = "T" + std::to_string(int(i) / 4 + 1) + std::string(1, char('A' + int(i) % 4));
+                info["colorMatch_" + std::to_string(n++)] = tool + "\t" + type + "\t" + color + "\t" + std::to_string(box_id) + "\t" + std::to_string(slot_id);
+            }
+    }
+
+    DynamicPrintConfig cfg;
+    cfg.set_key_value("print_host", new ConfigOptionString(host));
+    for (const char* key : {"print_host_webui", "printhost_cafile", "printhost_port", "printhost_apikey"})
+        cfg.set_key_value(key, new ConfigOptionString(""));
+    cfg.set_key_value("printhost_ssl_ignore_revoke", new ConfigOptionBool(false));
+    const CrealityPrint printer(&cfg);
+
+    const size_t total = extra["files"].size();
+    report(PrintingStageCreate, 0, "");
+    std::string last_error;
+    for (size_t k = 0; k < total; ++k) {
+        const json&       file = extra["files"][k];
+        const std::string path = file.value("path", std::string());
+        if (path.empty() || !boost::filesystem::exists(boost::filesystem::path(path)))
+            return fail("G-code file not found: " + path);
+        PrintHostUpload upload;
+        upload.source_path = path;
+        upload.upload_path = file.value("name", std::string());
+        if (start && k == 0) { // with several plates only the first one is started
+            upload.post_action   = PrintHostPostUploadAction::StartPrint;
+            upload.extended_info = info;
+        }
+        bool       cancelled = false;
+        const bool ok        = printer.upload(
+            upload,
+            [&](Http::Progress progress, bool& cancel) {
+                if (cancel_fn && cancel_fn())
+                    cancel = cancelled = true;
+                const int pct = progress.ultotal > 0 ? std::min(100, int(100. * double(progress.ulnow) / double(progress.ultotal))) : 0;
+                report(PrintingStageUpload, int((k * 100 + size_t(pct)) / total), std::to_string(pct) + "%");
+            },
+            [&](wxString error) { last_error = error.ToUTF8().data(); },
+            [](wxString, wxString) {});
+        if (cancelled || (cancel_fn && cancel_fn()))
+            return BAMBU_NETWORK_ERR_CANCELED;
+        if (!ok)
+            return fail(last_error.empty() ? std::string("upload failed") : last_error);
+    }
+    report(PrintingStageFinished, 0, "3");
+    return BAMBU_NETWORK_SUCCESS;
 }
 
 bool CrealityCfsAgent::start_discovery(bool start, bool /*sending*/)

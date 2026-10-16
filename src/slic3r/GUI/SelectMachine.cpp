@@ -53,6 +53,8 @@
 #include "slic3r/GUI/DeviceTab/uiAMSBestPositionPopup.hpp"
 #include <wx/anybutton.h>
 #include "slic3r/GUI/Widgets/Button.hpp"
+#include "slic3r/GUI/CrealityCfsUi.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include <memory>
 #include "slic3r/GUI/BBLStatusBarPrint.hpp"
 #include "slic3r/GUI/Widgets/HyperLink.hpp"
@@ -77,6 +79,7 @@
 #include "libslic3r/CommonDefs.hpp"
 #include "slic3r/GUI/ReleaseNote.hpp"
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include "slic3r/GUI/Widgets/StateColor.hpp"
 #include <wx/dcclient.h>
 #include "libslic3r/Print.hpp"
@@ -697,6 +700,15 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
         ops_auto, "nozzle_offset_cali"
     );
 
+    // Creality: print calibration (enableSelfTest), filament source (CFS or the external spool holder), all plates.
+    auto option_self_test = new PrintOption(m_options_other, _L("Print calibration"),
+                                            _L("Runs the printer's self-test (calibration) before the print starts."), ops_no_auto, "self_test");
+    auto option_filament_src = new PrintOption(m_options_other, _L("Filament source"),
+                                               _L("CFS: use the CFS slots chosen below. Ext: print from the external spool holder."),
+                                               std::vector<POItem>{POItem{"cfs", "CFS"}, POItem{"spool", _L("Ext")}}, "filament_src");
+    auto option_all_plates = new PrintOption(m_options_other, _L("All plates"),
+                                             _L("Upload the G-code of every sliced plate; only the first plate is started."), ops_no_auto, "all_plates");
+
     // Orca: PA-profile-sharing toggle (extrude_cali_manual_mode). On = nozzles/filaments of the
     // same type share one PA profile; shown only for pa_mode printers with Flow Dynamics Cali off.
     auto option_pa_value = new PrintOption(
@@ -717,6 +729,9 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     m_checkbox_list_order.push_back(option_flow_dynamics_cali);
     m_checkbox_list_order.push_back(option_nozzle_offset_cali_cali);
     m_checkbox_list_order.push_back(option_pa_value);
+    m_checkbox_list_order.push_back(option_self_test);
+    m_checkbox_list_order.push_back(option_filament_src);
+    m_checkbox_list_order.push_back(option_all_plates);
 
     m_options_other->SetSizer(m_sizer_options);
     m_options_other->Layout();
@@ -727,12 +742,21 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     m_checkbox_list["flow_cali"]     = option_flow_dynamics_cali;
     m_checkbox_list["nozzle_offset_cali"] = option_nozzle_offset_cali_cali;
     m_checkbox_list["pa_value"]      = option_pa_value;
+    m_checkbox_list["self_test"]     = option_self_test;
+    m_checkbox_list["filament_src"]  = option_filament_src;
+    m_checkbox_list["all_plates"]    = option_all_plates;
     for (auto print_opt : m_checkbox_list_order) {
         print_opt->Bind(EVT_SWITCH_PRINT_OPTION, [this, print_opt](auto &e) {
             save_option_vals();
             // Flow calibration feeds the printer-side rack nozzle mapping; re-request it on change.
             if (print_opt == m_checkbox_list["flow_cali"]) on_flow_cali_option_changed();
             else if (print_opt == m_checkbox_list["pa_value"]) on_pa_value_option_changed();
+            else if (print_opt == m_checkbox_list["filament_src"]) {
+                DeviceManager* dev = wxGetApp().getDeviceManager();
+                apply_creality_mapping(dev ? dev->get_selected_machine() : nullptr);
+                sync_ams_mapping_result(m_ams_mapping_result);
+                update_filament_change_count();
+            }
         });
     }
 
@@ -740,6 +764,9 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     option_flow_dynamics_cali->Hide();
     option_nozzle_offset_cali_cali->Hide();
     option_pa_value->Hide();
+    option_self_test->Hide();
+    option_filament_src->Hide();
+    option_all_plates->Hide();
 
     m_simplebook   = new wxSimplebook(this, wxID_ANY, wxDefaultPosition, SELECT_MACHINE_DIALOG_SIMBOOK_SIZE2, 0);
     m_simplebook->SetMinSize(SELECT_MACHINE_DIALOG_SIMBOOK_SIZE2);
@@ -753,10 +780,19 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
 
     m_button_ensure = new Button(m_panel_prepare, _L("Send"));
     m_button_ensure->SetStyle(ButtonStyle::Confirm, ButtonType::Choice);
-    m_button_ensure->Bind(wxEVT_BUTTON, &SelectMachineDialog::on_ok_btn, this);
+    m_button_ensure->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) { m_creality_send_only = false; on_ok_btn(e); });
+
+    m_button_send_only = new Button(m_panel_prepare, _L("Send only"));
+    m_button_send_only->SetStyle(ButtonStyle::Regular, ButtonType::Choice);
+    m_button_send_only->Bind(wxEVT_BUTTON, [this](wxCommandEvent& e) { m_creality_send_only = true; on_ok_btn(e); });
+    m_button_send_only->Hide();
+
+    wxBoxSizer* sizer_buttons = new wxBoxSizer(wxHORIZONTAL);
+    sizer_buttons->Add(m_button_send_only, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(8));
+    sizer_buttons->Add(m_button_ensure, 0, wxALIGN_CENTER, 0);
 
     m_sizer_pcont->Add(0, 0, 1, wxEXPAND, 0);
-    m_sizer_pcont->Add(m_button_ensure, 0,wxALIGN_CENTER, 0);
+    m_sizer_pcont->Add(sizer_buttons, 0,wxALIGN_CENTER, 0);
 
     m_sizer_prepare->Add(0, 0, 1, wxTOP, FromDIP(12));
     m_sizer_prepare->Add(m_sizer_pcont, 0, wxALIGN_CENTER, 0);
@@ -1042,6 +1078,7 @@ void SelectMachineDialog::update_select_layout(MachineObject *obj)
     // Orca: pa_value visibility depends on the freshly-loaded flow_cali value, so recompute it
     // after load_option_vals and re-run the grid layout.
     update_pa_value_option(obj);
+    apply_creality_options(obj);
     update_options_layout();
 
     Layout();
@@ -1305,6 +1342,9 @@ bool SelectMachineDialog::do_ams_mapping(MachineObject *obj_,bool use_ams)
         filament_result = DevMappingUtil::ams_filament_mapping(obj_, m_filaments, m_ams_mapping_result, map_opt);
         //auto_supply_with_ext(obj_->vt_slot);
     }
+
+    if (filament_result == 0 && is_creality_dialog())
+        apply_creality_mapping(obj_); // the project's filament_cfs_slot choices win over the colour match
 
     if (filament_result == 0) {
         print_ams_mapping_result(m_ams_mapping_result);
@@ -3204,7 +3244,11 @@ void SelectMachineDialog::load_option_vals(MachineObject *obj)
     for (auto item : m_checkbox_list) {
         PrintOption       *opt = item.second;
         const std::string &val = config->get(obj->printer_type, item.first);
-        if (opt->contain_opt(val)) {
+        if (item.first == "all_plates" || item.first == "filament_src") { // never carried over from an earlier print
+            opt->setValue(item.first == "all_plates" ? "off" : "cfs");
+        } else if (item.first == "self_test" && !opt->contain_opt(val)) {
+            opt->setValue("off");
+        } else if (opt->contain_opt(val)) {
             opt->setValue(val);
         } else if (opt->contain_opt("auto")) {
             opt->setValue("auto");
@@ -3622,7 +3666,7 @@ void SelectMachineDialog::on_send_print()
 
     get_ams_mapping_result(ams_mapping_array,ams_mapping_array2, ams_mapping_info);
 
-    if (m_print_type == PrintFromType::FROM_NORMAL) {
+    if (m_print_type == PrintFromType::FROM_NORMAL && !is_creality_dialog()) {
         result = m_plater->send_gcode(m_print_plate_idx, [this](int export_stage, int current, int total, bool& cancel) {
             if (this->m_is_canceled) return;
             bool     cancelled = false;
@@ -3671,6 +3715,18 @@ void SelectMachineDialog::on_send_print()
 #endif
     m_print_job->connection_type = obj_->connection_type();
     m_print_job->cloud_print_only = obj_->is_support_cloud_print_only;
+    if (is_creality_dialog()) {
+        const std::string files = build_creality_files();
+        if (files.empty()) {
+            m_status_bar->set_status_text(_L("Abnormal print file data. Please slice again"));
+            prepare_mode(true);
+            return;
+        }
+        m_plater->set_print_job_plate_idx(m_print_plate_idx); // the job validates this plate's G-code
+        m_print_job->m_creality           = true;
+        m_print_job->m_creality_send_only = m_creality_send_only;
+        m_print_job->m_creality_files     = files;
+    }
 
     if (m_print_type == PrintFromType::FROM_NORMAL) {
         BOOST_LOG_TRIVIAL(info) << "print_job: m_print_type = from_normal";
@@ -3905,6 +3961,11 @@ void SelectMachineDialog::on_set_finish_mapping(wxCommandEvent &evt)
 
                 m_ams_mapping_result[i].ams_id = selection_data_arr[6].ToStdString();
                 m_ams_mapping_result[i].slot_id = selection_data_arr[7].ToStdString();
+
+                if (is_creality_dialog()) { // remember the choice in the project (filament_cfs_slot)
+                    const int ams = wxAtoi(selection_data_arr[6]);
+                    CfsUi::set_mapped_tray(m_ams_mapping_result[i].id, ams >= 254 ? 255 : ams * 4 + wxAtoi(selection_data_arr[7]));
+                }
 
                 if (m_ams_mapping_result[i].ams_id == std::to_string(VIRTUAL_TRAY_MAIN_ID) || m_ams_mapping_result[i].ams_id == std::to_string(VIRTUAL_TRAY_DEPUTY_ID)) {
                 }else if (m_ams_mapping_result[i].ams_id >= std::to_string(0)) {
@@ -5385,11 +5446,13 @@ void SelectMachineDialog::Enable_Send_Button(bool en)
     if (!en) {
         if (m_button_ensure->IsEnabled()) {
             m_button_ensure->Disable();
+            m_button_send_only->Disable();
             // ORCA no need to set colors again
         }
     } else {
         if (!m_button_ensure->IsEnabled()) {
             m_button_ensure->Enable();
+            m_button_send_only->Enable();
             // ORCA no need to set colors again
         }
     }
@@ -5408,6 +5471,7 @@ void SelectMachineDialog::on_dpi_changed(const wxRect &suggested_rect)
         if (img_amsmapping_tip)img_amsmapping_tip->SetBitmap(ams_mapping_help_icon->bmp());
     }
     m_button_ensure->Rescale(); // ORCA
+    m_button_send_only->Rescale();
     m_status_bar->msw_rescale();
 
     for (auto material1 : m_materialList) {
@@ -6982,6 +7046,106 @@ void SendModeSwitchButton::setSelected(bool selected)
     }
 }
 
+bool SelectMachineDialog::is_creality_dialog() const
+{
+    if (m_print_type != PrintFromType::FROM_NORMAL || !is_creality_printer_selected())
+        return false;
+    DeviceManager* dev = wxGetApp().getDeviceManager();
+    return dev != nullptr && dev->get_current_printer_agent_id() == CREALITY_CFS_PRINTER_AGENT_ID;
+}
+
+void SelectMachineDialog::apply_creality_options(MachineObject* obj)
+{
+    const bool creality = obj != nullptr && is_creality_dialog();
+    m_button_send_only->Show(creality);
+    m_button_ensure->SetLabel(creality ? _L("Start print") : _L("Send"));
+    if (!creality) {
+        for (const char* key : {"self_test", "filament_src", "all_plates"})
+            m_checkbox_list[key]->Hide();
+        return;
+    }
+    for (const char* key : {"bed_leveling", "flow_cali", "nozzle_offset_cali", "pa_value"})
+        m_checkbox_list[key]->Hide();
+    m_timelapse_folder_btn->Hide();
+    m_timelapse_storage.clear();
+    // The timelapse of a Creality print is part of the sliced G-code: show what the plate was sliced with.
+    const DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config();
+    const ConfigOption*      timelapse = cfg.option("timelapse_type");
+    PrintOption*             tl        = m_checkbox_list["timelapse"];
+    tl->Show();
+    tl->enable(false);
+    tl->setValue(timelapse != nullptr && timelapse->getInt() != 0 ? "on" : "off");
+    tl->update_tooltip(_L("The timelapse of a Creality print is part of the sliced G-code. Change it in the process settings and slice again."));
+    m_checkbox_list["self_test"]->Show();
+    m_checkbox_list["filament_src"]->Show();
+    m_checkbox_list["all_plates"]->Show(m_plater->get_partplate_list().get_plate_count() > 1);
+    Layout();
+}
+
+// Maps every filament to the slot of the project's filament_cfs_slot (or to the external spool when that is the
+// chosen source), keeping the automatic colour match for filaments without a choice.
+void SelectMachineDialog::apply_creality_mapping(MachineObject* obj)
+{
+    if (obj == nullptr || !is_creality_dialog())
+        return;
+    const bool spool = m_checkbox_list["filament_src"]->getValue() == "spool";
+    for (FilamentInfo& f : m_ams_mapping_result) {
+        const std::optional<int> tray = spool ? std::optional<int>(255) : CfsUi::mapped_tray(f.id);
+        if (!tray)
+            continue;
+        std::string ams_id, slot_id;
+        DevAmsTray  t("0");
+        if (*tray >= 254) {
+            if (obj->vt_slot.empty())
+                continue;
+            t       = obj->vt_slot.front();
+            ams_id  = VIRTUAL_AMS_MAIN_ID_STR;
+            slot_id = "0";
+        } else {
+            ams_id  = std::to_string(*tray / 4);
+            slot_id = std::to_string(*tray % 4);
+            if (!obj->contains_tray(ams_id, slot_id))
+                continue;
+            t = obj->get_tray(ams_id, slot_id);
+        }
+        f.tray_id     = *tray >= 254 ? VIRTUAL_TRAY_MAIN_ID : *tray;
+        f.ams_id      = ams_id;
+        f.slot_id     = slot_id;
+        f.color       = t.color;
+        f.type        = t.get_filament_type();
+        f.filament_id = t.setting_id;
+        f.ctype       = t.ctype;
+        f.colors      = t.cols;
+        f.distance    = 0;
+    }
+}
+
+// extra_options of the agent's upload: the sliced G-code of the selected plate (or of every plate) under the
+// name typed in the dialog, plus the self-test flag. Empty when there is nothing sliced to send.
+std::string SelectMachineDialog::build_creality_files() const
+{
+    std::string base = m_current_project_name.ToUTF8().data();
+    if (base.size() > 6 && boost::iends_with(base, ".gcode"))
+        base.resize(base.size() - 6);
+    if (base.empty())
+        base = "plate";
+    PartPlateList& plates = m_plater->get_partplate_list();
+    json           files  = json::array();
+    auto           add    = [&files](PartPlate* plate, const std::string& name) {
+        if (plate != nullptr && plate->is_valid_gcode_file())
+            files.push_back({{"path", plate->get_tmp_gcode_path()}, {"name", name + ".gcode"}});
+    };
+    if (m_checkbox_list.at("all_plates")->IsShown() && m_checkbox_list.at("all_plates")->getValue() == "on") {
+        for (int i = 0; i < plates.get_plate_count(); ++i)
+            add(plates.get_plate(i), base + "_plate_" + std::to_string(i + 1));
+    } else {
+        add(m_print_plate_idx >= 0 ? plates.get_plate(m_print_plate_idx) : plates.get_curr_plate(), base);
+    }
+    if (files.empty())
+        return {};
+    return json{{"files", files}, {"self_test", m_checkbox_list.at("self_test")->getValue() == "on" ? 1 : 0}}.dump();
+}
+
 PrinterInfoBox::PrinterInfoBox(wxWindow* parent, SelectMachineDialog* select_dialog)
     : StaticBox(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER), m_select_dialog(select_dialog)
 {
@@ -7070,6 +7234,8 @@ void PrinterInfoBox::SetPrinters(const std::vector<MachineObject*>& sorted_print
         DropDown::Item drop_item;
         drop_item.text = shown_dev_name;
         drop_item.text_static_tips = _get_tips(obj);
+        if (is_creality_printer_selected())
+            drop_item.text_static_tips += "  " + (obj->is_connected() || obj->is_online() ? _L("Online") : _L("Offline"));
 
         // update image
         try

@@ -317,6 +317,36 @@ std::optional<std::pair<int, int>> mapped_slot(int idx)
     return std::make_pair(e->box, e->slot);
 }
 
+std::optional<int> mapped_tray(int idx)
+{
+    const auto slot = mapped_slot(idx);
+    if (!slot)
+        return std::nullopt;
+    if (slot->first == 0)
+        return 255;
+    const auto boxes = snapshot().cfs_boxes();
+    for (size_t u = 0; u < boxes.size(); ++u)
+        if (boxes[u].id == slot->first)
+            return int(u) * 4 + slot->second;
+    return std::nullopt;
+}
+
+void set_mapped_tray(int idx, int tray)
+{
+    const PrinterSnapshot snap = snapshot();
+    if (tray == 254 || tray == 255) {
+        for (const Entry& e : entries(snap))
+            if (e.box == 0) {
+                set_slot(idx, 0, e.slot);
+                return;
+            }
+        return;
+    }
+    const auto boxes = snap.cfs_boxes();
+    if (tray >= 0 && size_t(tray / 4) < boxes.size())
+        set_slot(idx, boxes[size_t(tray / 4)].id, tray % 4);
+}
+
 // ---- Watcher -----------------------------------------------------------------------------------
 
 bool grouping(int n, std::vector<int>& box_of)

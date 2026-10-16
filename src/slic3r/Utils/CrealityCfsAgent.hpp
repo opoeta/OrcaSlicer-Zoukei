@@ -55,11 +55,13 @@ public:
     std::string get_user_selected_machine() override;
     int         set_user_selected_machine(std::string dev_id) override;
 
-    // Uploads go through Orca's Creality print host, not the agent.
+    // Uploads and starts go through Orca's Creality print host (HTTP upload + ws://<host>:9999 start).
+    // PrintParams carries: extra_options = {"files":[{"path","name"}],"self_test":0|1}; ams_mapping_info = the dialog's
+    // per-filament mapping (field "ams" = tray id, 255/254 = external spool, -1 = unmapped).
     int start_print(PrintParams, OnUpdateStatusFn, WasCancelledFn, OnWaitFn) override { return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED; }
     int start_local_print_with_record(PrintParams, OnUpdateStatusFn, WasCancelledFn, OnWaitFn) override { return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED; }
-    int start_send_gcode_to_sdcard(PrintParams, OnUpdateStatusFn, WasCancelledFn, OnWaitFn) override { return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED; }
-    int start_local_print(PrintParams, OnUpdateStatusFn, WasCancelledFn) override { return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED; }
+    int start_send_gcode_to_sdcard(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, OnWaitFn) override { return upload_job(params, update_fn, cancel_fn, false); }
+    int start_local_print(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn) override { return upload_job(params, update_fn, cancel_fn, true); }
     int start_sdcard_print(PrintParams, OnUpdateStatusFn, WasCancelledFn) override { return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED; }
 
     int set_on_ssdp_msg_fn(OnMsgArrivedFn fn) override;
@@ -80,6 +82,7 @@ private:
     void publish(const nlohmann::json& message);
     void publish_status(bool force);
     int  handle_print_command(const nlohmann::json& cmd);
+    int  upload_job(const PrintParams& params, const OnUpdateStatusFn& update_fn, const WasCancelledFn& cancel_fn, bool start);
     void run_on_main(std::function<void()> fn);
 
     std::recursive_mutex                 m_mutex;
@@ -91,6 +94,9 @@ private:
     std::string                          m_selected_machine;
     bool                                 m_connected_reported{false};
     bool                                 m_announced{false};
+    std::string                          m_announced_name;
+    std::string                          m_store_name;       // name of the device in the Creality device list
+    std::string                          m_nozzle_diameter;  // from the printer preset (the printer does not report it)
     std::atomic<int>                     m_sequence{1};
     std::atomic<long long>               m_last_push_ms{0};
 

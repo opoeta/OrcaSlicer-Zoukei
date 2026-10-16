@@ -388,6 +388,8 @@ protected:
     wxBoxSizer*                         m_change_filament_times_sizer{ nullptr };
     wxBoxSizer*                         m_warn_when_drying_sizer{ nullptr };
     Button*                             m_button_ensure{ nullptr };
+    Button*                             m_button_send_only{ nullptr }; // Creality: upload without starting
+    bool                                m_creality_send_only{ false };
     wxStaticBitmap *                    m_rename_button{nullptr};
     wxStaticBitmap*                     m_staticbitmap{ nullptr };
     wxStaticBitmap*                     m_bitmap_last_plate{ nullptr };
@@ -625,6 +627,12 @@ private:
 
     /* update option area*/
     void update_option_opts(MachineObject *obj);
+
+    // Creality (printer agent creality_cfs): this dialog with Creality Print's send features.
+    bool        is_creality_dialog() const;
+    void        apply_creality_options(MachineObject* obj);
+    void        apply_creality_mapping(MachineObject* obj);
+    std::string build_creality_files() const;
     void update_options_layout();
 
     /* timelapse storage-location selector */

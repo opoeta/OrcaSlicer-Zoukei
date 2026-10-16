@@ -17,6 +17,11 @@ namespace Slic3r { namespace GUI { namespace CfsUi {
 // Explicit choices persist per project file (app config); otherwise a default is derived.
 std::optional<std::pair<int, int>> mapped_slot(int filament_idx);
 
+// The same as the print dialog's tray id: CFS unit index * 4 + slot, 255 for the external spool.
+std::optional<int> mapped_tray(int filament_idx);
+// Stores a choice made in the print dialog (tray id as above) in the project's filament_cfs_slot.
+void set_mapped_tray(int filament_idx, int tray_id);
+
 // Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
 bool grouping(int n, std::vector<int>& box_of);
 

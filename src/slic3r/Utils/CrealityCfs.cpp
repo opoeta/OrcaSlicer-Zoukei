@@ -624,6 +624,46 @@ std::vector<std::pair<CfsSlot, MaterialSpec>> plan_project_sync(const std::vecto
 
 // ---- Bambu-dialect payloads ---------------------------------------------------------------------
 
+// One tray of the Bambu dialect (an AMS slot, or the external spool as "vt_tray").
+static json make_tray(const CfsSlot* slot, const std::string& id, const PresetForSlot& preset_for_slot)
+{
+    json tray = {{"id", id}, {"tag_uid", "0000000000000000"}};
+    if (slot != nullptr && slot->is_loaded()) {
+        const PresetInfo* preset = preset_for_slot ? preset_for_slot(*slot) : nullptr;
+        // Orca skips trays with an empty id ("unknown spool") but falls back to the generic
+        // preset for an id it does not know; never 'P'-prefixed (Bambu ids).
+        if (preset != nullptr && !preset->filament_id.empty())
+            tray["tray_info_idx"] = preset->filament_id;
+        else {
+            std::string rid = slot->rfid;
+            if (rid.empty())
+                rid = normalize_filament_type(slot->type);
+            tray["tray_info_idx"] = "CFS-" + (rid.empty() ? std::string("UNKNOWN") : rid);
+        }
+        const std::string type = normalize_filament_type(slot->type);
+        tray["tray_type"]       = type.empty() ? slot->type : type;
+        tray["tray_sub_brands"] = slot->name;
+        tray["tray_color"]      = slot->color.empty() ? std::string("FFFFFFFF") : hex_to_bbl(slot->color);
+        tray["tray_diameter"]   = "1.75";
+        tray["tray_weight"]     = "";
+        tray["remain"]          = slot->percent ? std::max(0, std::min(100, slot->percent)) : -1;
+        if (slot->min_temp)
+            tray["nozzle_temp_min"] = std::to_string(slot->min_temp);
+        if (slot->max_temp)
+            tray["nozzle_temp_max"] = std::to_string(slot->max_temp);
+        if (slot->pressure != 0.)
+            tray["k"] = std::round(slot->pressure * 10000.) / 10000.;
+        tray["cols"]  = json::array({tray["tray_color"]});
+        tray["ctype"] = 0;
+    } else {
+        tray["tray_info_idx"]         = "";
+        tray["tray_type"]             = "";
+        tray["tray_color"]            = "00000000";
+        tray["tray_slot_placeholder"] = "1";
+    }
+    return tray;
+}
+
 json build_ams_json(const PrinterSnapshot& snapshot, const PresetForSlot& preset_for_slot)
 {
     json               units           = json::array();
@@ -643,42 +683,9 @@ json build_ams_json(const PrinterSnapshot& snapshot, const PresetForSlot& preset
         json      trays      = json::array();
         for (int slot_id = 0; slot_id < slot_count; ++slot_id) {
             const CfsSlot* slot = by_id.count(slot_id) ? by_id[slot_id] : nullptr;
-            json           tray = {{"id", std::to_string(slot_id)}, {"tag_uid", "0000000000000000"}};
-            if (slot != nullptr && slot->is_loaded()) {
-                if (index * 4 + slot_id < 64)
-                    tray_exist_bits |= 1ULL << (index * 4 + slot_id);
-                const PresetInfo* preset = preset_for_slot ? preset_for_slot(*slot) : nullptr;
-                // Orca skips trays with an empty id ("unknown spool") but falls back to the generic
-                // preset for an id it does not know; never 'P'-prefixed (Bambu ids).
-                if (preset != nullptr && !preset->filament_id.empty())
-                    tray["tray_info_idx"] = preset->filament_id;
-                else {
-                    std::string id = slot->rfid;
-                    if (id.empty())
-                        id = normalize_filament_type(slot->type);
-                    tray["tray_info_idx"] = "CFS-" + (id.empty() ? std::string("UNKNOWN") : id);
-                }
-                const std::string type = normalize_filament_type(slot->type);
-                tray["tray_type"]       = type.empty() ? slot->type : type;
-                tray["tray_sub_brands"] = slot->name;
-                tray["tray_color"]      = slot->color.empty() ? std::string("FFFFFFFF") : hex_to_bbl(slot->color);
-                tray["tray_diameter"]   = "1.75";
-                tray["tray_weight"]     = "";
-                tray["remain"]          = slot->percent ? std::max(0, std::min(100, slot->percent)) : -1;
-                if (slot->min_temp)
-                    tray["nozzle_temp_min"] = std::to_string(slot->min_temp);
-                if (slot->max_temp)
-                    tray["nozzle_temp_max"] = std::to_string(slot->max_temp);
-                if (slot->pressure != 0.)
-                    tray["k"] = std::round(slot->pressure * 10000.) / 10000.;
-                tray["cols"]  = json::array({tray["tray_color"]});
-                tray["ctype"] = 0;
-            } else {
-                tray["tray_info_idx"]         = "";
-                tray["tray_type"]             = "";
-                tray["tray_color"]            = "00000000";
-                tray["tray_slot_placeholder"] = "1";
-            }
+            if (slot != nullptr && slot->is_loaded() && index * 4 + slot_id < 64)
+                tray_exist_bits |= 1ULL << (index * 4 + slot_id);
+            json tray = make_tray(slot, std::to_string(slot_id), preset_for_slot);
             trays.push_back(std::move(tray));
         }
         json unit = {{"id", std::to_string(index)}, {"info", "0002"}, {"tray", std::move(trays)}};
@@ -717,7 +724,16 @@ json build_push_status(const PrinterSnapshot& s, int sequence_id, const PresetFo
               {"home_flag", 0},
               {"support_bed_leveling", false},
               {"support_send_to_sd", false},
+              {"sdcard", true}, // the printer stores its own G-code: tells Orca's dialogs the storage is present
               {"ams", build_ams_json(s, preset_for_slot)}};
+    // External spool holder (box type 1) as Orca's "Ext" tray; an empty tray when the printer lists none.
+    const CfsSlot* ext = nullptr;
+    for (const CfsBox& box : s.boxes)
+        if (box.type == BOX_TYPE_EXTERNAL && !box.slots.empty()) {
+            ext = &box.slots.front();
+            break;
+        }
+    p["vt_tray"] = make_tray(ext, "255", preset_for_slot);
     if (s.nozzle_temp)
         p["nozzle_temper"] = *s.nozzle_temp;
     if (s.nozzle_target)

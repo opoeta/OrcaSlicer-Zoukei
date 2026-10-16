@@ -245,7 +245,7 @@ void PrintJob::process(Ctl &ctl)
     params.password = m_access_code;
 
     // check access code and ip address
-    if (this->connection_type == "lan" && m_print_type == "from_normal") {
+    if (this->connection_type == "lan" && m_print_type == "from_normal" && !m_creality) {
         bool emmc_ok = false;
         bool ftp_ok = false;
         if (could_emmc_print) {
@@ -434,12 +434,14 @@ void PrintJob::process(Ctl &ctl)
 
     bool is_try_lan_mode = false;
     bool is_try_lan_mode_failed = false;
+    std::string creality_error;
 
     auto update_fn = [this, &ctl,
         &is_try_lan_mode,
         &is_try_lan_mode_failed,
         &msg,
         &curr_percent,
+        &creality_error,
         StagePercentPoint
     ](int stage, int code, std::string info) {
 
@@ -503,7 +505,10 @@ void PrintJob::process(Ctl &ctl)
 
                         //get errors
                         if (code > 100 || code < 0 || stage == SendingPrintJobStage::PrintingStageERROR) {
-                            if (code == BAMBU_NETWORK_ERR_PRINT_WR_FILE_OVER_SIZE || code == BAMBU_NETWORK_ERR_PRINT_SP_FILE_OVER_SIZE) {
+                            if (m_creality) {
+                                creality_error = info;
+                                m_plater->update_print_error_info(code, info, "");
+                            } else if (code == BAMBU_NETWORK_ERR_PRINT_WR_FILE_OVER_SIZE || code == BAMBU_NETWORK_ERR_PRINT_SP_FILE_OVER_SIZE) {
                                 m_plater->update_print_error_info(code, desc_file_too_large, info);
                             }else if (code == BAMBU_NETWORK_ERR_PRINT_WR_FILE_NOT_EXIST || code == BAMBU_NETWORK_ERR_PRINT_SP_FILE_NOT_EXIST){
                                 m_plater->update_print_error_info(code, desc_fail_not_exist, info);
@@ -578,7 +583,13 @@ void PrintJob::process(Ctl &ctl)
             return true;
     };
 
-    if (m_print_type == "from_sdcard_view") {
+    if (m_creality) {
+        params.extra_options = m_creality_files;
+        ctl.update_status(curr_percent, _u8L("Sending print job over LAN"));
+        mark_lifecycle_started();
+        result = m_creality_send_only ? m_agent->start_send_gcode_to_sdcard(params, update_fn, cancel_fn, nullptr) :
+                                        m_agent->start_local_print(params, update_fn, cancel_fn);
+    } else if (m_print_type == "from_sdcard_view") {
         BOOST_LOG_TRIVIAL(info) << "print_job: try to send with cloud, model is sdcard view";
         ctl.update_status(curr_percent, _u8L("Sending print job through cloud service"));
         mark_lifecycle_started();
@@ -708,6 +719,8 @@ void PrintJob::process(Ctl &ctl)
             msg_text = send_print_failed_str;
         }
 
+        if (m_creality && !creality_error.empty() && result != BAMBU_NETWORK_ERR_CANCELED)
+            msg_text = creality_error;
         if (result != BAMBU_NETWORK_ERR_CANCELED) {
             ctl.show_error_info(msg_text, 0, "", "");
         }

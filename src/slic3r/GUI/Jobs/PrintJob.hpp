@@ -75,6 +75,11 @@ public:
     std::string connection_type;
     std::string m_print_type;
     std::string m_dst_path;
+    // Creality (printer agent "creality_cfs"): upload the plate's G-code instead of the 3MF and skip Bambu's storage
+    // checks. m_creality_files is the agent's extra_options ({"files":[{"path","name"}],"self_test":0|1}).
+    bool        m_creality{ false };
+    bool        m_creality_send_only{ false };
+    std::string m_creality_files;
 
     bool m_is_calibration_task = false;
 

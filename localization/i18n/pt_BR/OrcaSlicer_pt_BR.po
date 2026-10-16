@@ -36331,3 +36331,30 @@ msgstr ""
 
 #~ msgid "Printer local connection failed, please try again."
 #~ msgstr "Falha na conexão local da impressora, por favor tente novamente."
+
+msgid "Start print"
+msgstr "Iniciar impressão"
+
+msgid "Send only"
+msgstr "Enviar somente"
+
+msgid "Print calibration"
+msgstr "Calibração de impressão"
+
+msgid "Runs the printer's self-test (calibration) before the print starts."
+msgstr "Executa o autoteste (calibração) da impressora antes de iniciar a impressão."
+
+msgid "Filament source"
+msgstr "Origem do filamento"
+
+msgid "CFS: use the CFS slots chosen below. Ext: print from the external spool holder."
+msgstr "CFS: usa os slots do CFS escolhidos abaixo. Ext: imprime com a bobina do suporte externo."
+
+msgid "All plates"
+msgstr "Todas as placas"
+
+msgid "Upload the G-code of every sliced plate; only the first plate is started."
+msgstr "Envia o G-code de todas as placas fatiadas; apenas a primeira placa é iniciada."
+
+msgid "The timelapse of a Creality print is part of the sliced G-code. Change it in the process settings and slice again."
+msgstr "O timelapse de uma impressão Creality faz parte do G-code fatiado. Altere-o nas configurações do processo e fatie novamente."
