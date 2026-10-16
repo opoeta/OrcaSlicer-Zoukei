@@ -36433,3 +36433,27 @@ msgstr "Editar cor"
 
 msgid "Swap slot"
 msgstr "Trocar slot"
+
+msgid "Filament colour"
+msgstr "Cor do filamento"
+
+msgid "Solid"
+msgstr "Sólido"
+
+msgid "Dual"
+msgstr "Dual"
+
+msgid "Tricolor"
+msgstr "Tricolor"
+
+msgid "Quadricolor"
+msgstr "Quadricolor"
+
+msgid "Gradient"
+msgstr "Gradiente"
+
+msgid "Colours"
+msgstr "Cores"
+
+msgid "Meters per cycle (0 = auto)"
+msgstr "Metros por ciclo (0 = auto)"

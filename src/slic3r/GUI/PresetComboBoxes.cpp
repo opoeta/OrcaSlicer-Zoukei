@@ -1625,20 +1625,11 @@ FilamentColor PlaterPresetComboBox::get_cur_color_info()
 
 void PlaterPresetComboBox::show_default_color_picker()
 {
-    DynamicPrintConfig* cfg = &wxGetApp().preset_bundle->project_config;
-    auto colors = static_cast<ConfigOptionStrings*>(cfg->option("filament_colour")->clone());
-    wxColour current_clr(colors->values[m_filament_idx]);
-    if (!current_clr.IsOk())
-        current_clr = wxColour(0, 0, 0); // Don't set alfa to transparence
-
-    m_clrData.SetColour(current_clr);
-
-    wxColourData data = show_sys_picker_dialog(this, m_clrData);
-    if (m_clrData.GetColour() != data.GetColour()) {
-        std::vector<std::string> color = {data.GetColour().GetAsString(wxC2S_HTML_SYNTAX).ToStdString()};
-        m_clrData.SetColour(data.GetColour());
-        sync_colour_config(color, false);
-    }
+    // Orca Zoukei: solid / dual / tricolor / quadricolor / gradient editor
+    std::vector<std::string> colors;
+    bool                     gradient = false;
+    if (CfsUi::edit_filament_colour(this, int(m_filament_idx), colors, gradient) && !colors.empty())
+        sync_colour_config(colors, gradient);
 }
 
 void PlaterPresetComboBox::sync_colour_config(const std::vector<std::string> &clrs, bool is_gradient)

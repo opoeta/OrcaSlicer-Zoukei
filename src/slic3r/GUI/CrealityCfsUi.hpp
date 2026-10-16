@@ -9,7 +9,11 @@
 #include <vector>
 #include <optional>
 #include <utility>
+#include <wx/colour.h>
 #include <wx/panel.h>
+#include <string>
+#include <wx/window.h>
+#include <wx/window.h>
 #include <wx/string.h>
 #include <wx/timer.h>
 #include <wx/weakref.h>
@@ -36,6 +40,13 @@ bool ifs_active();
 std::shared_ptr<Slic3r::FlashforgePrinterAgent> ifs_agent();
 // Header of the sidebar column of a unit: "CFS n", or "IFS" for the Flashforge unit (empty for the unused second column).
 wxString unit_title(int box);
+
+// Multi-colour filaments: all colours of filament idx (project filament_multi_colour, falls back to filament_colour)
+// and whether they form a gradient (filament_colour_type "0") instead of side-by-side coextruded colours.
+std::vector<wxColour> filament_colours(int idx, bool& gradient);
+// Modal editor: type (solid / dual / tricolor / quadricolor / gradient), colours and metres per gradient cycle.
+// On OK writes filament_gradient_length and returns the colours (first = main colour); false when cancelled.
+bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient);
 
 // Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
 bool grouping(int n, std::vector<int>& box_of);

@@ -3045,6 +3045,11 @@ void PrintConfigDef::init_fff_params()
     def = this->add("filament_cfs_slot", coStrings);
     def->set_default_value(new ConfigOptionStrings{""});
 
+    // Orca Zoukei: metres of filament per full colour cycle of a gradient (rainbow) spool; 0 = automatic.
+    // Project-level only: stored in the 3MF, never read by slicing nor written into the G-code.
+    def = this->add("filament_gradient_length", coFloats);
+    def->set_default_value(new ConfigOptionFloats{0.});
+
     // 0: gradient color, 1: default color(single or multi color)
     def = this->add("filament_colour_type", coStrings);
     def->set_default_value(new ConfigOptionStrings{"1"}); // Init as default color

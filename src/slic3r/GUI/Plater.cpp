@@ -6104,6 +6104,9 @@ void Sidebar::add_custom_filament(wxColour new_col, const std::string& preset_na
         rotate_strings("filament_multi_colour");
         rotate_strings("filament_colour_type");
         rotate_strings("filament_cfs_slot");
+        if (auto* gl = project_config.option<ConfigOptionFloats>("filament_gradient_length"))
+            if (gl->values.size() > total)
+                std::rotate(gl->values.begin() + insert_pos, gl->values.begin() + total, gl->values.end());
         rotate_ints("filament_map");
         rotate_ints("filament_nozzle_map");
         rotate_ints("filament_volume_map");

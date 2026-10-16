@@ -11,7 +11,16 @@
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
 
+#include "FilamentBitmapUtils.hpp"
+
+#include <wx/choice.h>
+#include <wx/clrpicker.h>
 #include <wx/dcbuffer.h>
+#include <wx/dialog.h>
+#include <wx/sizer.h>
+#include <wx/spinctrl.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
 #include <wx/popupwin.h>
 
 #include <algorithm>
@@ -179,12 +188,17 @@ wxColour edge_col() { return StateColor::darkModeColorFor(wxColour("#CECECE")); 
 
 wxColour text_on(const wxColour& c) { return (c.Red() * 299 + c.Green() * 587 + c.Blue() * 114) / 1000 > 150 ? *wxBLACK : *wxWHITE; }
 
-void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& fill, bool loaded)
+void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& fill, bool loaded, const wxBitmap* multi = nullptr)
 {
     const bool filled = loaded && fill.IsOk();
     dc.SetPen(wxPen(edge_col()));
     dc.SetBrush(filled ? wxBrush(fill) : *wxTRANSPARENT_BRUSH);
     dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 3.0);
+    if (multi != nullptr && multi->IsOk() && filled) { // coextruded sectors / gradient swatch inside the outline
+        dc.DrawBitmap(*multi, r.x + 1, r.y + 1);
+        dc.SetBrush(*wxTRANSPARENT_BRUSH);
+        dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 3.0);
+    }
     dc.SetTextForeground(filled ? text_on(fill) : fg_col());
     const wxSize ts = dc.GetTextExtent(txt);
     dc.DrawText(txt, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
@@ -561,7 +575,117 @@ void Badge::on_paint(wxPaintEvent&)
     PresetBundle*  b = wxGetApp().preset_bundle;
     const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
     wxColour col = cols != nullptr && m_idx < (int) cols->values.size() ? wxColour(cols->values[m_idx]) : wxColour();
-    draw_chip(dc, wxRect(wxPoint(0, 0), GetClientSize()), wxString::Format(L"%d \u00B7 ", m_idx + 1) + t + wxString(L" \u21C4"), col, true);
+    bool gradient = false;
+    const std::vector<wxColour> mc = filament_colours(m_idx, gradient);
+    const wxRect rc(wxPoint(0, 0), GetClientSize());
+    wxBitmap     bmp;
+    if (mc.size() > 1) {
+        bmp = create_filament_bitmap(mc, wxSize(rc.width - 2, rc.height - 2), gradient);
+        col = mc[mc.size() / 2]; // text contrast
+    }
+    draw_chip(dc, rc, wxString::Format(L"%d \u00B7 ", m_idx + 1) + t + wxString(L" \u21C4"), col, true, bmp.IsOk() ? &bmp : nullptr);
+}
+
+std::vector<wxColour> filament_colours(int idx, bool& gradient)
+{
+    gradient = false;
+    std::vector<wxColour> out;
+    const auto&           pc = wxGetApp().preset_bundle->project_config;
+    const auto*           mc = pc.option<ConfigOptionStrings>("filament_multi_colour");
+    const auto*           ty = pc.option<ConfigOptionStrings>("filament_colour_type");
+    const auto*           c1 = pc.option<ConfigOptionStrings>("filament_colour");
+    if (idx < 0)
+        return out;
+    if (mc != nullptr && idx < (int) mc->values.size()) {
+        std::istringstream is(mc->values[idx]);
+        for (std::string t; is >> t;) {
+            wxColour c(t);
+            if (c.IsOk())
+                out.push_back(c);
+        }
+    }
+    if (out.empty() && c1 != nullptr && idx < (int) c1->values.size())
+        out.emplace_back(c1->values[idx]);
+    if (out.size() > 4)
+        out.resize(4);
+    gradient = out.size() > 1 && ty != nullptr && idx < (int) ty->values.size() && ty->values[idx] == "0";
+    return out;
+}
+
+bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient)
+{
+    auto&                 pc   = wxGetApp().preset_bundle->project_config;
+    bool                  grad = false;
+    std::vector<wxColour> cur  = filament_colours(idx, grad);
+    const int             n0   = std::max<int>(1, (int) cur.size());
+    if (cur.empty())
+        cur.emplace_back(0, 0, 0);
+    while (cur.size() < 4)
+        cur.push_back(cur.back());
+    double len0 = 0.;
+    if (const auto* gl = pc.option<ConfigOptionFloats>("filament_gradient_length"))
+        if (idx < (int) gl->values.size())
+            len0 = gl->values[idx];
+
+    wxDialog dlg(parent, wxID_ANY, _L("Filament colour"));
+    auto*    root = new wxBoxSizer(wxVERTICAL);
+    auto*    type = new wxChoice(&dlg, wxID_ANY);
+    for (const wxString& t : {_L("Solid"), _L("Dual"), _L("Tricolor"), _L("Quadricolor"), _L("Gradient")})
+        type->Append(t);
+    type->SetSelection(grad ? 4 : std::min(n0, 4) - 1);
+    auto* ncol = new wxSpinCtrl(&dlg, wxID_ANY, "", wxDefaultPosition, wxSize(dlg.FromDIP(60), -1), wxSP_ARROW_KEYS, 2, 4, std::max(2, std::min(n0, 4)));
+    auto* lenv = new wxTextCtrl(&dlg, wxID_ANY, wxString::Format("%g", len0), wxDefaultPosition, wxSize(dlg.FromDIP(70), -1));
+    auto* row0 = new wxBoxSizer(wxHORIZONTAL);
+    row0->Add(new wxStaticText(&dlg, wxID_ANY, _L("Type")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, dlg.FromDIP(8));
+    row0->Add(type, 1);
+    auto* row1 = new wxBoxSizer(wxHORIZONTAL);
+    row1->Add(new wxStaticText(&dlg, wxID_ANY, _L("Colours")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, dlg.FromDIP(8));
+    row1->Add(ncol, 0);
+    auto* row2 = new wxBoxSizer(wxHORIZONTAL);
+    row2->Add(new wxStaticText(&dlg, wxID_ANY, _L("Meters per cycle (0 = auto)")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, dlg.FromDIP(8));
+    row2->Add(lenv, 0);
+    auto*                            row3 = new wxBoxSizer(wxHORIZONTAL);
+    std::vector<wxColourPickerCtrl*> pick;
+    for (int i = 0; i < 4; ++i) {
+        pick.push_back(new wxColourPickerCtrl(&dlg, wxID_ANY, cur[i]));
+        row3->Add(pick.back(), 0, wxRIGHT, dlg.FromDIP(6));
+    }
+    root->Add(row0, 0, wxEXPAND | wxALL, dlg.FromDIP(10));
+    root->Add(row1, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
+    root->Add(row2, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
+    root->Add(row3, 0, wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
+    root->Add(dlg.CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, dlg.FromDIP(10));
+    auto count = [&] { return type->GetSelection() == 4 ? ncol->GetValue() : type->GetSelection() + 1; };
+    auto upd   = [&] {
+        const bool g = type->GetSelection() == 4;
+        root->Show(row1, g, true);
+        root->Show(row2, g, true);
+        for (int i = 0; i < 4; ++i)
+            pick[i]->Show(i < count());
+        dlg.Layout();
+        dlg.Fit();
+    };
+    type->Bind(wxEVT_CHOICE, [&](wxCommandEvent&) { upd(); });
+    ncol->Bind(wxEVT_SPINCTRL, [&](wxCommandEvent&) { upd(); });
+    dlg.SetSizer(root);
+    upd();
+    dlg.CenterOnParent();
+    if (dlg.ShowModal() != wxID_OK)
+        return false;
+    gradient = type->GetSelection() == 4;
+    colours.clear();
+    for (int i = 0; i < count(); ++i)
+        colours.push_back(pick[i]->GetColour().GetAsString(wxC2S_HTML_SYNTAX).ToStdString());
+    double   v   = 0.;
+    wxString txt = lenv->GetValue();
+    txt.Replace(",", ".");
+    if (!gradient || !txt.ToCDouble(&v) || v < 0.)
+        v = 0.;
+    auto* gl = pc.option<ConfigOptionFloats>("filament_gradient_length", true);
+    if (gl->values.size() <= size_t(idx))
+        gl->values.resize(size_t(idx) + 1, 0.);
+    gl->values[idx] = v;
+    return true;
 }
 
 }}} // namespace Slic3r::GUI::CfsUi
