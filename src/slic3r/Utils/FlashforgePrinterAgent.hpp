@@ -28,6 +28,20 @@ class FlashforgePrinterAgent final : public MoonrakerPrinterAgent, public std::e
 {
 public:
     enum class Mode { unresolved = 0, zmod, stock };
+    // The touchscreen UI of a ZMOD printer: Flashforge's original screen, HelixScreen or GuppyScreen.
+    enum class Ui { unknown = 0, original, helix, guppy };
+
+    // A change of one IFS slot to write to the printer (ZMOD): the project's filament.
+    struct SlotWrite
+    {
+        int         port = 0;      // 1..4
+        std::string type;          // Orca filament_type ("PLA", "PETG", ...)
+        std::string name;          // filament preset name ("Generic PLA Silk"), helps to tell SILK from PLA
+        std::string color;         // "#RRGGBB"
+        std::string vendor;
+        int         nozzle_temp = 0;
+        int         bed_temp    = 0;
+    };
 
     // One IFS slot as the printer reports it.
     struct IfsSlot
@@ -49,6 +63,15 @@ public:
     AgentInfo        get_agent_info() override { return get_agent_info_static(); }
 
     Mode mode() const { return Mode(m_mode.load()); }
+    Ui   ui() const { return Ui(m_ui.load()); }
+    // "ZMOD + HelixScreen", "ZMOD + tela original", ... ("" when not ZMOD / not known yet).
+    std::string ui_name() const;
+
+    // Project -> printer (ZMOD): CHANGE_ZCOLOR for the firmware (what both screens show) and, with HelixScreen,
+    // the lane_data metadata. write_block_reason() is "" when writing is possible right now; write_slots() runs on
+    // a worker thread and reports through a plater notification.
+    std::string write_block_reason() const;
+    void        write_slots(std::vector<SlotWrite> writes);
 
     // The vendor model_id of the selected printer ("Flashforge-AD5X"), UI thread.
     static std::string current_model_id();
@@ -105,7 +128,10 @@ private:
     bool           is_current(uint64_t generation) const { return generation == m_generation.load(); }
 
     // ZMOD
-    bool           fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots) const;
+    bool           fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots);
+    bool           write_lane_data(const std::string& base_url, const std::string& api_key, const SlotWrite& w, const std::string& zmod_type, const IfsSlot* before);
+    void           write_slots_worker(std::vector<SlotWrite> writes);
+    int            handle_ams_setting(const nlohmann::json& cmd);
     void           apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots);
     void           send_zmod_mapping(const PrintParams& params);
     int            zmod_job(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, bool start);
@@ -126,6 +152,12 @@ private:
     std::string    preset_id_for(const IfsSlot& slot) const;                  // main thread
 
     std::atomic<int>      m_mode{0};
+    std::atomic<int>      m_ui{0};
+    std::atomic<bool>     m_busy{false};          // printing / paused (ZMOD)
+    std::atomic<bool>     m_writing{false};
+    bool                  m_display_popup = false; // zmod_color.display: CHANGE_ZCOLOR raises a popup on the screen
+    std::vector<std::string> m_valid_types;       // zmod_color.valid_types, without "?"
+    std::string           m_zmod_url, m_zmod_key;
     std::atomic<uint64_t> m_generation{0};
     mutable std::mutex    m_mutex;
     Session               m_session;

@@ -23,6 +23,7 @@
 #include "slic3r/GUI/PrinterWebView.hpp"
 #include "slic3r/GUI/CrealityDevicePanel.hpp"
 #include "slic3r/GUI/CrealityCfsAutoSync.hpp"
+#include "slic3r/GUI/FlashforgeIfsAutoSync.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
 #include "slic3r/GUI/CalibrationPanel.hpp"
 #include "slic3r/GUI/ReleaseNote.hpp"
@@ -1283,6 +1284,7 @@ void MainFrame::shutdown()
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "MainFrame::shutdown enter";
     m_idle.stop();
     CrealityCfsAutoSync::shutdown();
+    FlashforgeIfsAutoSync::shutdown();
     if (ProjectPanel* project = ProjectPanel::if_built())
         project->shutdown();
     m_plugin_pages.shutdown();
@@ -1552,6 +1554,8 @@ void MainFrame::init_tabpanel() {
     // Project -> CFS filament sync for Creality printers (native port of the CFS Sync plugin).
     if (wxGetApp().is_editor())
         CrealityCfsAutoSync::start();
+    if (wxGetApp().is_editor())
+        FlashforgeIfsAutoSync::start(); // the same for a Flashforge printer on ZMOD (IFS)
 
     m_printer_view_page =new LazyPage<PrinterWebView>(m_tabpanel, TAB_ID_MONITOR_WEB, 50, [this](wxWindow* parent) {
         auto* view = new PrinterWebView(parent);

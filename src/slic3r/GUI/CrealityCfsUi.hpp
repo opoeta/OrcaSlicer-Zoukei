@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <vector>
 #include <optional>
 #include <utility>
@@ -13,7 +14,9 @@
 #include <wx/timer.h>
 #include <wx/weakref.h>
 
-namespace Slic3r { namespace GUI { namespace CfsUi {
+namespace Slic3r {
+class FlashforgePrinterAgent;
+namespace GUI { namespace CfsUi {
 
 // Project filament index -> printer slot {box_id, slot_id}; box 0 is the external spool.
 // Explicit choices persist per project file (app config); otherwise a default is derived.
@@ -26,6 +29,8 @@ void set_mapped_tray(int filament_idx, int tray_id);
 
 // Flashforge AD5X with the native agent: the IFS (one unit, box 1, slots 0-3 = IFS1..IFS4) takes the place of the CFS.
 bool ifs_active();
+// The Flashforge agent of the selected printer (null for any other printer).
+std::shared_ptr<Slic3r::FlashforgePrinterAgent> ifs_agent();
 // Header of the sidebar column of a unit: "CFS n", or "IFS" for the Flashforge unit (empty for the unused second column).
 wxString unit_title(int box);
 

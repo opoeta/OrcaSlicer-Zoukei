@@ -1796,9 +1796,9 @@ void PreferencesDialog::create_items()
     auto item_multi_machine    = create_item_checkbox(_L("Multi device management"), _L("With this option enabled, you can send a task to multiple devices at the same time and manage multiple devices."), "enable_multi_machine", _L("(Requires restart)"));
     g_sizer->Add(item_multi_machine);
 
-    auto item_creality_cfs_sync = create_item_checkbox(_L("Sync project filaments to the Creality CFS"),
-        _L("For a Creality printer with a CFS, write the project's filament list to the CFS slots (filament 1 to slot 1A, 2 to 1B, ...) "
-           "when it changes. Opening a project does not rewrite the slots, and changes wait while the printer is busy."),
+    auto item_creality_cfs_sync = create_item_checkbox(_L("Sync project filaments to the CFS / IFS"),
+        _L("For a Creality printer with a CFS (filament 1 to slot 1A, 2 to 1B, ...) or a Flashforge AD5X on ZMOD with an IFS, write the project's "
+           "filaments to the slots when they change. Opening a project does not rewrite the slots, and changes wait while the printer is busy."),
         "creality_cfs_auto_sync");
     g_sizer->Add(item_creality_cfs_sync);
 

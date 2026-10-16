@@ -67,6 +67,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/CrealityDiscoveryDialog.hpp
     GUI/CrealityCfsAutoSync.cpp
     GUI/CrealityCfsAutoSync.hpp
+    GUI/FlashforgeIfsAutoSync.cpp
+    GUI/FlashforgeIfsAutoSync.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp

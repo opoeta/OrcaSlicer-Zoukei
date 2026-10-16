@@ -331,6 +331,7 @@ int FlashforgePrinterAgent::disconnect_printer()
 {
     ++m_generation;
     m_mode = int(Mode::unresolved);
+    m_ui   = int(Ui::unknown);
     return MoonrakerPrinterAgent::disconnect_printer();
 }
 
@@ -389,6 +390,11 @@ void FlashforgePrinterAgent::start_zmod(const PrinterConnectionParams& params, u
     m_mode = int(Mode::zmod);
     const std::string key = params.password == "88888888" ? std::string() : params.password;
     const std::string base_url = normalize_base_url(params.use_ssl, params.host, params.port);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_zmod_url = base_url;
+        m_zmod_key = key;
+    }
     std::weak_ptr<FlashforgePrinterAgent> weak = weak_from_this();
     PrinterConnectionParams               p    = params;
     // The Moonraker agent reads the printer preset: do its connect on the UI thread.
@@ -399,10 +405,10 @@ void FlashforgePrinterAgent::start_zmod(const PrinterConnectionParams& params, u
     zmod_loop(generation, base_url, key);
 }
 
-bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots) const
+bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots)
 {
     std::string body;
-    if (!http_get(base_url + "/printer/objects/query?zmod_color&zmod_ifs", api_key, body))
+    if (!http_get(base_url + "/printer/objects/query?zmod_color&zmod_ifs&save_variables&print_stats&virtual_sdcard", api_key, body))
         return false;
     const json status = json::parse(body, nullptr, false);
     if (status.is_discarded() || !status.contains("result") || !status["result"].contains("status"))
@@ -411,8 +417,32 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
     if (!color.is_object() || !color.contains("slots") || !color["slots"].is_array())
         return false;
 
+    // Which touchscreen UI runs? ZMOD's DISPLAY_OFF HELIX=1 / GUPPY=1 saves display_off=1 plus helix / guppy; DISPLAY_ON
+    // (the original screen) only resets display_off, so "helix" alone proves nothing.
+    {
+        const json& st   = status["result"]["status"];
+        const json  vars = st.contains("save_variables") && st["save_variables"].is_object() ? st["save_variables"].value("variables", json::object()) : json::object();
+        Ui          ui   = Ui::unknown;
+        if (vars.is_object() && vars.contains("display_off"))
+            ui = num(vars, "display_off") != 0. ? (num(vars, "helix") != 0. ? Ui::helix : num(vars, "guppy") != 0. ? Ui::guppy : Ui::original) : Ui::original;
+        if (int(ui) != m_ui.exchange(int(ui)))
+            BOOST_LOG_TRIVIAL(info) << "Flashforge agent: " << base_url << " runs " << ui_name();
+        const json ps = st.value("print_stats", json::object());
+        const json vs = st.value("virtual_sdcard", json::object());
+        std::string state = str(ps, "state");
+        m_busy            = state == "printing" || state == "paused" || (vs.is_object() && vs.value("is_active", false));
+        m_display_popup   = color.value("display", false);
+        std::vector<std::string> valid;
+        if (color.contains("valid_types") && color["valid_types"].is_array())
+            for (const json& t : color["valid_types"])
+                if (t.is_string() && t.get<std::string>() != "?")
+                    valid.push_back(t.get<std::string>());
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_valid_types = std::move(valid);
+    }
+
     json lanes = json::object(); // HelixScreen's spool database: vendor / product name / temperatures per lane
-    if (http_get(base_url + "/server/database/item?namespace=lane_data", api_key, body)) {
+    if (ui() == Ui::helix && http_get(base_url + "/server/database/item?namespace=lane_data", api_key, body)) {
         const json l = json::parse(body, nullptr, false);
         if (!l.is_discarded() && l.contains("result") && l["result"].contains("value") && l["result"]["value"].is_object())
             lanes = l["result"]["value"];
@@ -586,6 +616,271 @@ int FlashforgePrinterAgent::zmod_job(PrintParams params, OnUpdateStatusFn update
             return fail("the printer did not accept the print command", BAMBU_NETWORK_ERR_PRINT_LP_PUBLISH_MSG_FAILED);
     }
     report(PrintingStageFinished, 0, "3");
+    return BAMBU_NETWORK_SUCCESS;
+}
+
+// ---- project -> printer (ZMOD) --------------------------------------------------------------------
+
+std::string FlashforgePrinterAgent::ui_name() const
+{
+    switch (ui()) {
+    case Ui::helix: return "ZMOD + HelixScreen";
+    case Ui::guppy: return "ZMOD + GuppyScreen";
+    case Ui::original: return "ZMOD + tela original";
+    default: return mode() == Mode::zmod ? "ZMOD" : std::string();
+    }
+}
+
+namespace {
+
+std::string upper(std::string s)
+{
+    boost::to_upper(s);
+    return s;
+}
+
+// Orca filament type (and preset name) -> the nearest entry of ZMOD's valid_types; "" when nothing fits.
+std::string map_zmod_type(const std::string& type, const std::string& name, const std::vector<std::string>& valid)
+{
+    const std::string t = upper(type), n = upper(name);
+    std::string       want;
+    if (n.find("SILK") != std::string::npos && t.rfind("PLA", 0) == 0)
+        want = "SILK";
+    else if (t == "PLA-CF" || t == "PETG-CF" || t == "PLA-GF")
+        want = t == "PLA-GF" ? "PLA-CF" : t;
+    else if (t.rfind("TPU", 0) == 0 || t == "TPE")
+        want = "TPU";
+    else if (t.rfind("ABS", 0) == 0 || t.rfind("ASA", 0) == 0)
+        want = "ABS";
+    else if (t.rfind("PETG", 0) == 0 || t == "PET")
+        want = "PETG";
+    else if (t.rfind("PLA", 0) == 0)
+        want = "PLA";
+    for (const std::string& v : valid)
+        if (upper(v) == want)
+            return v;
+    return {};
+}
+
+} // namespace
+
+std::string FlashforgePrinterAgent::write_block_reason() const
+{
+    if (mode() != Mode::zmod)
+        return "the printer is not a ZMOD printer";
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_valid_types.empty() || m_zmod_url.empty())
+            return "ZMOD's colour interface is not available";
+    }
+    if (m_busy)
+        return "the printer is printing";
+    if (m_writing)
+        return "a write is in progress";
+    return {};
+}
+
+void FlashforgePrinterAgent::write_slots(std::vector<SlotWrite> writes)
+{
+    if (writes.empty() || m_writing.exchange(true))
+        return;
+    std::weak_ptr<FlashforgePrinterAgent> weak = weak_from_this();
+    std::thread([weak, writes = std::move(writes)]() mutable {
+        if (auto self = weak.lock()) {
+            self->write_slots_worker(std::move(writes));
+            self->m_writing = false;
+        }
+    }).detach();
+}
+
+// lane_data/lane<N> for HelixScreen: merge into the record already there so its helix_* keys (and ownership) survive.
+bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const std::string& api_key, const SlotWrite& w,
+                                             const std::string& zmod_type, const IfsSlot* /*before*/)
+{
+    const std::string key = "lane" + std::to_string(w.port);
+    json              existing = json::object();
+    std::string       body;
+    if (http_get(base_url + "/server/database/item?namespace=lane_data&key=" + key, api_key, body)) {
+        const json r = json::parse(body, nullptr, false);
+        if (!r.is_discarded() && r.contains("result") && r["result"].contains("value") && r["result"]["value"].is_object())
+            existing = r["result"]["value"];
+    }
+    json rec = existing;
+    const std::string material = base_type(w.type).empty() ? upper(w.type) : base_type(w.type);
+    const bool changed_identity = norm_color(str(existing, "color")) != w.color || upper(str(existing, "material")) != upper(material);
+    rec["lane"]     = std::to_string(w.port - 1);
+    rec["color"]    = w.color;
+    rec["material"] = material;
+    if (!zmod_type.empty())
+        rec["helix_material"] = zmod_type;
+    if (!w.vendor.empty()) {
+        rec["vendor"]      = w.vendor;
+        rec["vendor_name"] = w.vendor;
+    }
+    if (!w.name.empty()) {
+        rec["name"]       = w.name;
+        rec["spool_name"] = w.name;
+    }
+    if (w.nozzle_temp > 0)
+        rec["nozzle_temp"] = w.nozzle_temp;
+    if (w.bed_temp > 0)
+        rec["bed_temp"] = w.bed_temp;
+    if (changed_identity)
+        for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id", "helix_product_name",
+                                  "remaining_weight_g", "total_weight_g"})
+            rec.erase(stale);
+    // helix_declared makes the record outrank the firmware on the panel; without scan_time it counts as the newest declaration.
+    json declared = existing.value("helix_declared", json::array());
+    if (!declared.is_array())
+        declared = json::array();
+    auto declare = [&declared](const char* what) {
+        if (std::find(declared.begin(), declared.end(), json(what)) == declared.end())
+            declared.push_back(what);
+    };
+    declare("color_rgb");
+    declare("material");
+    if (!w.vendor.empty())
+        declare("brand");
+    if (!w.name.empty())
+        declare("spool_name");
+    rec["helix_declared"] = declared;
+    rec.erase("scan_time");
+    if (rec == existing)
+        return true;
+
+    bool        ok = false;
+    std::string error;
+    auto        http = Http::post(base_url + "/server/database/item");
+    if (!api_key.empty())
+        http.header("X-Api-Key", api_key);
+    http.header("Content-Type", "application/json")
+        .set_post_body(json{{"namespace", "lane_data"}, {"key", key}, {"value", rec}}.dump())
+        .timeout_connect(5)
+        .timeout_max(10)
+        .on_complete([&](std::string, unsigned status) { ok = status == 200; })
+        .on_error([&](std::string, std::string err, unsigned status) { error = err + " (HTTP " + std::to_string(status) + ")"; })
+        .perform_sync();
+    if (!ok)
+        BOOST_LOG_TRIVIAL(warning) << "Flashforge agent: lane_data write failed for " << key << ": " << error;
+    return ok;
+}
+
+void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
+{
+    std::string base_url, api_key;
+    std::vector<std::string> valid;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        base_url = m_zmod_url;
+        api_key  = m_zmod_key;
+        valid    = m_valid_types;
+    }
+    std::string ok_list, bad_list;
+    bool        any_cmd = false;
+    auto add = [](std::string& list, const std::string& item) { list += (list.empty() ? "" : ", ") + item; };
+    for (const SlotWrite& w : writes) {
+        const std::string label = "IFS" + std::to_string(w.port);
+        std::vector<IfsSlot> live;
+        if (!fetch_zmod_slots(base_url, api_key, live)) {
+            add(bad_list, label + ": the printer did not answer");
+            continue;
+        }
+        if (m_busy) {
+            add(bad_list, label + ": the printer is printing");
+            continue;
+        }
+        const IfsSlot* cur = nullptr;
+        for (const IfsSlot& s : live)
+            if (s.port == w.port)
+                cur = &s;
+        const std::string type = map_zmod_type(w.type, w.name, valid);
+        const std::string hex  = w.color.size() == 7 ? w.color.substr(1) : std::string("161616"); // never empty: CHANGE_ZCOLOR fails
+        std::string       warn;
+        if (type.empty())
+            warn = " (no ZMOD material for " + w.type + ", only the colour was written)";
+        const bool type_differs  = !type.empty() && (cur == nullptr || upper(cur->material) != upper(type));
+        const bool color_differs = cur == nullptr || cur->color != "#" + hex;
+        bool       ok            = true;
+        if (type_differs || color_differs) {
+            std::string script = "CHANGE_ZCOLOR SLOT=" + std::to_string(w.port);
+            if (!type.empty())
+                script += " TYPE=" + type;
+            script += " HEX=" + hex;
+            ok      = send_gcode_sync(device_info.dev_id, script);
+            any_cmd = true;
+            BOOST_LOG_TRIVIAL(info) << "Flashforge agent: " << script << (ok ? "" : " FAILED");
+        }
+        if (ok && ui() == Ui::helix)
+            write_lane_data(base_url, api_key, w, type, cur);
+        if (ok)
+            add(ok_list, label + " " + (type.empty() ? w.type : type) + " " + w.color + warn);
+        else
+            add(bad_list, label + ": CHANGE_ZCOLOR failed");
+    }
+    // Read back what the firmware reports (the screens show it) for up to 10 s.
+    if (any_cmd && bad_list.empty()) {
+        bool matches = false;
+        for (int attempt = 0; attempt < 10 && !matches; ++attempt) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::vector<IfsSlot> live;
+            if (!fetch_zmod_slots(base_url, api_key, live))
+                continue;
+            matches = true;
+            for (const SlotWrite& w : writes) {
+                const std::string hex = w.color.size() == 7 ? w.color : std::string("#161616");
+                bool found = false;
+                for (const IfsSlot& s : live)
+                    if (s.port == w.port)
+                        found = s.color == hex;
+                matches = matches && found;
+            }
+        }
+        if (!matches)
+            add(bad_list, "the printer still reports other colours (check its screen)");
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_slot_signature.clear(); // rebuild the trays on the next poll
+    }
+    if (!ok_list.empty())
+        CrealityCfsAgent::notify("Flashforge IFS updated (" + ui_name() + "): " + ok_list +
+                                 (ui() == Ui::original && m_display_popup ? " - the printer's screen may ask you to confirm" : std::string()));
+    if (!bad_list.empty())
+        CrealityCfsAgent::notify("Flashforge IFS sync failed: " + bad_list, true);
+}
+
+// The AMS dialog of the sidebar (edit a slot's filament / colour) -> the same write.
+int FlashforgePrinterAgent::handle_ams_setting(const json& cmd)
+{
+    auto field = [&](const char* k) { return cmd.contains(k) ? cmd[k] : json(); };
+    const json slot = cmd.contains("slot_id") ? cmd["slot_id"] : field("tray_id");
+    const int  slot_no = slot.is_number() ? slot.get<int>() : slot.is_string() ? std::atoi(slot.get<std::string>().c_str()) : -1;
+    const std::string type = str(cmd, "tray_type");
+    if (slot_no < 0 || slot_no > 3 || type.empty())
+        return BAMBU_NETWORK_SUCCESS; // the dialog's reset: nothing to write
+    if (const std::string reason = write_block_reason(); !reason.empty()) {
+        CrealityCfsAgent::notify("Flashforge IFS: not written, " + reason + ".", true);
+        return BAMBU_NETWORK_SUCCESS;
+    }
+    SlotWrite w;
+    w.port  = slot_no + 1;
+    w.type  = type;
+    w.color = norm_color(str(cmd, "tray_color"));
+    if (PresetBundle* bundle = GUI::wxGetApp().preset_bundle) { // UI thread
+        const std::string id = str(cmd, "tray_info_idx");
+        for (const Preset& p : bundle->filaments.get_presets())
+            if (!id.empty() && !p.is_default && p.filament_id == id) {
+                w.name = p.name;
+                if (const auto* v = p.config.option<ConfigOptionStrings>("filament_vendor"); v != nullptr && !v->values.empty())
+                    w.vendor = v->values.front();
+                if (const auto* t = p.config.option<ConfigOptionInts>("nozzle_temperature"); t != nullptr && !t->values.empty())
+                    w.nozzle_temp = t->values.front();
+                if (const auto* t = p.config.option<ConfigOptionInts>("hot_plate_temp"); t != nullptr && !t->values.empty())
+                    w.bed_temp = t->values.front();
+                break;
+            }
+    }
+    write_slots({w});
     return BAMBU_NETWORK_SUCCESS;
 }
 
@@ -892,8 +1187,12 @@ int FlashforgePrinterAgent::send_message(std::string dev_id, std::string json_st
 
 int FlashforgePrinterAgent::send_message_to_printer(std::string dev_id, std::string json_str, int qos, int flag)
 {
-    if (mode() != Mode::stock)
+    if (mode() != Mode::stock) {
+        const json zmsg = mode() == Mode::zmod ? json::parse(json_str, nullptr, false) : json();
+        if (zmsg.is_object() && zmsg.contains("print") && zmsg["print"].is_object() && zmsg["print"].value("command", std::string()) == "ams_filament_setting")
+            return handle_ams_setting(zmsg["print"]);
         return MoonrakerPrinterAgent::send_message_to_printer(std::move(dev_id), std::move(json_str), qos, flag);
+    }
     const json msg = json::parse(json_str, nullptr, false);
     if (msg.is_discarded() || !msg.is_object())
         return -1;

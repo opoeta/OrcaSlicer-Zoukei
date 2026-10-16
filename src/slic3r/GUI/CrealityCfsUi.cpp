@@ -360,6 +360,8 @@ std::optional<int> mapped_tray(int idx)
     return std::nullopt;
 }
 
+std::shared_ptr<FlashforgePrinterAgent> ifs_agent() { return flashforge_agent(); }
+
 bool ifs_active() { return flashforge_agent() != nullptr && !current_entries().empty(); }
 
 wxString unit_title(int box)
