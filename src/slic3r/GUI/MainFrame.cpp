@@ -22,6 +22,7 @@
 #include "slic3r/GUI/Monitor.hpp"
 #include "slic3r/GUI/PrinterWebView.hpp"
 #include "slic3r/GUI/CrealityDevicePanel.hpp"
+#include "slic3r/GUI/FlashforgeDevicePanel.hpp"
 #include "slic3r/GUI/CrealityCfsAutoSync.hpp"
 #include "slic3r/GUI/FlashforgeIfsAutoSync.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
@@ -1550,6 +1551,8 @@ void MainFrame::init_tabpanel() {
     // Not in the book until show_device() puts it at TAB_ID_MONITOR for a Creality printer.
     m_creality_device_page = new LazyPage<CrealityDevicePanel>(m_tabpanel, "creality_device", 21);
     m_lazy_pages.push_back(m_creality_device_page);
+    m_flashforge_device_page = new LazyPage<FlashforgeDevicePanel>(m_tabpanel, "flashforge_device", 22);
+    m_lazy_pages.push_back(m_flashforge_device_page);
 
     // Project -> CFS filament sync for Creality printers (native port of the CFS Sync plugin).
     if (wxGetApp().is_editor())
@@ -1622,11 +1625,18 @@ void MainFrame::show_device(bool should_use_native) {
     // A Creality printer's Device tab is Creality Print's own panel instead of the Bambu one.
     const bool want_creality_device = wxGetApp().preset_bundle != nullptr &&
                                       CrealityDevicePanel::is_creality_printer(*wxGetApp().preset_bundle);
-    wxWindow* device_page = want_creality_device ? static_cast<wxWindow*>(m_creality_device_page) : static_cast<wxWindow*>(m_monitor_page);
-    wxWindow* other_device_page = want_creality_device ? static_cast<wxWindow*>(m_monitor_page) : static_cast<wxWindow*>(m_creality_device_page);
-    if ((idx = m_tabpanel->FindPage(other_device_page)) != wxNOT_FOUND) {
-        other_device_page->Show(false);
-        m_tabpanel->RemovePage(idx);
+    const bool want_flashforge_device = !want_creality_device && wxGetApp().preset_bundle != nullptr &&
+                                        FlashforgeDevicePanel::is_flashforge_printer(*wxGetApp().preset_bundle);
+    wxWindow* device_page = want_creality_device ? static_cast<wxWindow*>(m_creality_device_page) :
+                            want_flashforge_device ? static_cast<wxWindow*>(m_flashforge_device_page) : static_cast<wxWindow*>(m_monitor_page);
+    for (wxWindow* other_device_page : {static_cast<wxWindow*>(m_monitor_page), static_cast<wxWindow*>(m_creality_device_page),
+                                        static_cast<wxWindow*>(m_flashforge_device_page)}) {
+        if (other_device_page == device_page)
+            continue;
+        if ((idx = m_tabpanel->FindPage(other_device_page)) != wxNOT_FOUND) {
+            other_device_page->Show(false);
+            m_tabpanel->RemovePage(idx);
+        }
     }
 
     // Remove the extra page before switching to any layout that shouldn't have it.
@@ -1737,6 +1747,10 @@ void MainFrame::show_device(bool should_use_native) {
         }
         if ((idx = m_tabpanel->FindPage(m_creality_device_page)) != wxNOT_FOUND) {
             m_creality_device_page->Show(false);
+            m_tabpanel->RemovePage(idx);
+        }
+        if ((idx = m_tabpanel->FindPage(m_flashforge_device_page)) != wxNOT_FOUND) {
+            m_flashforge_device_page->Show(false);
             m_tabpanel->RemovePage(idx);
         }
         m_printer_view_page->Show(false);
@@ -2816,6 +2830,8 @@ void MainFrame::on_sys_color_changed()
     MonitorPanel::when_built([](MonitorPanel& monitor) { monitor.on_sys_color_changed(); });
     if (CrealityDevicePanel* creality = CrealityDevicePanel::if_built())
         creality->on_sys_color_changed();
+    if (FlashforgeDevicePanel* flashforge = FlashforgeDevicePanel::if_built())
+        flashforge->on_sys_color_changed();
     CalibrationPanel::when_built([](CalibrationPanel& calibration) { calibration.on_sys_color_changed(); });
 #ifdef SLIC3R_CAD
     DesignPanel::when_built([](DesignPanel& design) { design.on_sys_color_changed(); });

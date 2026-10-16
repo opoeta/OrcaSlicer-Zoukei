@@ -38,7 +38,15 @@
             search_files: 'Search files', print: 'Print', delete: 'Delete', files_none: 'No files on the printer.',
             print_confirm: 'Start printing {name}?', delete_confirm: 'Delete {name} from the printer?',
             hist_jobs: 'Prints', hist_time: 'Print time', hist_material: 'Filament used', hist_none: 'No history yet.',
-            hist_done: 'Finished', hist_incomplete: 'Interrupted'
+            hist_done: 'Finished', hist_incomplete: 'Interrupted',
+            list_empty_ff: 'No Flashforge printer preset with a host. Set the printer preset to use the Flashforge agent and fill in its host.',
+            fan_chamber: 'Chamber fan', speed_fast: 'Fast', tab_ifs: 'Filament (IFS)', play: 'Play',
+            ifs_none: 'No IFS data from the printer.', ifs_ui_original: 'ZMOD + original screen', ifs_hint: 'Select a slot to load its filament; unload frees the nozzle.',
+            ifs_load: 'Load slot', ifs_unload: 'Unload', ifs_unlock: 'Unlock IFS', ifs_load_confirm: 'Load the filament of IFS slot {slot}? The printer heats the nozzle.', ifs_unload_confirm: 'Unload the filament? The printer heats the nozzle.',
+            lw_title: 'lessWaste settings', lw_start_purge: 'Start purge', lw_line_purge: 'Line purge', lw_leveling: 'Leveling', lw_backup: 'Backup', lw_ifs: 'IFS',
+            lw_on: 'On', lw_off: 'Off', lw_tc: 'Type/colour', lw_type: 'Type',
+            lw_preparing: 'Preparing the print (lessWaste)...', lw_no_dialog: 'lessWaste did not open its print dialog. Cancel it on the printer and try again.',
+            lw_no_slot: 'No IFS slot holds filament for {tool}.', lw_old_gcode: 'lessWaste needs a newer Change filament G-code in the slicer profile (file v{v}, needs v{min}).'
         },
         pt: {
             printers: 'Impressoras', add: 'Adicionar', added: 'Adicionada', scan_lan: 'Buscar na rede', scanning: 'Procurando na rede...',
@@ -74,7 +82,15 @@
             search_files: 'Buscar arquivos', print: 'Imprimir', delete: 'Apagar', files_none: 'Nenhum arquivo na impressora.',
             print_confirm: 'Iniciar a impressão de {name}?', delete_confirm: 'Apagar {name} da impressora?',
             hist_jobs: 'Impressões', hist_time: 'Tempo de impressão', hist_material: 'Filamento usado', hist_none: 'Sem histórico ainda.',
-            hist_done: 'Concluída', hist_incomplete: 'Interrompida'
+            hist_done: 'Concluída', hist_incomplete: 'Interrompida',
+            list_empty_ff: 'Nenhum preset de impressora Flashforge com host. Configure o preset para usar o agente Flashforge e preencha o host.',
+            fan_chamber: 'Ventilador da câmara', speed_fast: 'Rápido', tab_ifs: 'Filamento (IFS)', play: 'Assistir',
+            ifs_none: 'Sem dados do IFS na impressora.', ifs_ui_original: 'ZMOD + tela original', ifs_hint: 'Selecione um slot para carregar o filamento; descarregar libera o bico.',
+            ifs_load: 'Carregar slot', ifs_unload: 'Descarregar', ifs_unlock: 'Destravar IFS', ifs_load_confirm: 'Carregar o filamento do slot {slot} do IFS? A impressora aquece o bico.', ifs_unload_confirm: 'Descarregar o filamento? A impressora aquece o bico.',
+            lw_title: 'Ajustes do lessWaste', lw_start_purge: 'Purga inicial', lw_line_purge: 'Linha de purga', lw_leveling: 'Nivelamento', lw_backup: 'Backup', lw_ifs: 'IFS',
+            lw_on: 'Ligado', lw_off: 'Desligado', lw_tc: 'Tipo/cor', lw_type: 'Tipo',
+            lw_preparing: 'Preparando a impressão (lessWaste)...', lw_no_dialog: 'O lessWaste não abriu o diálogo de impressão. Cancele na impressora e tente de novo.',
+            lw_no_slot: 'Nenhum slot do IFS tem filamento para {tool}.', lw_old_gcode: 'O lessWaste exige um G-code de troca de filamento mais novo no perfil do fatiador (arquivo v{v}, exige v{min}).'
         }
     };
 

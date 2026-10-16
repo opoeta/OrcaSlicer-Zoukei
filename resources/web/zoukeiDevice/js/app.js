@@ -45,8 +45,16 @@
 
     Z.Host.on('device_list', data => {
         const first = app.devices.length === 0;
+        const before = app.currentMac;
         app.devices = (data && data.devices) || [];
         if (data && typeof data.current === 'string') app.currentMac = data.current;
+        // Moonraker printers are the printer presets: switching preset moves the screen to that printer
+        if (!first && Z.backend === 'moonraker' && app.currentMac && app.currentMac !== before) {
+            if (app.current) app.back();
+            app.list.setDevices(app.devices);
+            openCurrent();
+            return;
+        }
         app.list.setDevices(app.devices);
         if (first) openCurrent();
         if (app.current) {
@@ -59,6 +67,7 @@
     // The host tells when the Device tab is shown or hidden: no camera or polling while hidden.
     Z.Host.on('panel_visible', visible => {
         if (visible) {
+            if (Z.backend === 'moonraker') Z.Host.send('device_list');   // the selected preset may have changed
             openCurrent();
             if (app.current) app.detail.resume(); else app.list.activate();
         } else {

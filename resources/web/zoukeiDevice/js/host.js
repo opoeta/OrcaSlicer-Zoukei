@@ -9,6 +9,8 @@
     const listeners = {};
     let requestSeq = 0;
 
+    Z.backend = params.get('backend') === 'moonraker' ? 'moonraker' : 'creality';
+
     const Host = {
         // Port of the host's local image relay (printer pictures), 0 when unavailable.
         imagePort: Number(params.get('port')) || 0,

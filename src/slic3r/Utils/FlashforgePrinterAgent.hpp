@@ -137,6 +137,8 @@ private:
     int            handle_ams_setting(const nlohmann::json& cmd);
     void           apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots);
     void           send_zmod_mapping(const PrintParams& params);
+    bool           has_lesswaste(const std::string& base_url, const std::string& api_key) const;
+    bool           start_lesswaste(const PrintParams& params, const std::string& filename, WasCancelledFn cancel_fn, std::string& error);
     int            zmod_job(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, bool start);
 
     // stock

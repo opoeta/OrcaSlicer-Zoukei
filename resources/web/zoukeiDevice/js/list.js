@@ -29,6 +29,7 @@
     }
 
     function createList() {
+        const mr = Z.backend === 'moonraker';
         const peeks = {};              // address -> {online, state, boxes}
         let devices = [];
         let timer = null;
@@ -43,14 +44,14 @@
         ipInput.addEventListener('keydown', e => { if (e.key === 'Enter') addByIp(); });
         const found = h('div.found', { hidden: true });
         const grid = h('div.device-grid');
-        const empty = h('div.list-empty', { hidden: true }, h('p', { text: Z.t('list_empty') }));
+        const empty = h('div.list-empty', { hidden: true }, h('p', { text: Z.t(mr ? 'list_empty_ff' : 'list_empty') }));
 
         const el = h('section.screen.list',
             h('header.topbar',
                 h('h1', { text: Z.t('printers') }),
                 h('div.spacer'),
-                h('div.add-ip', ipInput, addBtn),
-                scanBtn),
+                mr ? null : h('div.add-ip', ipInput, addBtn),
+                mr ? null : scanBtn),
             found, grid, empty);
 
         function addByIp() {
@@ -130,7 +131,7 @@
                 onkeydown: e => { if (e.key === 'Enter') Z.app.open(dev); } },
                 h('div.cover', cover),
                 h('div.info',
-                    h('div.row', h('h2', { text: displayName(dev) }), h('div.spacer'), more, menu),
+                    h('div.row', h('h2', { text: displayName(dev) }), h('div.spacer'), mr ? null : more, mr ? null : menu),
                     h('div.muted', { text: [dev.modelName || dev.model, dev.address].filter(Boolean).join(' · ') }),
                     h('div.row', badge(dev)),
                     cfsChips(p && p.boxes)));
@@ -167,7 +168,7 @@
         // ---- peeking ------------------------------------------------------------------------
         function peekAll() {
             devices.forEach(dev => {
-                Z.peek(dev, 7000).then(result => {
+                (mr ? Z.peekMoonraker : Z.peek)(dev, 7000).then(result => {
                     peeks[dev.address] = result;
                     if (!active) return;
                     const card = cards.get(dev.address);

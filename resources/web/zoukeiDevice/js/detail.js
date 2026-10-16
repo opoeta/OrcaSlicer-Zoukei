@@ -97,8 +97,9 @@
 
         function build(device) {
             dev = device;
-            link = new Z.PrinterLink(dev);
-            camera = new Z.Camera(dev, link);
+            const mr = dev.backend === 'moonraker';
+            link = mr ? new Z.MoonrakerLink(dev) : new Z.PrinterLink(dev);
+            camera = mr ? new Z.MrCamera(dev, link) : new Z.Camera(dev, link);
             const phaseOf = () => Z.derive(link.state);
             const canWrite = () => link.online;       // temperatures etc. are allowed while printing too
             const ctx = { dev: dev, link: link, busy: () => phaseOf().busy, phase: phaseOf };
@@ -146,12 +147,14 @@
 
             const fans = [
                 fanCard({ title: Z.t('fan_model'), key: 'modelFanPct', link: link }),
-                fanCard({ title: Z.t('fan_case'), key: 'caseFanPct', link: link }),
+                fanCard({ title: mr ? Z.t('fan_chamber') : Z.t('fan_case'), key: 'caseFanPct', link: link }),
                 fanCard({ title: Z.t('fan_aux'), key: 'auxiliaryFanPct', link: link })
             ];
 
             // speed
-            const speedModes = [['silent', Z.t('speed_silent')], [50, Z.t('speed_stable') + ' 50%'], [100, Z.t('speed_standard') + ' 100%'], [125, Z.t('speed_ultra') + ' 125%']];
+            const speedModes = mr ?
+                [[50, Z.t('speed_stable') + ' 50%'], [100, Z.t('speed_standard') + ' 100%'], [125, Z.t('speed_fast') + ' 125%'], [150, Z.t('speed_ultra') + ' 150%']] :
+                [['silent', Z.t('speed_silent')], [50, Z.t('speed_stable') + ' 50%'], [100, Z.t('speed_standard') + ' 100%'], [125, Z.t('speed_ultra') + ' 125%']];
             const speedBtns = speedModes.map(m => h('button', { type: 'button', 'data-mode': m[0], onclick: () => link.setSpeed(m[0]) }, m[1]));
             const speed = { el: h('div.card.speed', h('h3', Z.t('speed')), h('div.seg', speedBtns)),
                 update(s) {
@@ -160,7 +163,13 @@
                 } };
 
             // tabs
-            tabs = [
+            tabs = mr ? [
+                { key: 'ifs', label: Z.t('tab_ifs'), page: Z.createIfsTab(ctx) },
+                { key: 'move', label: Z.t('tab_move'), page: Z.createMoveTab(ctx) },
+                { key: 'files', label: Z.t('tab_files'), page: Z.createMrFilesTab(ctx) },
+                { key: 'timelapse', label: Z.t('tab_timelapse'), page: Z.createMrTimelapseTab(ctx) },
+                { key: 'history', label: Z.t('tab_history'), page: Z.createMrHistoryTab(ctx) }
+            ] : [
                 { key: 'cfs', label: Z.t('tab_cfs'), page: Z.createCfsTab(ctx) },
                 { key: 'move', label: Z.t('tab_move'), page: Z.createMoveTab(ctx) },
                 { key: 'files', label: Z.t('tab_files'), page: Z.createFilesTab(ctx) },
@@ -220,7 +229,7 @@
                         [Z.t('remaining'), d.busy ? Z.fmt.duration(left) : '--']].forEach(kv => meta.appendChild(h('div', h('small', { text: kv[0] }), h('b', { text: kv[1] }))));
                 }
                 const showThumb = !!job && (d.busy || d.phase === 'done' || d.phase === 'stopped');
-                const url = showThumb ? Z.Host.imageUrl(dev, '/downloads/original/current_print_image.png', (s.printStartTime || '') + job) : '';
+                const url = !showThumb ? '' : mr ? link.currentThumb() : Z.Host.imageUrl(dev, '/downloads/original/current_print_image.png', (s.printStartTime || '') + job);
                 if (url && thumb.getAttribute('src') !== url) { thumb.hidden = false; thumb.setAttribute('src', url); }
                 if (!url) { thumb.removeAttribute('src'); thumb.hidden = true; }
                 thumb.onerror = () => { thumb.hidden = true; };
@@ -266,8 +275,8 @@
                 while (root.firstChild) root.removeChild(root.firstChild);
             },
             isOpen() { return !!link; },
-            suspend() { if (camera) camera.stop(); },
-            resume() { if (camera && link && link.online) camera.start(); }
+            suspend() { if (camera) camera.stop(); if (link && link.setActive) link.setActive(false); },
+            resume() { if (link && link.setActive) link.setActive(true); if (camera && link && link.online) camera.start(); }
         };
     }
 

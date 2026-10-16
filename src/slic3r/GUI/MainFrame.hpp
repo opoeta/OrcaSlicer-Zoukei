@@ -88,6 +88,7 @@ class DesignPanel;
 class MainFrame;
 class WebViewPanel;
 class CrealityDevicePanel;
+class FlashforgeDevicePanel;
 class ParamsDialog;
 enum class Shortcut : uint8_t;
 struct KeyChord;
@@ -518,6 +519,8 @@ public:
     LazyPage<MonitorPanel>* m_monitor_page{ nullptr };
     // Device tab for Creality printers (Creality Print's own panel), in place of m_monitor_page.
     LazyPage<CrealityDevicePanel>* m_creality_device_page{ nullptr };
+    // Same for Flashforge printers (ZMOD / Moonraker).
+    LazyPage<FlashforgeDevicePanel>* m_flashforge_device_page{ nullptr };
 
     //AuxiliaryPanel*       m_auxiliary{ nullptr };
     LazyPage<MultiMachinePage>* m_multi_machine_page{ nullptr };

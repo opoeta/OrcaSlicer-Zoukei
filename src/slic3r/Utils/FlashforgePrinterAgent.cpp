@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <sstream>
 #include <thread>
 
 namespace Slic3r {
@@ -158,6 +159,35 @@ bool http_get(const std::string& url, const std::string& api_key, std::string& b
         .on_error([](std::string, std::string, unsigned) {})
         .perform_sync();
     return ok;
+}
+
+
+// Runs a G-code script through Moonraker and waits for it (long timeout: lessWaste's MD5 check can take a while).
+bool http_script(const std::string& base_url, const std::string& api_key, const std::string& script, int timeout = 60)
+{
+    bool ok   = false;
+    auto http = Http::post(base_url + "/printer/gcode/script");
+    if (!api_key.empty())
+        http.header("X-Api-Key", api_key);
+    http.header("Content-Type", "application/json")
+        .set_post_body(json{{"script", script}}.dump())
+        .timeout_connect(5)
+        .timeout_max(timeout)
+        .on_complete([&](std::string, unsigned status) { ok = status == 200; })
+        .on_error([](std::string, std::string, unsigned) {})
+        .perform_sync();
+    return ok;
+}
+
+// "1.2.5" -> 10205 for comparing lessWaste versions.
+int version_number(const std::string& v)
+{
+    int parts[3] = {0, 0, 0}, i = 0;
+    std::stringstream ss(v);
+    std::string       item;
+    while (i < 3 && std::getline(ss, item, '.'))
+        parts[i++] = std::atoi(item.c_str());
+    return parts[0] * 10000 + parts[1] * 100 + parts[2];
 }
 
 } // namespace
@@ -597,6 +627,112 @@ void FlashforgePrinterAgent::send_zmod_mapping(const PrintParams& params)
     send_gcode_sync(device_info.dev_id, any ? "_IFS_VARS external=0" : "_IFS_VARS external=1");
 }
 
+// The ZMOD plugin lessWaste (github.com/Hrybmo/lessWaste, based on bambufy) is installed when its start-dialog macros exist.
+bool FlashforgePrinterAgent::has_lesswaste(const std::string& base_url, const std::string& api_key) const
+{
+    std::string body;
+    if (!http_get(base_url + "/printer/objects/list", api_key, body, 8))
+        return false;
+    return body.find("gcode_macro _IFS_COLORS_PRINT") != std::string::npos && body.find("gcode_macro _IFS_VARS\"") != std::string::npos &&
+           body.find("gcode_macro _IFS_COLORS\"") != std::string::npos;
+}
+
+// Starts a print the way lessWaste's own start dialog does, minus the touches on the printer:
+//  1. _ZSDCARD_PRINT_FILE FILENAME=f - lessWaste's entry (MD5 check, tools reset to T0->IFS1.., then its preprint.py reads the
+//     G-code's filament colours / types / feed rates / first-layer box and calls _IFS_COLORS START=1 ..., which fills
+//     _IFS_VARS colors / types / e_feedrates and opens the dialog);
+//  2. wait for that dialog (_IFS_VARS.start == 1);
+//  3. _IFS_VARS tools="[port of T0, ... 16 entries, 5 = unused]" external=0|1 - Orca's mapping replaces the default;
+//  4. check the mapped ports hold filament and the "Change filament G-code" is new enough (the dialog's Print button demands both);
+//  5. _IFS_COLORS_PRINT - the dialog's Print button: closes the prompt and starts the file.
+bool FlashforgePrinterAgent::start_lesswaste(const PrintParams& params, const std::string& filename, WasCancelledFn cancel_fn, std::string& error)
+{
+    const std::string base = device_info.base_url, key = device_info.api_key;
+    auto cancelled = [&] { return cancel_fn && cancel_fn(); };
+
+    int  ports[16];
+    std::fill(std::begin(ports), std::end(ports), 5);
+    bool any = false, external = false;
+    int  used_tools = 0;
+    const json mapping = json::parse(params.ams_mapping_info, nullptr, false);
+    if (mapping.is_array())
+        for (size_t i = 0; i < mapping.size() && i < 16; ++i) {
+            const json& item = mapping[i];
+            const int   tray = item.is_object() && item.contains("ams") && item["ams"].is_number_integer() ? item["ams"].get<int>() : -1;
+            if (tray >= 0 && tray <= 3) {
+                ports[i] = tray + 1;
+                any      = true;
+                ++used_tools;
+            } else if (tray == 254 || tray == 255) {
+                external = true;
+            }
+        }
+
+    http_script(base, key, "SET_GCODE_VARIABLE MACRO=_IFS_VARS VARIABLE=start VALUE=0"); // a cancelled earlier dialog leaves it at 1
+    http_script(base, key, "_ZSDCARD_PRINT_FILE FILENAME=" + filename, 120); // the MD5 check can outlast the request: the dialog below is what counts
+    std::string body;
+    json        vars, colors;
+    bool        dialog = false;
+    for (int i = 0; i < 150 && !dialog; ++i) { // preprint.py scans the whole G-code: seconds for a big file
+        if (cancelled())
+            return false;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (!http_get(base + "/printer/objects/query?gcode_macro%20_IFS_VARS&gcode_macro%20_IFS_COLORS", key, body, 6))
+            continue;
+        const json st = json::parse(body, nullptr, false);
+        if (!st.is_object() || !st.contains("result"))
+            continue;
+        vars   = st["result"]["status"].value("gcode_macro _IFS_VARS", json::object());
+        colors = st["result"]["status"].value("gcode_macro _IFS_COLORS", json::object());
+        dialog = num(vars, "start") == 1. && str(colors, "filename") == filename;
+    }
+    if (!dialog) {
+        error = "lessWaste did not open its print dialog for " + filename + " (cancel it on the printer and try again)";
+        return false;
+    }
+
+    if (any) {
+        std::string tools = "_IFS_VARS tools=\"[";
+        for (int i = 0; i < 16; ++i)
+            tools += (i ? "," : "") + std::to_string(ports[i]);
+        tools += "]\"";
+        if (!http_script(base, key, tools) || !http_script(base, key, "_IFS_VARS external=0")) {
+            error = "could not set the tool-to-IFS mapping";
+            return false;
+        }
+    } else if (external && !http_script(base, key, "_IFS_VARS external=1")) {
+        error = "could not switch the IFS off";
+        return false;
+    }
+
+    // What the dialog's Print button checks.
+    if (used_tools > 1 && version_number(str(colors, "version")) < version_number(str(vars, "min_version"))) {
+        error = "lessWaste needs a newer 'Change filament G-code' in the slicer profile (this file has v" + str(colors, "version") + ", needs v" + str(vars, "min_version") + ")";
+        http_script(base, key, "_IFS_COLORS_CANCEL");
+        return false;
+    }
+    if (any && http_get(base + "/printer/objects/query?filament_switch_sensor%20_ifs_port_sensor_1&filament_switch_sensor%20_ifs_port_sensor_2&filament_switch_sensor%20_ifs_port_sensor_3&filament_switch_sensor%20_ifs_port_sensor_4", key, body, 6)) {
+        const json st = json::parse(body, nullptr, false);
+        if (st.is_object() && st.contains("result"))
+            for (int port = 1; port <= 4; ++port) {
+                bool wanted = false;
+                for (int i = 0; i < 16; ++i)
+                    wanted = wanted || ports[i] == port;
+                const json sensor = st["result"]["status"].value("filament_switch_sensor _ifs_port_sensor_" + std::to_string(port), json::object());
+                if (wanted && sensor.contains("filament_detected") && sensor["filament_detected"].is_boolean() && !sensor["filament_detected"].get<bool>()) {
+                    error = "IFS slot " + std::to_string(port) + " has no filament";
+                    http_script(base, key, "_IFS_COLORS_CANCEL");
+                    return false;
+                }
+            }
+    }
+    if (!http_script(base, key, "_IFS_COLORS_PRINT", 30)) {
+        error = "the printer did not accept the print command";
+        return false;
+    }
+    return true;
+}
+
 // Upload every file through Moonraker; with `start` the first one is printed (ZMOD asks for the colours on the printer).
 int FlashforgePrinterAgent::zmod_job(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, bool start)
 {
@@ -627,9 +763,15 @@ int FlashforgePrinterAgent::zmod_job(PrintParams params, OnUpdateStatusFn update
     }
     if (start) {
         report(PrintingStageSending, 0, "");
-        send_zmod_mapping(params);
-        if (!send_gcode_sync(device_info.dev_id, "SDCARD_PRINT_FILE FILENAME=" + files.front().name))
-            return fail("the printer did not accept the print command", BAMBU_NETWORK_ERR_PRINT_LP_PUBLISH_MSG_FAILED);
+        std::string lw_error;
+        if (has_lesswaste(device_info.base_url, device_info.api_key)) {
+            if (!start_lesswaste(params, files.front().name, cancel_fn, lw_error))
+                return cancel_fn && cancel_fn() ? BAMBU_NETWORK_ERR_CANCELED : fail(lw_error, BAMBU_NETWORK_ERR_PRINT_LP_PUBLISH_MSG_FAILED);
+        } else {
+            send_zmod_mapping(params);
+            if (!send_gcode_sync(device_info.dev_id, "SDCARD_PRINT_FILE FILENAME=" + files.front().name))
+                return fail("the printer did not accept the print command", BAMBU_NETWORK_ERR_PRINT_LP_PUBLISH_MSG_FAILED);
+        }
     }
     report(PrintingStageFinished, 0, "3");
     return BAMBU_NETWORK_SUCCESS;

@@ -303,3 +303,14 @@ dl.kv dt { color: var(--muted); } dl.kv dd { margin: 0; }
 .cam-full-btn { right: 38px; }
 .cam-full { position: fixed; inset: 0; z-index: 60; aspect-ratio: auto; border-radius: 0; }
 .cam:fullscreen { aspect-ratio: auto; border-radius: 0; }
+
+/* ---- IFS (Moonraker printers): 4 slots as 2x2 like the printer, lessWaste summary ------------------------ */
+.ifs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 150px)); gap: 10px; justify-content: center; }
+.ifs-slot { width: auto; padding: 10px 6px 10px; border: 1px solid var(--line); background: var(--panel); }
+.ifs-slot .sub { max-width: 130px; }
+.dots { display: inline-flex; gap: 3px; margin-top: 3px; }
+.lw { margin-top: 16px; }
+.lw-title { margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+.lw-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.lw-grid .tile { min-width: 100px; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }

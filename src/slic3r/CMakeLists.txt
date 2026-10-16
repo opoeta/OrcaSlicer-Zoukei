@@ -73,6 +73,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp
     GUI/CrealityDevicePanel.hpp
+    GUI/FlashforgeDevicePanel.cpp
+    GUI/FlashforgeDevicePanel.hpp
     GUI/CrealityDevice/DeviceStore.cpp
     GUI/CrealityDevice/DeviceStore.hpp
     GUI/CrealityDevice/ImageServer.hpp
