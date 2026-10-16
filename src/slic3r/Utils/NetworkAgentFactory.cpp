@@ -11,6 +11,7 @@
 #include "slic3r/plugin/pluginTypes/printerAgent/PrinterAgentPluginCapability.hpp"
 #include "CrealityPrintAgent.hpp"
 #include "CrealityCfsAgent.hpp"
+#include "FlashforgePrinterAgent.hpp"
 #include <algorithm>
 #include <boost/log/trivial.hpp>
 #include <chrono>
@@ -188,6 +189,7 @@ void NetworkAgentFactory::register_all_agents()
     register_agent<CrealityPrintAgent>();  // Must come BEFORE MoonrakerPrinterAgent —
                                             // CrealityPrintAgent extends Moonraker behaviour
                                             // for K-series boards with CFS support.
+    register_agent<FlashforgePrinterAgent>(); // extends the Moonraker agent (ZMOD) and adds the stock-firmware API
     register_agent<MoonrakerPrinterAgent>();
 
     // Keep BBL as a built-in option. Python printer-agent plugins with the
