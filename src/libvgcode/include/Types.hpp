@@ -64,6 +64,17 @@ using Color = std::array<uint8_t, 3>;
 using Palette = std::vector<Color>;
 
 //
+// Orca Zoukei: multi-colour filament of a tool. Coextruded (side by side) colours are picked per segment from
+// its travel direction; a gradient (rainbow spool) cycles through the colours every cycle_m metres of filament.
+//
+struct ToolMultiColor
+{
+    std::vector<Color> colors;
+    bool gradient{ false };
+    float cycle_m{ 0.0f }; // 0 = default (50 m)
+};
+
+//
 // Axis aligned box in 3 dimensions
 // [0] -> { min_x, min_y, min_z }
 // [1] -> { max_x, max_y, max_z }

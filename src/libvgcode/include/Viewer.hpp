@@ -184,6 +184,10 @@ public:
     //
     void set_tool_colors(const Palette& colors);
     //
+    // Orca Zoukei: multi-colour filaments, indexed by extruder id (entries with less than two colours are solid).
+    //
+    void set_tool_multi_colors(const std::vector<ToolMultiColor>& multi);
+    //
     // Return the count of colors in the palette used to render
     // the toolpaths when the view type is EViewType::ColorPrint.
     //

@@ -1400,7 +1400,10 @@ void ViewerImpl::update_colors()
     // the "normal" color on every slider move.
     for (size_t i = 0; i < m_vertices.size(); ++i)
         m_vertices_colors[i] = encode_color(get_vertex_color(m_vertices[i]));
-    
+
+    if (m_settings.view_type == EViewType::Tool && !m_tool_multi.empty())
+        apply_tool_multi_colors();
+
     update_colors_texture();
     m_settings.update_colors = false;
 }
@@ -1726,6 +1729,63 @@ void ViewerImpl::set_tool_colors(const Palette& colors)
 {
     m_tool_colors = colors;
     m_settings.update_colors = true;
+}
+
+void ViewerImpl::set_tool_multi_colors(const std::vector<ToolMultiColor>& multi)
+{
+    bool any_old = false, any_new = false;
+    for (const ToolMultiColor& t : m_tool_multi) any_old |= t.colors.size() > 1;
+    for (const ToolMultiColor& t : multi) any_new |= t.colors.size() > 1;
+    const bool same = m_tool_multi.size() == multi.size() &&
+        std::equal(m_tool_multi.begin(), m_tool_multi.end(), multi.begin(), [](const ToolMultiColor& a, const ToolMultiColor& b) {
+            return a.colors == b.colors && a.gradient == b.gradient && a.cycle_m == b.cycle_m; });
+    if (same || (!any_old && !any_new))
+        return;
+    m_tool_multi = multi;
+    m_settings.update_colors = true;
+}
+
+// Orca Zoukei: coextruded / gradient filaments in the "Filament" (tool) view. CPU only, one pass over the
+// vertices while the colour buffer is rebuilt, so rendering costs nothing extra.
+void ViewerImpl::apply_tool_multi_colors()
+{
+    constexpr float filament_area = 2.405f; // mm2 of 1.75 mm filament
+    std::vector<float> used_mm(m_tool_multi.size(), 0.0f);
+    for (size_t i = 1; i < m_vertices.size(); ++i) {
+        const PathVertex& v = m_vertices[i];
+        if (!v.is_extrusion() || size_t(v.extruder_id) >= m_tool_multi.size())
+            continue;
+        const ToolMultiColor& tm = m_tool_multi[v.extruder_id];
+        const size_t n = tm.colors.size();
+        if (n < 2)
+            continue;
+        const PathVertex& p = m_vertices[i - 1];
+        const float dx = v.position[0] - p.position[0];
+        const float dy = v.position[1] - p.position[1];
+        const float dz = v.position[2] - p.position[2];
+        const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+        Color c = tm.colors[0];
+        if (tm.gradient) {
+            const float seg_mm = v.mm3_per_mm * len / filament_area;
+            float& used = used_mm[v.extruder_id];
+            const float cycle = tm.cycle_m > 0.0f ? tm.cycle_m : 50.0f;
+            const float t = (used + 0.5f * seg_mm) * 0.001f / cycle;
+            const float x = (t - std::floor(t)) * float(n);
+            const size_t i0 = std::min(size_t(x), n - 1);
+            const float f = x - float(i0);
+            const Color& a = tm.colors[i0];
+            const Color& b = tm.colors[(i0 + 1) % n];
+            for (int k = 0; k < 3; ++k)
+                c[k] = static_cast<uint8_t>(float(a[k]) + (float(b[k]) - float(a[k])) * f + 0.5f);
+            used += seg_mm;
+        }
+        else if (dx != 0.0f || dy != 0.0f) {
+            // The nozzle does not rotate: the colour facing outward depends on the travel direction.
+            const float u = (std::atan2(dy, dx) + 3.14159265f) / 6.2831853f;
+            c = tm.colors[std::min(size_t(u * float(n)), n - 1)];
+        }
+        m_vertices_colors[i] = encode_color(c);
+    }
 }
 
 void ViewerImpl::set_color_print_colors(const Palette& colors)

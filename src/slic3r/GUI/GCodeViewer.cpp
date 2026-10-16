@@ -1402,6 +1402,26 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     if (current_top_layer_only != required_top_layer_only)
         m_viewer.toggle_top_layer_only_view_range();
 
+    // Orca Zoukei: dual/tri/quad (coextruded) and gradient filaments in the filament view
+    {
+        std::vector<libvgcode::ToolMultiColor> multi;
+        const auto& pc = wxGetApp().preset_bundle->project_config;
+        const auto* mc = pc.option<ConfigOptionStrings>("filament_multi_colour");
+        const auto* ty = pc.option<ConfigOptionStrings>("filament_colour_type");
+        const auto* gl = pc.option<ConfigOptionFloats>("filament_gradient_length");
+        if (mc != nullptr)
+            for (size_t i = 0; i < mc->values.size(); ++i) {
+                libvgcode::ToolMultiColor t;
+                std::istringstream is(mc->values[i]);
+                for (std::string c; is >> c && t.colors.size() < 4;)
+                    t.colors.emplace_back(libvgcode::convert(c));
+                t.gradient = ty != nullptr && i < ty->values.size() && ty->values[i] == "0";
+                t.cycle_m  = gl != nullptr && i < gl->values.size() ? float(gl->values[i]) : 0.0f;
+                multi.emplace_back(std::move(t));
+            }
+        m_viewer.set_tool_multi_colors(multi);
+    }
+
     // ORCA: darken the layers the preview layer slider is not scrubbed to
     m_viewer.set_dim_previous_layers(get_app_config()->get_bool("preview_dim_previous_layers"));
     m_viewer.set_dim_previous_layers_brightness(0.01f * std::stoi(get_app_config()->get("preview_dim_previous_layers_brightness")));

@@ -186,6 +186,7 @@ public:
     size_t get_tool_colors_count() const { return m_tool_colors.size(); }
     const Palette& get_tool_colors() const { return m_tool_colors; }
     void set_tool_colors(const Palette& colors);
+    void set_tool_multi_colors(const std::vector<ToolMultiColor>& multi);
 
     size_t get_color_print_colors_count() const { return m_color_print_colors.size(); }
     const Palette& get_color_print_colors() const { return m_color_print_colors; }
@@ -352,6 +353,8 @@ private:
         ColorRange(EColorRangeType::Linear), ColorRange(EColorRangeType::Logarithmic)
     };
     Palette m_tool_colors;
+    std::vector<ToolMultiColor> m_tool_multi;
+    void apply_tool_multi_colors();
     Palette m_color_print_colors;
     //
     // OpenGL shaders ids
