@@ -125,6 +125,9 @@ static std::vector<std::string> s_project_options {
     "filament_colour",
     "filament_colour_type",
     "filament_multi_colour",
+    // Creality CFS slot choice per filament (see CrealityCfsUi); not slicing relevant, so it is
+    // deliberately absent from s_project_options_published.
+    "filament_cfs_slot",
     "wipe_tower_x",
     "wipe_tower_y",
     "curr_bed_type",
@@ -547,6 +550,7 @@ PresetBundle::PresetBundle()
     this->printers.select_preset(0);
 
     this->project_config.apply_only(FullPrintConfig::defaults(), s_project_options);
+    this->project_config.set_key_value("filament_cfs_slot", new ConfigOptionStrings{""});
 }
 
 bool PresetBundle::resolve_preset_config(DynamicPrintConfig &config, Preset::Type type,
@@ -4017,6 +4021,8 @@ void PresetBundle::set_num_filaments(unsigned int n, std::string new_color)
         filament_multi_color->values[i] = filament_color->values[i];
     }
     filament_color_type->resize(n);
+    if (auto *cfs_slot = project_config.option<ConfigOptionStrings>("filament_cfs_slot"))
+        cfs_slot->values.resize(n);
     filament_map->values.resize(n, 1);
     filament_nozzle_map->values.resize(n, 0);
     filament_volume_map->values.resize(n, static_cast<int>(NozzleVolumeType::nvtStandard));
@@ -4092,6 +4098,8 @@ void PresetBundle::update_num_filaments(unsigned int to_del_flament_id)
 
     erase_or_resize(filament_multi_color->values);
     erase_or_resize(filament_color_type->values);
+    if (auto *cfs_slot = project_config.option<ConfigOptionStrings>("filament_cfs_slot"))
+        erase_or_resize(cfs_slot->values);
     erase_or_resize(ams_multi_color_filment);
 
     // Mixed-color metadata. Component IDs reference other slots by 1-based index, so a deleted
@@ -5991,6 +5999,9 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
 
         // Load the project config values. In published mode only the plate/bed geometry keys
         // cross over (the receiver must not inherit the author's filament/purge data).
+        // An older project (or a published one) carries no CFS slot choices: do not keep the previous project's.
+        if (is_published || !config.has("filament_cfs_slot"))
+            this->project_config.set_key_value("filament_cfs_slot", new ConfigOptionStrings{""});
         this->project_config.apply_only(config, is_published ? s_project_options_published : s_project_options);
         // Older projects inherit one-element mixed defaults, regardless of their filament count.
         if (!is_published)

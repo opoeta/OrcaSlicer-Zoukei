@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -26,8 +27,6 @@ using namespace CrealityCfs;
 namespace {
 
 std::set<Badge*>                   s_badges;
-std::map<int, std::pair<int, int>> s_map; // explicit choices for the current project
-std::string                        s_map_project{"?"};
 
 PrinterSnapshot snapshot()
 {
@@ -46,39 +45,78 @@ PrinterSnapshot snapshot()
     return client ? client->snapshot() : PrinterSnapshot{};
 }
 
-std::string project_key()
+// Explicit slot choices live in the project config (option filament_cfs_slot, one "box:slot" string per
+// filament, empty = automatic), so they are saved in the 3MF. Slicing never reads this option.
+ConfigOptionStrings* cfs_option(bool create)
 {
-    std::string name;
-    if (wxGetApp().plater() != nullptr)
-        name = wxGetApp().plater()->get_project_filename().ToUTF8().data();
-    return std::to_string(std::hash<std::string>{}(name));
+    PresetBundle* b = wxGetApp().preset_bundle;
+    return b == nullptr ? nullptr : b->project_config.option<ConfigOptionStrings>("filament_cfs_slot", create);
 }
 
-void load_map()
+std::optional<std::pair<int, int>> parse_slot(const std::string& text)
 {
-    const std::string key = project_key();
-    if (key == s_map_project)
+    int b = 0, s = 0;
+    char sep = 0;
+    std::istringstream ss(text);
+    if (ss >> b >> sep >> s && sep == ':')
+        return std::make_pair(b, s);
+    return std::nullopt;
+}
+
+// Old versions kept the choices in the app config, keyed by a hash of the project file name.
+// Move them into the project the first time it is looked at, then forget the old entry.
+void migrate_legacy_map()
+{
+    static std::string migrated{"?"};
+    std::string        name;
+    if (wxGetApp().plater() != nullptr)
+        name = wxGetApp().plater()->get_project_filename().ToUTF8().data();
+    const std::string key = std::to_string(std::hash<std::string>{}(name));
+    if (key == migrated)
         return;
-    s_map_project = key;
-    s_map.clear();
-    // "idx:box:slot," triples
-    std::string text = wxGetApp().app_config->get("creality_cfs_map", key);
+    migrated = key;
+    AppConfig* cfg = wxGetApp().app_config;
+    if (cfg == nullptr)
+        return;
+    std::string text = cfg->get("creality_cfs_map", key);
+    if (text.empty())
+        return;
+    if (auto* opt = cfs_option(false); opt != nullptr && std::any_of(opt->values.begin(), opt->values.end(), [](const std::string& v) { return !v.empty(); }))
+        return; // the project already has its own mapping
     std::replace(text.begin(), text.end(), ':', ' ');
     std::replace(text.begin(), text.end(), ',', ' ');
     std::istringstream ss(text);
     int i, b, s;
-    while (ss >> i >> b >> s)
-        s_map[i] = {b, s};
+    ConfigOptionStrings* opt = cfs_option(true);
+    while (opt != nullptr && ss >> i >> b >> s)
+        if (i >= 0 && i < 64) {
+            if (opt->values.size() <= size_t(i))
+                opt->values.resize(size_t(i) + 1);
+            opt->values[i] = std::to_string(b) + ":" + std::to_string(s);
+        }
+    cfg->erase("creality_cfs_map", key);
+}
+
+std::optional<std::pair<int, int>> chosen_slot(int idx)
+{
+    migrate_legacy_map();
+    const auto* opt = cfs_option(false);
+    if (opt == nullptr || idx < 0 || size_t(idx) >= opt->values.size())
+        return std::nullopt;
+    return parse_slot(opt->values[idx]);
 }
 
 void set_slot(int idx, int box, int slot)
 {
-    load_map();
-    s_map[idx] = {box, slot};
-    std::ostringstream ss;
-    for (auto& [i, p] : s_map)
-        ss << i << ':' << p.first << ':' << p.second << ',';
-    wxGetApp().app_config->set("creality_cfs_map", s_map_project, ss.str());
+    migrate_legacy_map();
+    ConfigOptionStrings* opt = cfs_option(true);
+    if (opt == nullptr || idx < 0)
+        return;
+    if (opt->values.size() <= size_t(idx))
+        opt->values.resize(size_t(idx) + 1);
+    opt->values[idx] = std::to_string(box) + ":" + std::to_string(slot);
+    if (wxGetApp().plater() != nullptr)
+        wxGetApp().plater()->set_plater_dirty(true);
 }
 
 struct Entry
@@ -133,10 +171,9 @@ wxString label_of(int idx, const std::vector<Entry>& es, const Entry** found = n
     if (es.empty() || b == nullptr)
         return "-";
     const Entry* e = nullptr;
-    load_map();
-    if (auto it = s_map.find(idx); it != s_map.end()) {
+    if (const auto chosen = chosen_slot(idx)) {
         for (const Entry& x : es)
-            if (x.box == it->second.first && x.slot == it->second.second) {
+            if (x.box == chosen->first && x.slot == chosen->second) {
                 e = &x;
                 break;
             }

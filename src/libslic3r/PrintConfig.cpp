@@ -3040,6 +3040,11 @@ void PrintConfigDef::init_fff_params()
     def = this->add("filament_multi_colour", coStrings);
     def->set_default_value(new ConfigOptionStrings{""});
 
+    // Creality CFS: explicit "box:slot" choice per filament ("" = automatic). Project-level only: stored in the
+    // 3MF project settings, never read by the slicing pipeline or written into the G-code.
+    def = this->add("filament_cfs_slot", coStrings);
+    def->set_default_value(new ConfigOptionStrings{""});
+
     // 0: gradient color, 1: default color(single or multi color)
     def = this->add("filament_colour_type", coStrings);
     def->set_default_value(new ConfigOptionStrings{"1"}); // Init as default color
