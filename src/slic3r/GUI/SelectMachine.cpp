@@ -7071,14 +7071,8 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
         m_checkbox_list[key]->Hide();
     m_timelapse_folder_btn->Hide();
     m_timelapse_storage.clear();
-    // The timelapse of a Creality print is part of the sliced G-code: show what the plate was sliced with.
-    const DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config();
-    const ConfigOption*      timelapse = cfg.option("timelapse_type");
-    PrintOption*             tl        = m_checkbox_list["timelapse"];
-    tl->Show();
-    tl->enable(false);
-    tl->setValue(timelapse != nullptr && timelapse->getInt() != 0 ? "on" : "off");
-    tl->update_tooltip(_L("The timelapse of a Creality print is part of the sliced G-code. Change it in the process settings and slice again."));
+    // Creality printers record the timelapse on their own (set on the printer's panel), so there is nothing to choose here.
+    m_checkbox_list["timelapse"]->Hide();
     m_checkbox_list["self_test"]->Show();
     m_checkbox_list["filament_src"]->Show();
     m_checkbox_list["all_plates"]->Show(m_plater->get_partplate_list().get_plate_count() > 1);
