@@ -195,6 +195,7 @@ wxString DevAms::GetDisplayName() const
     }
 
     int loc = (num_id > 127) ? (num_id - 127) : (num_id + 1);
+    if (GUI::is_creality_printer_selected()) return wxString::Format("CFS %d", loc);
     return wxString::Format(ams_display_format, loc);
 }
 

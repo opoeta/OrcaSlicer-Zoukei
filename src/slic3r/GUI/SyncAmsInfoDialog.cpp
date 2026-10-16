@@ -139,7 +139,7 @@ bool SyncAmsInfoDialog::Show(bool show)
     if (dirty_filament) {
         m_two_thumbnail_panel->Hide();
          m_confirm_title->Show();
-         m_confirm_title->SetLabel(_L("Synchronizing AMS filaments will discard your modified but unsaved filament presets.\nAre you sure you want to continue?"));
+         m_confirm_title->SetLabel(creality_localize(_L("Synchronizing AMS filaments will discard your modified but unsaved filament presets.\nAre you sure you want to continue?")));
     } else if (!m_check_dirty_fialment) {
         show_color_panel(true);
         m_filament_left_panel->Show(false); // empty_project
@@ -681,7 +681,7 @@ void SyncAmsInfoDialog::updata_ui_when_priner_not_same() {
 }
 
 SyncAmsInfoDialog::SyncAmsInfoDialog(wxWindow *parent, SyncInfo &info) :
-    DPIDialog(static_cast<wxWindow *>(wxGetApp().mainframe), wxID_ANY, _L("Synchronize AMS Filament Information"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
+    DPIDialog(static_cast<wxWindow *>(wxGetApp().mainframe), wxID_ANY, creality_localize(_L("Synchronize AMS Filament Information")), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
     , m_input_info(info)
     , m_mapping_popup(AmsMapingPopup(this,true))
     , m_mapping_tip_popup(AmsMapingTipPopup(this))
@@ -933,7 +933,7 @@ SyncAmsInfoDialog::SyncAmsInfoDialog(wxWindow *parent, SyncInfo &info) :
         new PrintOption(m_options_other, _L("Nozzle Offset Calibration"),
                         _L("Calibrate nozzle offsets to enhance print quality.\n*Automatic mode: Check for calibration before printing; skip if unnecessary."), ops_auto);
 
-    auto option_use_ams = new PrintOption(m_options_other, _L("Use AMS"), wxEmptyString, ops_no_auto);
+    auto option_use_ams = new PrintOption(m_options_other, creality_localize(_L("Use AMS")), wxEmptyString, ops_no_auto);
 
     option_use_ams->setValue("on");
     m_sizer_options_timelapse->Add(option_timelapse, 0, wxEXPAND  | wxBOTTOM, FromDIP(5));
@@ -969,7 +969,7 @@ SyncAmsInfoDialog::SyncAmsInfoDialog(wxWindow *parent, SyncInfo &info) :
         m_attention_text->SetFont(::Label::Head_14);
         m_attention_text->SetForegroundColour(StateColor::darkModeColorFor(wxColour("#009688"))); // ORCA match label colors
         tip_sizer->Add(m_attention_text, 0, wxALIGN_LEFT | wxTOP, FromDIP(2));
-        m_tip_attention_color_map = _L("Only synchronize filament type and color, not including AMS slot information.");
+        m_tip_attention_color_map = creality_localize(_L("Only synchronize filament type and color, not including AMS slot information."));
         m_tip_attention_override  = _L("Replace the project filaments list sequentially based on printer filaments. And unused printer filaments will be automatically added to the end of the list.");
         m_tip_text = new Label(m_scrolledWindow, m_tip_attention_color_map, LB_AUTO_WRAP);
         m_tip_text->SetMinSize(wxSize(SyncAttentionTipWidth, -1));
@@ -1013,7 +1013,7 @@ SyncAmsInfoDialog::SyncAmsInfoDialog(wxWindow *parent, SyncInfo &info) :
         m_append_color_checkbox->Hide();
         m_append_color_sizer->Add(m_append_color_checkbox, 0, wxALIGN_LEFT | wxTOP, FromDIP(4));
         const int gap_between_checebox_and_text = 2;
-        m_append_color_text                     = new Label(m_scrolledWindow, _L("Add unused AMS filaments to filaments list."));
+        m_append_color_text                     = new Label(m_scrolledWindow, creality_localize(_L("Add unused AMS filaments to filaments list.")));
         m_append_color_text->SetForegroundColour(StateColor::darkModeColorFor(wxColour("#363636"))); // ORCA match label colors
         m_append_color_text->Hide();
         m_append_color_sizer->AddSpacer(FromDIP(gap_between_checebox_and_text));
@@ -1363,20 +1363,20 @@ void SyncAmsInfoDialog::deal_only_exist_ext_spool(MachineObject *obj_) {
         return;
     if (!m_append_color_text) { return; }
     bool only_exist_ext_spool_flag = m_only_exist_ext_spool_flag = !obj_->GetFilaSystem()->HasAms();
-    SetTitle(only_exist_ext_spool_flag ? _L("Synchronize Filament Information") : _L("Synchronize AMS Filament Information"));
+    SetTitle(only_exist_ext_spool_flag ? _L("Synchronize Filament Information") : creality_localize(_L("Synchronize AMS Filament Information")));
     m_append_color_text->SetLabel(only_exist_ext_spool_flag ? _L("Add unused filaments to filaments list.") :
-                                                              _L("Add unused AMS filaments to filaments list."));
+                                                              creality_localize(_L("Add unused AMS filaments to filaments list.")));
     if (m_map_mode == MapModeEnum::ColorMap) {
         m_tip_attention_color_map = only_exist_ext_spool_flag ? _L("Only synchronize filament type and color, not including slot information.") :
-                                                                _L("Only synchronize filament type and color, not including AMS slot information.");
+                                                                creality_localize(_L("Only synchronize filament type and color, not including AMS slot information."));
         m_tip_text->SetLabel(m_tip_attention_color_map);
 
     }
     if (m_ams_or_ext_text_in_colormap) {
-        m_ams_or_ext_text_in_colormap->SetLabel((only_exist_ext_spool_flag ? _L("Ext spool") : _L("AMS")) + ":");
+        m_ams_or_ext_text_in_colormap->SetLabel((only_exist_ext_spool_flag ? _L("Ext spool") : creality_localize(_L("AMS"))) + ":");
     }
     if (m_ams_or_ext_text_in_override) {
-        m_ams_or_ext_text_in_override->SetLabel((only_exist_ext_spool_flag ? _L("Ext spool") : _L("AMS")) + ":");
+        m_ams_or_ext_text_in_override->SetLabel((only_exist_ext_spool_flag ? _L("Ext spool") : creality_localize(_L("AMS"))) + ":");
     }
 }
 
@@ -1803,7 +1803,7 @@ void SyncAmsInfoDialog::show_status(PrintDialogStatus status, std::vector<wxStri
     } else if (status == PrintDialogStatus::PrintStatusAmsMappingInvalid) {
         update_print_status_msg(wxEmptyString, true, false);
     } else if (status == PrintDialogStatus::PrintStatusAmsMappingMixInvalid) {
-        wxString msg_text = _L("Please do not mix-use the Ext with AMS.");
+        wxString msg_text = creality_localize(_L("Please do not mix-use the Ext with AMS."));
         update_print_status_msg(msg_text, true, false);
     } else if (status == PrintDialogStatus::PrintStatusNozzleDataInvalid) {
         wxString msg_text = _L("Invalid nozzle information, please refresh or manually set nozzle information.");
@@ -1814,10 +1814,10 @@ void SyncAmsInfoDialog::show_status(PrintDialogStatus status, std::vector<wxStri
     } else if (status == PrintDialogStatus::PrintStatusAmsMappingU0Invalid) {
         wxString msg_text;
         if (params.size() > 1)
-            msg_text = wxString::Format(_L("Filament %s does not match the filament in AMS slot %s. Please update the printer firmware to support AMS slot assignment."),
+            msg_text = wxString::Format(creality_localize(_L("Filament %s does not match the filament in AMS slot %s. Please update the printer firmware to support AMS slot assignment.")),
                                         params[0], params[1]);
         else
-            msg_text = _L("Filament does not match the filament in AMS slot. Please update the printer firmware to support AMS slot assignment.");
+            msg_text = creality_localize(_L("Filament does not match the filament in AMS slot. Please update the printer firmware to support AMS slot assignment."));
     } else if (status == PrintDialogStatus::PrintStatusRefreshingMachineList) {
         update_print_status_msg(wxEmptyString, false, true);
     } else if (status == PrintDialogStatus::PrintStatusSending) {
@@ -1891,7 +1891,7 @@ void SyncAmsInfoDialog::show_status(PrintDialogStatus status, std::vector<wxStri
         }
         update_print_status_msg(msg_text, true, true);
     } else if (status == PrintStatusMixAmsAndVtSlotWarning) {
-        wxString msg_text = _L("You selected external and AMS filament at the same time in an extruder, you will need manually change external filament.");
+        wxString msg_text = creality_localize(_L("You selected external and AMS filament at the same time in an extruder, you will need manually change external filament."));
         update_print_status_msg(msg_text, true, false);
     }
 
@@ -2677,7 +2677,7 @@ void SyncAmsInfoDialog::reset_and_sync_ams_list()
                 ams_tip_sizer->Add(m_original_in_colormap, 0, wxALIGN_LEFT | wxTOP, FromDIP(6));
 
                 if (!m_ams_or_ext_text_in_colormap) {
-                    m_ams_or_ext_text_in_colormap = new wxStaticText(m_filament_panel, wxID_ANY, _L("AMS") + ":");
+                    m_ams_or_ext_text_in_colormap = new wxStaticText(m_filament_panel, wxID_ANY, creality_localize(_L("AMS")) + ":");
                     m_ams_or_ext_text_in_colormap->SetForegroundColour(StateColor::darkModeColorFor(wxColour("#363636"))); // ORCA match label colors
                     m_ams_or_ext_text_in_colormap->SetFont(::Label::Head_12);
                 }
@@ -2901,7 +2901,7 @@ void SyncAmsInfoDialog::generate_override_fix_ams_list()
                 ams_tip_sizer->Add(m_original_in_override, 0, wxALIGN_LEFT | wxTOP, FromDIP(6));
 
                 if (!m_ams_or_ext_text_in_override) {
-                    auto text = (m_only_exist_ext_spool_flag ? _L("Ext spool") : _L("AMS")) + ":";
+                    auto text = (m_only_exist_ext_spool_flag ? _L("Ext spool") : creality_localize(_L("AMS"))) + ":";
                     m_ams_or_ext_text_in_override = new wxStaticText(m_fix_filament_panel, wxID_ANY, text);
                     m_ams_or_ext_text_in_override->SetForegroundColour(StateColor::darkModeColorFor(wxColour("#363636"))); // ORCA match label colors
                     m_ams_or_ext_text_in_override->SetFont(::Label::Head_12);
@@ -3312,7 +3312,7 @@ SyncNozzleAndAmsDialog::SyncNozzleAndAmsDialog(InputInfo &input_info)
                               90,
                               (
                               wxGetApp().preset_bundle->get_printer_extruder_count() == 1 ? _L("Successfully synchronized nozzle information.") :
-                                                                                            _L("Successfully synchronized nozzle and AMS number information.")
+                                                                                            creality_localize(_L("Successfully synchronized nozzle and AMS number information."))
                               ) + "\n\n" + _L("Do you want to continue to sync filaments?"),
                               _L("Yes"), // ORCA use shorter text for buttons
                               _L_CONTEXT(L_CONTEXT(_L("No"), "Sync_Nozzle_AMS"), "Sync_Nozzle_AMS"),

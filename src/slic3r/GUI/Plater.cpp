@@ -2836,7 +2836,7 @@ Sidebar::Sidebar(Plater *parent)
 
         // ORCA use sync button on titlebar
         p->m_printer_bbl_sync = new ScalableButton(p->m_panel_printer_title, wxID_ANY, "printer_sync_not");
-        p->m_printer_bbl_sync->SetToolTip(_L("Synchronize nozzle information and the number of AMS"));
+        p->m_printer_bbl_sync->SetToolTip(creality_localize(_L("Synchronize nozzle information and the number of AMS")));
         p->m_printer_bbl_sync->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
             deal_btn_sync();
         });
@@ -3171,7 +3171,7 @@ Sidebar::Sidebar(Plater *parent)
         // Sync printer information
         btn_sync = new Button(p->m_panel_printer_content, _L("Sync info"), "printer_sync", 0, 32);
         //btn_sync->SetFont(Label::Body_8);
-        btn_sync->SetToolTip(_L("Synchronize nozzle information and the number of AMS"));
+        btn_sync->SetToolTip(creality_localize(_L("Synchronize nozzle information and the number of AMS")));
         btn_sync->SetCornerRadius(8);
         StateColor btn_sync_bg_col(
                 std::pair<wxColour, int>(wxColour("#CECECE"), StateColor::Pressed),
@@ -3353,7 +3353,7 @@ Sidebar::Sidebar(Plater *parent)
 
     ams_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "ams_fila_sync", wxEmptyString, wxDefaultSize, wxDefaultPosition,
                                                  wxBU_EXACTFIT | wxNO_BORDER, false, 16); // ORCA match icon size with other icons as 16x16
-    ams_btn->SetToolTip(_L("Synchronize filament list from AMS"));
+    ams_btn->SetToolTip(creality_localize(_L("Synchronize filament list from AMS")));
     ams_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         sync_ams_list();
     });
@@ -6398,7 +6398,7 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
     if (n == 0) {
         MessageDialog dlg(this,
             _L("There are no compatible filaments, and sync is not performed.") + detail,
-            _L("Sync filaments with AMS"), wxOK);
+            creality_localize(_L("Sync filaments with AMS")), wxOK);
         dlg.ShowModal();
         return;
     }
@@ -6417,7 +6417,7 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
     if (!unknowns.empty()) {
         MessageDialog dlg(this,
             _L("There are some unknown or incompatible filaments mapped to generic preset.\nPlease update Orca Slicer or restart Orca Slicer to check if there is an update to system presets.") + detail,
-            _L("Sync filaments with AMS"), wxOK);
+            creality_localize(_L("Sync filaments with AMS")), wxOK);
         dlg.ShowModal();
     }
     if (!sync_color_only) {
@@ -22241,7 +22241,7 @@ bool Plater::is_same_printer_for_connected_and_selected(bool popup_warning)
     if (wxGetApp().is_blocking_printing()) {
         if (popup_warning) {
             auto printer_name = get_selected_printer_name_in_combox(); // wxString(obj->get_preset_printer_model_name(machine_print_name))
-            pop_warning_and_go_to_device_page(printer_name, PrinterWarningType::INCONSISTENT, _L("Synchronize AMS Filament Information"));
+            pop_warning_and_go_to_device_page(printer_name, PrinterWarningType::INCONSISTENT, creality_localize(_L("Synchronize AMS Filament Information")));
         }
         return false;
     }

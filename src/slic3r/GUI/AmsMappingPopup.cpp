@@ -859,7 +859,7 @@ AmsMapingPopup::AmsMapingPopup(wxWindow *parent, bool use_in_sync_dialog) :
      wxBoxSizer *title_sizer_h= new wxBoxSizer(wxHORIZONTAL);
      wxBoxSizer *title_sizer_v = new wxBoxSizer(wxVERTICAL);
 
-     m_title_text = new wxStaticText(title_panel, wxID_ANY, _L("AMS Slots"));
+     m_title_text = new wxStaticText(title_panel, wxID_ANY, creality_localize(_L("AMS Slots")));
      m_title_text->SetForegroundColour(wxColour("#262E30"));
      m_title_text->SetFont(::Label::Body_16);
      title_sizer_v->Add(m_title_text, 0, wxALIGN_LEFT | wxLEFT,  FromDIP(15));
@@ -1154,7 +1154,7 @@ void AmsMapingPopup::msw_rescale()
          wxSizerItem *item       = *it;
          auto         temp_label = dynamic_cast<Label *>((item->GetWindow()));
          if (temp_label) {
-             temp_label->SetLabel(text);
+             temp_label->SetLabel(creality_localize(text));
              break;
          }
      }
@@ -1851,7 +1851,7 @@ AmsTutorialPopup::AmsTutorialPopup(wxWindow* parent)
     wxBoxSizer* sizer_main;
     sizer_main = new wxBoxSizer(wxVERTICAL);
 
-    text_title = new Label(this, Label::Head_14, _L("Configure which AMS slot should be used for a filament used in the print job.")); // Orca: kept string (existing translation)
+    text_title = new Label(this, Label::Head_14, creality_localize(_L("Configure which AMS slot should be used for a filament used in the print job."))); // Orca: kept string (existing translation)
     text_title->SetSize(wxSize(FromDIP(350), -1));
     text_title->Wrap(FromDIP(350));
     sizer_main->Add(text_title, 0, wxALIGN_CENTER | wxTOP, 18);
@@ -1888,7 +1888,7 @@ AmsTutorialPopup::AmsTutorialPopup(wxWindow* parent)
     wxBoxSizer* sizer_tip_bottom = new wxBoxSizer(wxHORIZONTAL);
 
     arrows_bottom = new wxStaticBitmap(this, wxID_ANY, create_scaled_bitmap("ams_arrow", this, 8), wxDefaultPosition, wxSize(FromDIP(24), FromDIP(8)), 0);
-    tip_bottom = new wxStaticText(this, wxID_ANY, _L("AMS slot used for this filament"), wxDefaultPosition, wxDefaultSize, 0);
+    tip_bottom = new wxStaticText(this, wxID_ANY, creality_localize(_L("AMS slot used for this filament")), wxDefaultPosition, wxDefaultSize, 0);
     tip_bottom->SetForegroundColour(wxColour("#686868"));
 
 
@@ -1909,7 +1909,7 @@ AmsTutorialPopup::AmsTutorialPopup(wxWindow* parent)
     img_middle= new wxStaticBitmap(this, wxID_ANY, create_scaled_bitmap("ams_item_examples", this, 30), wxDefaultPosition, wxSize(FromDIP(50), FromDIP(30)), 0);
     sizer_middle->Add(img_middle, 0, wxALIGN_CENTER, 0);
 
-    tip_middle = new wxStaticText(this, wxID_ANY, _L("Click to select AMS slot manually"), wxDefaultPosition, wxDefaultSize, 0);
+    tip_middle = new wxStaticText(this, wxID_ANY, creality_localize(_L("Click to select AMS slot manually")), wxDefaultPosition, wxDefaultSize, 0);
     tip_middle->SetForegroundColour(wxColour("#686868"));
     sizer_middle->Add(0, 0, 0,wxLEFT, 15);
     sizer_middle->Add(tip_middle, 0, wxALIGN_CENTER, 0);
@@ -2368,7 +2368,7 @@ void  AmsReplaceMaterialDialog::update_to_nozzle(int nozzle_id)
         }
         else if (!m_obj->GetFilaSystem()->IsAutoRefillEnabled())
         {
-            label_txt->SetLabelText(_L("AMS filament backup is not enabled; please enable it in the AMS settings.")); // Orca: kept semicolon (existing translation)
+            label_txt->SetLabelText(creality_localize(_L("AMS filament backup is not enabled; please enable it in the AMS settings."))); // Orca: kept semicolon (existing translation)
         }
         else
         {

@@ -12,6 +12,7 @@
 #include "RemoteAPI/RemoteAPIServer.hpp"
 #include "RemoteAPI/RemoteAPIController.hpp"
 #include "GUI_App.hpp"
+#include "CrealityDevicePanel.hpp"
 #include "Shortcuts.hpp"
 #include "DeviceCore/DevConfigUtil.h"
 #include "BindDialog.hpp"
@@ -5142,6 +5143,22 @@ void GUI_App::load_gcode(wxWindow* parent, wxString& input_file) const
         input_file = dialog.GetPath();
 }
 
+bool is_creality_printer_selected()
+{
+    auto* app = wxGetApp().preset_bundle;
+    return app != nullptr && CrealityDevicePanel::is_creality_printer(*app);
+}
+
+wxString filament_system_name() { return is_creality_printer_selected() ? wxString("CFS") : wxString("AMS"); }
+
+wxString creality_localize(const wxString& s)
+{
+    if (!is_creality_printer_selected()) return s;
+    wxString r = s;
+    r.Replace("AMS", "CFS");
+    return r;
+}
+
 wxString GUI_App::transition_tridid(int trid_id) const
 {
     if (trid_id == VIRTUAL_TRAY_MAIN_ID || trid_id == VIRTUAL_TRAY_DEPUTY_ID)
@@ -5166,6 +5183,8 @@ wxString GUI_App::transition_tridid(int trid_id) const
     else {
         int id_index = std::clamp((int)ceil(trid_id / 4), 0, 25);
         int id_suffix = trid_id % 4 + 1;
+        if (is_creality_printer_selected())
+            return wxString::Format("%d%c", id_index + 1, 'A' + id_suffix - 1);
         return wxString::Format("%s%d", maping_dict[id_index], id_suffix);
     }
 }
