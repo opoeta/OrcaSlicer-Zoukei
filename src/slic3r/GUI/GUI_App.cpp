@@ -4319,6 +4319,14 @@ void GUI_App::select_machine(const std::string& agent_id)
                (!existing->has_access_right() || existing->get_access_code() != access_code)) {
         existing->set_access_code(access_code);
     }
+    // A machine saved under another agent (the same printer used with the Moonraker agent before) would stay hidden
+    // from the agent-scoped list: hand it over to the agent of this preset.
+    if (existing->printer_agent_id != agent_id) {
+        existing->printer_agent_id = agent_id;
+        m_device_manager->update_local_machine(*existing);
+    }
+    if (agent_id == "flashforge" && existing->get_access_code() != access_code) // the preset's API key (SERIAL:CHECKCODE) or the placeholder
+        existing->set_access_code(access_code);
     existing->local_use_ssl = boost::istarts_with(print_host, "https://");
 
     // Use MonitorPanel::select_machine() to trigger full selection flow
