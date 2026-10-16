@@ -3725,6 +3725,7 @@ void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filame
 
     (*combo)->clr_picker->SetLabel(wxString::Format("%d", filament_idx + 1));
     combo_and_btn_sizer->Add((*combo)->clr_picker, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // ElementSpacing - 2 (from combo box))
+    combo_and_btn_sizer->Add(new CfsUi::Badge(p->m_panel_filament_content, filament_idx, (*combo)->clr_picker), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // Creality: combined index+slot box, replaces clr_picker
     combo_and_btn_sizer->Add(*combo, 1, wxALL | wxEXPAND, FromDIP(2))->SetMinSize({-1, 30 * wxGetApp().em_unit() / 10}); // ORCA ensure height matches with PlaterPresetComboBox
 
     /* BBS hide del_btn
@@ -3765,7 +3766,6 @@ void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filame
     });
     combobox->edit_btn = edit_btn;
 
-    combo_and_btn_sizer->Add(new CfsUi::Badge(p->m_panel_filament_content, filament_idx), 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(2));
     combo_and_btn_sizer->Add(edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // ElementSpacing - 2 (from combo box))
 
     combo_and_btn_sizer->AddSpacer(FromDIP(SidebarProps::ContentMargin()));

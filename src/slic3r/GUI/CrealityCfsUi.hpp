@@ -28,17 +28,18 @@ private:
     size_t  m_sig{0};
 };
 
-// "1A <->" button on a sidebar filament row; click opens the slot picker.
+// Combined "2 . 1A <->" box (filament no. + slot) replacing the colour box on Creality rows; click opens the slot picker.
 class Badge : public wxPanel
 {
 public:
-    Badge(wxWindow* parent, int filament_idx);
+    Badge(wxWindow* parent, int filament_idx, wxWindow* colour_btn);
     ~Badge() override;
     void refresh_state();
 
 private:
     void on_paint(wxPaintEvent&);
     int  m_idx;
+    wxWindow* m_btn; // the original colour box, hidden while this combined box is shown
 };
 
 }}} // namespace Slic3r::GUI::CfsUi

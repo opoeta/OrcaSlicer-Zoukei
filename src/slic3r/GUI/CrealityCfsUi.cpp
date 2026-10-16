@@ -3,6 +3,7 @@
 #include "CrealityDevicePanel.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
+#include "Widgets/StateColor.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -106,15 +107,19 @@ std::vector<Entry> entries(const PrinterSnapshot& snap)
     return out;
 }
 
+wxColour bg_col() { return StateColor::darkModeColorFor(*wxWHITE); }
+wxColour fg_col() { return StateColor::darkModeColorFor(wxColour("#363636")); }
+wxColour edge_col() { return StateColor::darkModeColorFor(wxColour("#CECECE")); }
+
 wxColour text_on(const wxColour& c) { return (c.Red() * 299 + c.Green() * 587 + c.Blue() * 114) / 1000 > 150 ? *wxBLACK : *wxWHITE; }
 
 void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& fill, bool loaded)
 {
     const bool filled = loaded && fill.IsOk();
-    dc.SetPen(wxPen(wxColour(170, 170, 170)));
+    dc.SetPen(wxPen(edge_col()));
     dc.SetBrush(filled ? wxBrush(fill) : *wxTRANSPARENT_BRUSH);
-    dc.DrawRoundedRectangle(r, 4);
-    dc.SetTextForeground(filled ? text_on(fill) : wxColour(120, 120, 120));
+    dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 3.0);
+    dc.SetTextForeground(filled ? text_on(fill) : fg_col());
     const wxSize ts = dc.GetTextExtent(txt);
     dc.DrawText(txt, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
 }
@@ -165,8 +170,8 @@ wxString label_of(int idx, const std::vector<Entry>& es, const Entry** found = n
 class Picker : public wxPopupTransientWindow
 {
 public:
-    Picker(wxWindow* parent, int idx, std::vector<Entry> es, std::function<void()> done)
-        : wxPopupTransientWindow(parent, wxBORDER_SIMPLE), m_idx(idx), m_es(std::move(es)), m_done(std::move(done))
+    Picker(wxWindow* parent, int idx, std::vector<Entry> es, std::function<void()> done, std::function<void()> edit)
+        : wxPopupTransientWindow(parent, wxBORDER_SIMPLE), m_idx(idx), m_es(std::move(es)), m_done(std::move(done)), m_edit(std::move(edit))
     {
         SetBackgroundStyle(wxBG_STYLE_PAINT);
         for (const Entry& e : m_es)
@@ -175,7 +180,7 @@ public:
         std::sort(m_tabs.begin(), m_tabs.end(), [](int a, int b) { return a == 0 ? false : (b == 0 ? true : a < b); }); // EXT last
         if (!m_tabs.empty())
             m_tab = m_tabs.front();
-        SetSize(FromDIP(wxSize(190, 32 + 4 * 28 + 6)));
+        SetSize(FromDIP(wxSize(190, 32 + 5 * 28 + 6)));
         Bind(wxEVT_PAINT, [this](wxPaintEvent&) {
             wxAutoBufferedPaintDC dc(this);
             paint(dc);
@@ -198,16 +203,17 @@ private:
         return v;
     }
     wxRect row_rect(size_t i) const { return {FromDIP(6), FromDIP(32) + int(i) * FromDIP(28), GetClientSize().x - FromDIP(12), FromDIP(24)}; }
+    wxRect edit_rect() const { return {FromDIP(6), FromDIP(32) + 4 * FromDIP(28) + FromDIP(2), GetClientSize().x - FromDIP(12), FromDIP(24)}; }
     void   paint(wxDC& dc)
     {
-        dc.SetBackground(*wxWHITE);
+        dc.SetBackground(bg_col());
         dc.Clear();
         for (size_t i = 0; i < m_tabs.size(); ++i) {
             const wxRect r = tab_rect(i);
             dc.SetPen(*wxTRANSPARENT_PEN);
-            dc.SetBrush(wxBrush(m_tabs[i] == m_tab ? wxColour(0, 150, 136) : wxColour(235, 235, 235)));
+            dc.SetBrush(wxBrush(m_tabs[i] == m_tab ? wxColour(0, 150, 136) : StateColor::darkModeColorFor(wxColour("#EBEBEB"))));
             dc.DrawRectangle(r);
-            dc.SetTextForeground(m_tabs[i] == m_tab ? *wxWHITE : *wxBLACK);
+            dc.SetTextForeground(m_tabs[i] == m_tab ? *wxWHITE : fg_col());
             const wxString t  = m_tabs[i] == 0 ? wxString("EXT") : wxString::Format("CFS%d", m_tabs[i]);
             const wxSize   ts = dc.GetTextExtent(t);
             dc.DrawText(t, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
@@ -216,8 +222,18 @@ private:
         for (size_t i = 0; i < v.size(); ++i) {
             const wxRect r = row_rect(i);
             draw_chip(dc, wxRect(r.x, r.y, FromDIP(40), r.height), v[i]->label, v[i]->colour, v[i]->loaded);
-            dc.SetTextForeground(*wxBLACK);
+            dc.SetTextForeground(fg_col());
             dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : wxString("-"), r.x + FromDIP(48), r.y + FromDIP(4));
+        }
+        if (m_edit) {
+            const wxRect r = edit_rect();
+            dc.SetPen(wxPen(edge_col()));
+            dc.SetBrush(*wxTRANSPARENT_BRUSH);
+            dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 3.0);
+            dc.SetTextForeground(fg_col());
+            const wxString t = _L("Edit color");
+            const wxSize   ts = dc.GetTextExtent(t);
+            dc.DrawText(t, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
         }
     }
     void on_click(wxMouseEvent& e)
@@ -228,6 +244,12 @@ private:
                 Refresh();
                 return;
             }
+        if (m_edit && edit_rect().Contains(e.GetPosition())) {
+            auto edit = m_edit;
+            Dismiss();
+            wxTheApp->CallAfter(edit);
+            return;
+        }
         const auto v = shown();
         for (size_t i = 0; i < v.size(); ++i)
             if (row_rect(i).Contains(e.GetPosition())) {
@@ -240,7 +262,7 @@ private:
     }
     int                   m_idx;
     std::vector<Entry>    m_es;
-    std::function<void()> m_done;
+    std::function<void()> m_done, m_edit;
     std::vector<int>      m_tabs;
     int                   m_tab{0};
 };
@@ -262,7 +284,8 @@ std::optional<std::pair<int, int>> mapped_slot(int idx)
 Strip::Strip(wxWindow* parent) : wxPanel(parent, wxID_ANY), m_timer(this)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(FromDIP(wxSize(-1, 34)));
+    SetBackgroundColour(bg_col());
+    SetMinSize(FromDIP(wxSize(-1, 26)));
     Bind(wxEVT_PAINT, &Strip::on_paint, this);
     Bind(wxEVT_TIMER, &Strip::on_tick, this);
     m_timer.Start(2000);
@@ -295,18 +318,18 @@ void Strip::on_tick(wxTimerEvent&)
 void Strip::on_paint(wxPaintEvent&)
 {
     wxAutoBufferedPaintDC dc(this);
-    dc.SetBackground(*wxWHITE);
+    dc.SetBackground(bg_col());
     dc.Clear();
     dc.SetFont(GetFont());
     const auto es  = entries(snapshot());
-    const int  cw  = FromDIP(30), ch = FromDIP(22), gap = FromDIP(4), y = (GetClientSize().y - ch) / 2;
+    const int  cw  = FromDIP(26), ch = FromDIP(18), gap = FromDIP(4), y = (GetClientSize().y - ch) / 2;
     int        x   = FromDIP(12), cur_box = -1;
     for (const Entry& e : es) {
         if (e.box != cur_box) {
             cur_box        = e.box;
             const wxString t  = e.box == 0 ? wxString("EXT") : wxString::Format("CFS%d", e.box);
             const wxSize   ts = dc.GetTextExtent(t);
-            dc.SetTextForeground(wxColour(90, 90, 90));
+            dc.SetTextForeground(fg_col());
             dc.DrawText(t, x, y + (ch - ts.y) / 2);
             x += ts.x + gap * 2;
         }
@@ -319,16 +342,20 @@ void Strip::on_paint(wxPaintEvent&)
 
 // ---- Badge -------------------------------------------------------------------------------------
 
-Badge::Badge(wxWindow* parent, int idx) : wxPanel(parent, wxID_ANY), m_idx(idx)
+Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, wxID_ANY), m_idx(idx), m_btn(colour_btn)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(FromDIP(wxSize(46, 22)));
-    SetToolTip("Printer slot for this filament");
+    SetMinSize(FromDIP(wxSize(64, 20)));
+    SetToolTip(_L("Printer slot for this filament"));
     Bind(wxEVT_PAINT, &Badge::on_paint, this);
     Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) {
         auto* p = new Picker(this, m_idx, entries(snapshot()), [this] {
             for (Badge* b : s_badges)
                 b->Refresh();
+        }, [this] {
+            wxCommandEvent ev(wxEVT_BUTTON, m_btn->GetId());
+            ev.SetEventObject(m_btn);
+            m_btn->GetEventHandler()->ProcessEvent(ev);
         });
         p->Position(ClientToScreen(wxPoint(0, GetSize().y)), wxSize(0, 0));
         p->Popup();
@@ -344,6 +371,7 @@ void Badge::refresh_state()
     const bool want = !entries(snapshot()).empty();
     if (want != IsShown()) {
         Show(want);
+        m_btn->Show(!want);
         if (GetParent() != nullptr)
             GetParent()->Layout();
     }
@@ -353,13 +381,15 @@ void Badge::refresh_state()
 void Badge::on_paint(wxPaintEvent&)
 {
     wxAutoBufferedPaintDC dc(this);
-    dc.SetBackground(*wxWHITE);
+    dc.SetBackground(bg_col());
     dc.Clear();
     const auto   es = entries(snapshot());
     const Entry* e  = nullptr;
     const wxString t = label_of(m_idx, es, &e);
-    draw_chip(dc, wxRect(wxPoint(0, 0), GetClientSize()), t + wxString::FromUTF8(" \xE2\x87\x84"), e != nullptr ? e->colour : wxColour(),
-              e != nullptr && e->loaded);
+    PresetBundle*  b = wxGetApp().preset_bundle;
+    const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
+    wxColour col = cols != nullptr && m_idx < (int) cols->values.size() ? wxColour(cols->values[m_idx]) : wxColour();
+    draw_chip(dc, wxRect(wxPoint(0, 0), GetClientSize()), wxString::Format("%d Â· ", m_idx + 1) + t + wxString::FromUTF8(" â"), col, true);
 }
 
 }}} // namespace Slic3r::GUI::CfsUi
