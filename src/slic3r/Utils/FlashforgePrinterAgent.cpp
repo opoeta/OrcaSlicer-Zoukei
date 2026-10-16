@@ -107,6 +107,40 @@ std::string str(const json& j, const char* key)
     return j.is_object() && j.contains(key) && j[key].is_string() ? j[key].get<std::string>() : std::string();
 }
 
+// "My model (1).gcode" -> "My_model__1_.gcode": the name ends up in a G-code command line on ZMOD.
+std::string safe_name(std::string name)
+{
+    for (char& c : name)
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-' && c != '_')
+            c = '_';
+    if (name.empty() || name == "." || name == "..")
+        name = "print.gcode";
+    if (!boost::iends_with(name, ".gcode"))
+        name += ".gcode";
+    return name;
+}
+
+struct JobFile
+{
+    std::string path, name;
+};
+
+// The files of a job: extra_options {"files":[{"path","name"}]} from the print dialog, else the single G-code of the params.
+std::vector<JobFile> job_files(const PrintParams& params)
+{
+    std::vector<JobFile> out;
+    const json           extra = json::parse(params.extra_options, nullptr, false);
+    if (extra.is_object() && extra.contains("files") && extra["files"].is_array())
+        for (const json& f : extra["files"])
+            out.push_back({str(f, "path"), safe_name(str(f, "name"))});
+    if (out.empty()) {
+        const std::string path = params.dst_file.empty() ? params.filename : params.dst_file;
+        if (!path.empty())
+            out.push_back({path, safe_name(boost::filesystem::path(path).filename().string())});
+    }
+    return out;
+}
+
 bool http_get(const std::string& url, const std::string& api_key, std::string& body, int timeout = 6)
 {
     bool ok = false;
@@ -487,34 +521,72 @@ void FlashforgePrinterAgent::apply_zmod_slots(uint64_t generation, std::vector<I
 
 // Tool -> IFS port as ZMOD expects it ("_IFS_VARS tools=[port of T0, port of T1, ...16 entries]", 5 = unused), set
 // right before the print is started; ZMOD's own dialog on the printer still shows the result.
-int FlashforgePrinterAgent::start_zmod_print(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn)
+void FlashforgePrinterAgent::send_zmod_mapping(const PrintParams& params)
 {
     const json mapping = json::parse(params.ams_mapping_info, nullptr, false);
-    if (mapping.is_array() && !mapping.empty()) {
-        int  ports[16];
-        std::fill(std::begin(ports), std::end(ports), 5);
-        bool any = false, external = false;
-        for (size_t i = 0; i < mapping.size() && i < 16; ++i) {
-            const json& item = mapping[i];
-            const int   tray = item.is_object() && item.contains("ams") && item["ams"].is_number_integer() ? item["ams"].get<int>() : -1;
-            if (tray >= 0 && tray <= 3) {
-                ports[i] = tray + 1;
-                any      = true;
-            } else if (tray == 254 || tray == 255) {
-                external = true;
-            }
-        }
-        if (any || external) {
-            std::string tools = "_IFS_VARS tools=[";
-            for (int i = 0; i < 16; ++i)
-                tools += (i ? "," : "") + std::to_string(ports[i]);
-            tools += "]";
-            send_gcode_sync(device_info.dev_id, any ? tools : "_IFS_VARS external=1");
-            if (any)
-                send_gcode_sync(device_info.dev_id, "_IFS_VARS external=0");
+    if (!mapping.is_array() || mapping.empty())
+        return;
+    int  ports[16];
+    std::fill(std::begin(ports), std::end(ports), 5);
+    bool any = false, external = false;
+    for (size_t i = 0; i < mapping.size() && i < 16; ++i) {
+        const json& item = mapping[i];
+        const int   tray = item.is_object() && item.contains("ams") && item["ams"].is_number_integer() ? item["ams"].get<int>() : -1;
+        if (tray >= 0 && tray <= 3) {
+            ports[i] = tray + 1;
+            any      = true;
+        } else if (tray == 254 || tray == 255) {
+            external = true;
         }
     }
-    return MoonrakerPrinterAgent::start_local_print(std::move(params), std::move(update_fn), std::move(cancel_fn));
+    if (!any && !external)
+        return;
+    if (any) {
+        std::string tools = "_IFS_VARS tools=[";
+        for (int i = 0; i < 16; ++i)
+            tools += (i ? "," : "") + std::to_string(ports[i]);
+        tools += "]";
+        send_gcode_sync(device_info.dev_id, tools);
+    }
+    send_gcode_sync(device_info.dev_id, any ? "_IFS_VARS external=0" : "_IFS_VARS external=1");
+}
+
+// Upload every file through Moonraker; with `start` the first one is printed (ZMOD asks for the colours on the printer).
+int FlashforgePrinterAgent::zmod_job(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, bool start)
+{
+    auto report = [&](int stage, int code, const std::string& text) {
+        if (update_fn)
+            update_fn(stage, code, text);
+    };
+    auto fail = [&](const std::string& text, int code) {
+        BOOST_LOG_TRIVIAL(error) << "Flashforge agent: " << text;
+        report(PrintingStageERROR, -1, text);
+        return code;
+    };
+    const auto files = job_files(params);
+    if (files.empty())
+        return fail("no G-code file to send", BAMBU_NETWORK_ERR_FILE_NOT_EXIST);
+    for (const JobFile& f : files)
+        if (!boost::filesystem::exists(boost::filesystem::path(f.path)))
+            return fail("G-code file not found: " + f.path, BAMBU_NETWORK_ERR_FILE_NOT_EXIST);
+    report(PrintingStageCreate, 0, "");
+    for (size_t k = 0; k < files.size(); ++k) {
+        if (cancel_fn && cancel_fn())
+            return BAMBU_NETWORK_ERR_CANCELED;
+        const size_t total = files.size();
+        if (!upload_gcode(files[k].path, files[k].name, device_info.base_url, device_info.api_key,
+                          [&](int stage, int code, const std::string& text) { report(stage, int((k * 100 + size_t(std::clamp(code, 0, 100))) / total), text); },
+                          cancel_fn))
+            return cancel_fn && cancel_fn() ? BAMBU_NETWORK_ERR_CANCELED : fail("upload failed", BAMBU_NETWORK_ERR_PRINT_LP_UPLOAD_FTP_FAILED);
+    }
+    if (start) {
+        report(PrintingStageSending, 0, "");
+        send_zmod_mapping(params);
+        if (!send_gcode_sync(device_info.dev_id, "SDCARD_PRINT_FILE FILENAME=" + files.front().name))
+            return fail("the printer did not accept the print command", BAMBU_NETWORK_ERR_PRINT_LP_PUBLISH_MSG_FAILED);
+    }
+    report(PrintingStageFinished, 0, "3");
+    return BAMBU_NETWORK_SUCCESS;
 }
 
 // ---- stock firmware -------------------------------------------------------------------------------
@@ -911,13 +983,15 @@ int FlashforgePrinterAgent::start_local_print(PrintParams params, OnUpdateStatus
 {
     if (mode() == Mode::stock)
         return stock_upload(std::move(params), std::move(update_fn), std::move(cancel_fn), true);
-    return start_zmod_print(std::move(params), std::move(update_fn), std::move(cancel_fn));
+    return zmod_job(std::move(params), std::move(update_fn), std::move(cancel_fn), true);
 }
 
 int FlashforgePrinterAgent::start_send_gcode_to_sdcard(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, OnWaitFn wait_fn)
 {
     if (mode() == Mode::stock)
         return stock_upload(std::move(params), std::move(update_fn), std::move(cancel_fn), false);
+    if (params.extra_options.find("\"files\"") != std::string::npos) // from the print dialog's "Send" button
+        return zmod_job(std::move(params), std::move(update_fn), std::move(cancel_fn), false);
     return MoonrakerPrinterAgent::start_send_gcode_to_sdcard(std::move(params), std::move(update_fn), std::move(cancel_fn), std::move(wait_fn));
 }
 
@@ -945,13 +1019,13 @@ int FlashforgePrinterAgent::stock_upload(PrintParams params, OnUpdateStatusFn up
         return fail("not connected to the printer");
     report(PrintingStageCreate, 0, "");
 
-    std::string path = params.dst_file.empty() ? params.filename : params.dst_file;
     namespace fs = boost::filesystem;
-    if (path.empty() || !fs::exists(fs::path(path)))
-        return fail("G-code file not found: " + path);
-    std::string name = fs::path(path).filename().string();
-    if (!boost::iends_with(name, ".gcode"))
-        name += ".gcode";
+    const auto files = job_files(params);
+    if (files.empty())
+        return fail("no G-code file to send");
+    for (const JobFile& f : files)
+        if (!fs::exists(fs::path(f.path)))
+            return fail("G-code file not found: " + f.path);
 
     // Every project filament -> the IFS slot the dialog mapped it to (toolId 0-3, slotId 1-4).
     json mappings = json::array();
@@ -981,60 +1055,64 @@ int FlashforgePrinterAgent::stock_upload(PrintParams params, OnUpdateStatusFn up
                                     {"toolMaterialColor", tool_color}, {"slotMaterialColor", slot_color.empty() ? tool_color : slot_color}});
             }
     }
-    const bool        use_ifs = !mappings.empty();
-    const auto        file_size = fs::file_size(fs::path(path));
-    auto              b = [](bool v) { return std::string(v ? "true" : "false"); };
+    auto b = [](bool v) { return std::string(v ? "true" : "false"); };
 
-    bool        ok = true, cancelled = false;
-    std::string error, reply_text;
-    Http::post(base + "/uploadGcode")
-        .header("serialNumber", serial)
-        .header("checkCode", check)
-        .header("fileSize", std::to_string(file_size))
-        .header("printNow", b(start))
-        .header("levelingBeforePrint", b(params.task_bed_leveling))
-        .header("flowCalibration", b(params.task_flow_cali))
-        .header("firstLayerInspection", b(params.task_layer_inspect))
-        .header("timeLapseVideo", b(params.task_record_timelapse))
-        .header("useMatlStation", b(use_ifs))
-        .header("gcodeToolCnt", std::to_string(mappings.size()))
-        .header("materialMappings", base64(mappings.dump()))
-        .form_add_file("gcodeFile", fs::path(path).string(), name)
-        .timeout_connect(5)
-        .timeout_max(600)
-        .on_complete([&](std::string body, unsigned status) {
-            reply_text = body;
-            if (status != 200) {
+    for (size_t k = 0; k < files.size(); ++k) {
+        const bool   first    = k == 0;
+        const bool   use_ifs  = first && start && !mappings.empty();
+        const bool   print_it = first && start;
+        const size_t total    = files.size();
+        bool         ok = true, cancelled = false;
+        std::string  error, reply_text;
+        Http::post(base + "/uploadGcode")
+            .header("serialNumber", serial)
+            .header("checkCode", check)
+            .header("fileSize", std::to_string(fs::file_size(fs::path(files[k].path))))
+            .header("printNow", b(print_it))
+            .header("levelingBeforePrint", b(params.task_bed_leveling))
+            .header("flowCalibration", b(params.task_flow_cali))
+            .header("firstLayerInspection", b(params.task_layer_inspect))
+            .header("timeLapseVideo", b(params.task_record_timelapse))
+            .header("useMatlStation", b(use_ifs))
+            .header("gcodeToolCnt", std::to_string(use_ifs ? mappings.size() : size_t(0)))
+            .header("materialMappings", base64(use_ifs ? mappings.dump() : std::string("[]")))
+            .form_add_file("gcodeFile", fs::path(files[k].path).string(), files[k].name)
+            .timeout_connect(5)
+            .timeout_max(600)
+            .on_complete([&](std::string body, unsigned status) {
+                reply_text = body;
+                if (status != 200) {
+                    ok    = false;
+                    error = "HTTP " + std::to_string(status);
+                }
+            })
+            .on_error([&](std::string, std::string err, unsigned status) {
                 ok    = false;
-                error = "HTTP " + std::to_string(status);
+                error = err + (status ? " (HTTP " + std::to_string(status) + ")" : std::string());
+            })
+            .on_progress([&](Http::Progress progress, bool& cancel) {
+                if (cancel_fn && cancel_fn()) {
+                    cancel = cancelled = true;
+                    return;
+                }
+                if (progress.ultotal > 0) {
+                    const int pct = std::min(100, int(100. * double(progress.ulnow) / double(progress.ultotal)));
+                    report(PrintingStageUpload, int((k * 100 + size_t(pct)) / total), std::to_string(pct) + "%");
+                }
+            })
+            .perform_sync();
+        if (cancelled || (cancel_fn && cancel_fn()))
+            return BAMBU_NETWORK_ERR_CANCELED;
+        if (ok) {
+            const json reply = json::parse(reply_text, nullptr, false);
+            if (reply.is_discarded() || num(reply, "code", -1.) != 0.) {
+                ok    = false;
+                error = reply.is_discarded() ? "invalid reply" : str(reply, "message");
             }
-        })
-        .on_error([&](std::string, std::string err, unsigned status) {
-            ok    = false;
-            error = err + (status ? " (HTTP " + std::to_string(status) + ")" : std::string());
-        })
-        .on_progress([&](Http::Progress progress, bool& cancel) {
-            if (cancel_fn && cancel_fn()) {
-                cancel = cancelled = true;
-                return;
-            }
-            if (progress.ultotal > 0) {
-                const int pct = std::min(100, int(100. * double(progress.ulnow) / double(progress.ultotal)));
-                report(PrintingStageUpload, pct, std::to_string(pct) + "%");
-            }
-        })
-        .perform_sync();
-    if (cancelled || (cancel_fn && cancel_fn()))
-        return BAMBU_NETWORK_ERR_CANCELED;
-    if (ok) {
-        const json reply = json::parse(reply_text, nullptr, false);
-        if (reply.is_discarded() || num(reply, "code", -1.) != 0.) {
-            ok    = false;
-            error = reply.is_discarded() ? "invalid reply" : str(reply, "message");
         }
+        if (!ok)
+            return fail(error.empty() ? std::string("upload failed") : error);
     }
-    if (!ok)
-        return fail(error.empty() ? std::string("upload failed") : error);
     report(PrintingStageFinished, 0, "3");
     return BAMBU_NETWORK_SUCCESS;
 }

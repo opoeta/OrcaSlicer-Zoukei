@@ -121,6 +121,10 @@ protected:
     // Map filament type to OrcaFilamentLibrary preset ID for AMS sync compatibility
     static std::string map_filament_type_to_generic_id(const std::string& filament_type);
 
+    bool upload_gcode(const std::string& local_path, const std::string& filename,
+                      const std::string& base_url, const std::string& api_key,
+                      OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn);
+
     // G-code over Moonraker (derived agents, e.g. Flashforge/ZMOD, reuse them)
     bool send_gcode_sync(const std::string& dev_id, const std::string& gcode) const;
     void send_gcode_async(const std::string& dev_id, const std::string& gcode,
@@ -151,11 +155,6 @@ private:
     int pause_print(const std::string& dev_id);
     int resume_print(const std::string& dev_id);
     int cancel_print(const std::string& dev_id);
-
-    // File upload
-    bool upload_gcode(const std::string& local_path, const std::string& filename,
-                      const std::string& base_url, const std::string& api_key,
-                      OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn);
 
     // JSON-RPC helper
     bool send_jsonrpc_command(const std::string& base_url, const std::string& api_key,

@@ -107,7 +107,8 @@ private:
     // ZMOD
     bool           fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots) const;
     void           apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots);
-    int            start_zmod_print(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn);
+    void           send_zmod_mapping(const PrintParams& params);
+    int            zmod_job(PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn, bool start);
 
     // stock
     bool           stock_post(const std::string& path, const nlohmann::json& body, nlohmann::json& reply, std::string& error, int timeout = 6) const;

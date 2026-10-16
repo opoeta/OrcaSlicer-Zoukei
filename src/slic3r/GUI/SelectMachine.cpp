@@ -56,6 +56,7 @@
 #include "slic3r/GUI/Widgets/Button.hpp"
 #include "slic3r/GUI/CrealityCfsUi.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include <memory>
 #include "slic3r/GUI/BBLStatusBarPrint.hpp"
 #include "slic3r/GUI/Widgets/HyperLink.hpp"
@@ -7208,10 +7209,15 @@ void SendModeSwitchButton::setSelected(bool selected)
 
 bool SelectMachineDialog::is_creality_dialog() const
 {
-    if (m_print_type != PrintFromType::FROM_NORMAL || !is_creality_printer_selected())
+    // Creality (creality_cfs) and Flashforge (flashforge) agents upload the sliced G-code themselves: the same dialog.
+    if (m_print_type != PrintFromType::FROM_NORMAL)
         return false;
     DeviceManager* dev = wxGetApp().getDeviceManager();
-    return dev != nullptr && dev->get_current_printer_agent_id() == CREALITY_CFS_PRINTER_AGENT_ID;
+    if (dev == nullptr)
+        return false;
+    const std::string agent = dev->get_current_printer_agent_id();
+    return (is_creality_printer_selected() && agent == CREALITY_CFS_PRINTER_AGENT_ID) ||
+           (is_flashforge_printer_selected() && agent == FLASHFORGE_PRINTER_AGENT_ID);
 }
 
 void SelectMachineDialog::apply_creality_options(MachineObject* obj)
@@ -7229,14 +7235,24 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
             m_checkbox_list[key]->Hide();
         return;
     }
-    for (const char* key : {"bed_leveling", "flow_cali", "nozzle_offset_cali", "pa_value"})
+    // The AD5X (stock firmware and ZMOD) levels the bed and calibrates the flow on request; it has no nozzle-offset / PA calibration.
+    // ZMOD levels the bed as the printer's own setting says; only the stock firmware takes the choice with the job.
+    const bool flashforge = is_flashforge_printer_selected();
+    bool       ff_stock   = false;
+    if (flashforge)
+        if (NetworkAgent* agent = wxGetApp().getAgent())
+            if (auto ff = std::dynamic_pointer_cast<FlashforgePrinterAgent>(agent->get_printer_agent()))
+                ff_stock = ff->mode() == FlashforgePrinterAgent::Mode::stock;
+    for (const char* key : {"nozzle_offset_cali", "pa_value"})
         m_checkbox_list[key]->Hide();
+    for (const char* key : {"bed_leveling", "flow_cali"})
+        m_checkbox_list[key]->Show(ff_stock);
     m_timelapse_folder_btn->Hide();
     m_timelapse_storage.clear();
-    // Creality printers record the timelapse on their own (set on the printer's panel), so there is nothing to choose here.
+    // These printers record the timelapse on their own (set on the printer's panel), so there is nothing to choose here.
     m_checkbox_list["timelapse"]->Hide();
-    m_checkbox_list["self_test"]->Show();
-    m_checkbox_list["filament_src"]->Show();
+    m_checkbox_list["self_test"]->Show(!flashforge);
+    m_checkbox_list["filament_src"]->Show(!flashforge);
     m_checkbox_list["all_plates"]->Show(m_plater->get_partplate_list().get_plate_count() > 1);
     Layout();
 }
@@ -7393,14 +7409,14 @@ void PrinterInfoBox::SetPrinters(const std::vector<MachineObject*>& sorted_print
         DropDown::Item drop_item;
         drop_item.text = shown_dev_name;
         drop_item.text_static_tips = _get_tips(obj);
-        if (is_creality_printer_selected())
+        if (is_creality_printer_selected() || is_flashforge_printer_selected())
             drop_item.text_static_tips += "  " + (obj->is_connected() || obj->is_online() ? _L("Online") : _L("Offline"));
 
         // update image
         try
         {
-            if (is_creality_printer_selected()) { // the printer model's cover from the Creality profile, else a generic picture
-                const boost::filesystem::path cover = boost::filesystem::path(resources_dir()) / "profiles" / "Creality" /
+            if (is_creality_printer_selected() || is_flashforge_printer_selected()) { // the printer model's cover from the brand's profile, else a generic picture
+                const boost::filesystem::path cover = boost::filesystem::path(resources_dir()) / "profiles" / (is_creality_printer_selected() ? "Creality" : "Flashforge") /
                                                       (obj->get_printer_type_display_str().ToUTF8().data() + std::string("_cover.png"));
                 wxImage image;
                 if (boost::filesystem::exists(cover) && image.LoadFile(from_u8(cover.string()))) {
