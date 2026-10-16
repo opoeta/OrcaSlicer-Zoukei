@@ -293,6 +293,11 @@ int PresetComboBox::update_ams_color()
     auto color_pack = static_cast<ConfigOptionStrings *>(cfg->option("filament_multi_colour")->clone()); // multi color (all colors in all kinds of filament)
     auto color_type = static_cast<ConfigOptionStrings*>(cfg->option("filament_colour_type")->clone()); // color type
 
+    // Orca Zoukei: the three lists can be shorter than the filament count (e.g. right after a
+    // printer/agent switch), and writing past the end crashed here.
+    for (ConfigOptionStrings* opt : {color_head, color_pack, color_type})
+        if (opt->values.size() <= size_t(m_filament_idx))
+            opt->values.resize(size_t(m_filament_idx) + 1, opt->values.empty() ? std::string() : opt->values.back());
     color_head->values[m_filament_idx] = color;
     color_type->values[m_filament_idx] = ctype;
     std::string color_str = ""; // Translate multi color info to config storage format
