@@ -191,6 +191,7 @@
 #include "GUI.hpp"
 #include "BoxPrintMappingDialog.hpp"
 #include "GUI_App.hpp"
+#include "CrealityCfsUi.hpp"
 #include "Shortcuts.hpp"
 #include "GUI_ObjectList.hpp"
 #ifdef __WXGTK__
@@ -3404,6 +3405,7 @@ Sidebar::Sidebar(Plater *parent)
 
     //bSizer_filament_content->Add(p->sizer_filaments, 1, wxALIGN_CENTER | wxALL);
     wxSizer *sizer_filaments2 = new wxBoxSizer(wxVERTICAL);
+    sizer_filaments2->Add(new CfsUi::Strip(p->m_panel_filament_content), 0, wxEXPAND, 0);
     sizer_filaments2->Add(p->sizer_filaments, 0, wxEXPAND, 0);
     p->m_panel_filament_content->SetSizer(sizer_filaments2);
     p->m_panel_filament_content->Layout();
@@ -3743,6 +3745,7 @@ void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filame
     });
     combobox->edit_btn = edit_btn;
 
+    combo_and_btn_sizer->Add(new CfsUi::Badge(p->m_panel_filament_content, filament_idx), 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(2));
     combo_and_btn_sizer->Add(edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // ElementSpacing - 2 (from combo box))
 
     combo_and_btn_sizer->AddSpacer(FromDIP(SidebarProps::ContentMargin()));

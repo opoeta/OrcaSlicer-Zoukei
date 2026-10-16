@@ -67,6 +67,7 @@
 #include "Flashforge.hpp"
 #include "GUI.hpp"
 #include "GUI_App.hpp"
+#include "CrealityCfsUi.hpp"
 #include "MsgDialog.hpp"
 #include "I18N.hpp"
 #include "MainFrame.hpp"
@@ -2111,6 +2112,13 @@ void CrealityPrintHostSendDialog::init()
                         break;
                     }
                 }
+            }
+            if (auto m = CfsUi::mapped_slot(i)) {
+                for (int s = 0; s < (int) m_printer_slots.size(); s++)
+                    if (m_printer_slots[s].box_id == m->first && m_printer_slots[s].material_id == m->second) {
+                        default_sel = s;
+                        break;
+                    }
             }
             combo->SetSelection(default_sel);
             row_sizer->Add(combo, 0, wxALIGN_CENTER_VERTICAL);
