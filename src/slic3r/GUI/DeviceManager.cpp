@@ -136,6 +136,100 @@ int get_tray_id_by_ams_id_and_slot_id(int ams_id, int slot_id)
 
 namespace {
 
+// ---------------------------------------------------------------------------------------------
+// BMCU support (open-source AMS-lite replacement for Bambu A1 / A1 mini).
+// On A1 firmware 01.08.00.00 / 01.08.01.00 the printer raises print error 050x-409D when a BMCU
+// is used. Instead of blocking the slicer with a modal dialog / sticky HMS entry, ignore the
+// error on the printer and retry the last print.
+// Ported (adapted) from OrcaStudio: https://github.com/jarczakpawel/OrcaStudio (AGPL-3.0).
+// ---------------------------------------------------------------------------------------------
+constexpr int AUTO_IGNORED_PRINT_ERROR_0500409D = 0x0500409D;
+constexpr int AUTO_IGNORED_PRINT_ERROR_0501409D = 0x0501409D;
+constexpr int AUTO_IGNORED_PRINT_ERROR_0502409D = 0x0502409D;
+constexpr int AUTO_IGNORED_PRINT_ERROR_0503409D = 0x0503409D;
+
+inline bool is_auto_ignored_print_error(int error_code)
+{
+    switch (error_code) {
+    case AUTO_IGNORED_PRINT_ERROR_0500409D:
+    case AUTO_IGNORED_PRINT_ERROR_0501409D:
+    case AUTO_IGNORED_PRINT_ERROR_0502409D:
+    case AUTO_IGNORED_PRINT_ERROR_0503409D:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool is_auto_ignored_hms_item(unsigned attr, unsigned code)
+{
+    // HMS long code = attr(8 hex) + code(8 hex); the first 8 hex digits plus the error id identify 050x-409D
+    char buf[32];
+    ::snprintf(buf, sizeof(buf), "%08X%08X", attr, code);
+    const std::string s(buf);
+    if (s.size() < 16) return false;
+    const std::string module_part = s.substr(0, 4); // 0500..0503
+    return (module_part == "0500" || module_part == "0501" || module_part == "0502" || module_part == "0503") &&
+           s.substr(12, 4) == "409D";
+}
+
+inline void auto_ignore_print_error_if_needed(Slic3r::MachineObject* obj)
+{
+    if (!obj) return;
+
+    int active_error = 0;
+    if (is_auto_ignored_print_error(obj->print_error)) {
+        active_error = obj->print_error;
+    } else if (is_auto_ignored_print_error(obj->mc_print_error_code)) {
+        active_error = obj->mc_print_error_code;
+    }
+
+    if (!active_error) {
+        obj->last_auto_ignored_print_error_ = 0;
+        obj->last_auto_ignored_print_error_command_at_ = {};
+        obj->last_auto_ignored_print_error_retry_at_ = {};
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    Slic3r::GUI::wxGetApp().begin_bmcu_auto_retry(obj->get_dev_id());
+    const bool is_new_error = obj->last_auto_ignored_print_error_ != active_error;
+    auto since_ms = [&now](const std::chrono::steady_clock::time_point& t) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now - t).count();
+    };
+
+    const bool command_due = is_new_error || obj->last_auto_ignored_print_error_command_at_.time_since_epoch().count() == 0 ||
+                             since_ms(obj->last_auto_ignored_print_error_command_at_) >= 1500;
+    const bool retry_due = (is_new_error && !obj->is_in_printing_status(obj->print_status)) ||
+                           (!is_new_error && (obj->last_auto_ignored_print_error_retry_at_.time_since_epoch().count() == 0 ||
+                                              since_ms(obj->last_auto_ignored_print_error_retry_at_) >= 2500));
+
+    if (command_due) {
+        BOOST_LOG_TRIVIAL(info) << "auto ignore print_error 050x-409D (BMCU) for dev_id=" << obj->get_dev_id()
+                                << ", err=" << obj->get_error_code_str(active_error);
+        if (!obj->job_id_.empty())
+            obj->command_hms_ignore(std::to_string(active_error), obj->job_id_);
+        if (!obj->subtask_id_.empty())
+            obj->command_clean_print_error(obj->subtask_id_, active_error);
+        obj->command_clean_print_error_uiop(active_error);
+        obj->command_request_push_all();
+
+        obj->last_auto_ignored_print_error_ = active_error;
+        obj->last_auto_ignored_print_error_command_at_ = now;
+        if (is_new_error)
+            obj->last_auto_ignored_print_error_retry_at_ = now;
+    }
+
+    if (retry_due) {
+        bool retry_sent = false;
+        if (auto* manager = Slic3r::GUI::wxGetApp().getDeviceManager())
+            retry_sent = manager->trigger_auto_retry_print_ui_callback(obj->get_dev_id());
+        BOOST_LOG_TRIVIAL(info) << "auto retry last print after 050x-409D (BMCU) for dev_id=" << obj->get_dev_id()
+                                << ", sent=" << retry_sent;
+        obj->last_auto_ignored_print_error_retry_at_ = now;
+    }
+}
+
 // Stringing-prone filament IDs per nozzle-diameter bucket.
 // Mirrors the printer firmware tables (see g_leak_pron_idx_for_0_4 / _0_6_0_8).
 // Keep these in sync with firmware when new stringing-prone filaments are added.
@@ -4078,7 +4172,21 @@ int MachineObject::parse_json(std::string tunnel, std::string payload, bool key_
 
 #pragma region hms
                     if (!key_field_only && jj.contains("hms")) {
-                        m_hms_system->ParseHMSItems(jj["hms"]);
+                        // BMCU: drop the 050x-409D entries so the HMS list stays clean/dismissible
+                        const auto& h = jj["hms"];
+                        if (h.is_array()) {
+                            json filtered = json::array();
+                            for (const auto& item : h) {
+                                if (item.is_object() && item.contains("attr") && item.contains("code") &&
+                                    item["attr"].is_number_unsigned() && item["code"].is_number_unsigned() &&
+                                    is_auto_ignored_hms_item(item["attr"].get<unsigned>(), item["code"].get<unsigned>()))
+                                    continue;
+                                filtered.push_back(item);
+                            }
+                            m_hms_system->ParseHMSItems(filtered);
+                        } else {
+                            m_hms_system->ParseHMSItems(h);
+                        }
                     }
 #pragma endregion
 
@@ -4163,6 +4271,8 @@ int MachineObject::parse_json(std::string tunnel, std::string payload, bool key_
                     try {
                         parse_new_info(jj);
                     } catch (...) {}
+
+                    auto_ignore_print_error_if_needed(this);
 #pragma endregion
                 } else if (jj["command"].get<std::string>() == "gcode_line") {
                     //ack of gcode_line
@@ -6077,6 +6187,11 @@ std::string MachineObject::get_error_code_str(int error_code)
 
 void MachineObject::add_command_error_code_dlg(int command_err, json action_json)
 {
+    if (is_auto_ignored_print_error(command_err)) {
+        BOOST_LOG_TRIVIAL(info) << "skip command error dialog for 050x-409D (BMCU), dev_id=" << get_dev_id();
+        return;
+    }
+
     if (command_err > 0 && !Slic3r::GUI::wxGetApp().get_hms_query()->is_internal_error(this, command_err))
     {
         GUI::wxGetApp().CallAfter([this, command_err, action_json, token = std::weak_ptr<int>(m_token)]

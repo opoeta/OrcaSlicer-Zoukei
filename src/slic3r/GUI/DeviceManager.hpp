@@ -1,6 +1,7 @@
 #ifndef slic3r_DeviceManager_hpp_
 #define slic3r_DeviceManager_hpp_
 
+#include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <functional>
@@ -463,6 +464,10 @@ public:
     bool    is_system_printing();
 
     int     print_error;
+    // BMCU (A1/A1 mini fw 01.08.x): bookkeeping for auto-ignored print errors (from OrcaStudio)
+    int     last_auto_ignored_print_error_ = 0;
+    std::chrono::steady_clock::time_point last_auto_ignored_print_error_command_at_{};
+    std::chrono::steady_clock::time_point last_auto_ignored_print_error_retry_at_{};
     std::string m_print_error_img_id;
     static std::string get_error_code_str(int error_code);
     std::string get_print_error_str() const { return MachineObject::get_error_code_str(this->print_error); }

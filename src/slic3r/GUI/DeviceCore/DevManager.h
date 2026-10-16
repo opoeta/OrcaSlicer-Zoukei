@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <mutex>
+#include <functional>
 #include "libslic3r/CommonDefs.hpp"
 
 #include <string>
@@ -32,6 +33,9 @@ private:
     DeviceManagerRefresher* m_refresher{ nullptr };
 
     bool m_enable_mutil_machine = false;
+
+    std::mutex m_auto_retry_print_ui_callback_mutex;
+    std::function<bool(const std::string&)> m_auto_retry_print_ui_callback;
 
     std::mutex listMutex;
     std::string selected_machine;                               /* dev_id */
@@ -88,6 +92,10 @@ public:
     void load_last_machine();
     void update_user_machine_list_info(const std::string& provider);
     void parse_user_print_info(std::string body);
+
+    // BMCU: lets the open send-print dialog retry the last print (from OrcaStudio)
+    void set_auto_retry_print_ui_callback(std::function<bool(const std::string&)> callback);
+    bool trigger_auto_retry_print_ui_callback(const std::string& dev_id);
     void reload_printer_settings();
 
     MachineObject* get_user_machine(std::string dev_id, const std::string& provider);

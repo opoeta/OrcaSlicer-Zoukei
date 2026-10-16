@@ -205,6 +205,22 @@ namespace Slic3r
         return GUI::wxGetApp().get_printer_cloud_provider();
     }
 
+    void DeviceManager::set_auto_retry_print_ui_callback(std::function<bool(const std::string&)> callback)
+    {
+        std::lock_guard<std::mutex> lock(m_auto_retry_print_ui_callback_mutex);
+        m_auto_retry_print_ui_callback = std::move(callback);
+    }
+
+    bool DeviceManager::trigger_auto_retry_print_ui_callback(const std::string& dev_id)
+    {
+        std::function<bool(const std::string&)> callback;
+        {
+            std::lock_guard<std::mutex> lock(m_auto_retry_print_ui_callback_mutex);
+            callback = m_auto_retry_print_ui_callback;
+        }
+        return callback ? callback(dev_id) : false;
+    }
+
     void DeviceManager::EnableMultiMachine(bool enable)
     {
         m_agent->enable_multi_machine(enable);
@@ -1189,14 +1205,16 @@ namespace Slic3r
             }
         }
 
-        // certificate
-        try {
-            agent->install_device_cert(obj->get_dev_id(), obj->is_lan_mode_printer());
-        } catch (const std::exception& e) {
-            BOOST_LOG_TRIVIAL(error) << "DeviceManagerRefresher::on_timer install_device_cert exception="
-                                     << e.what();
-        } catch (...) {
-            BOOST_LOG_TRIVIAL(error) << "DeviceManagerRefresher::on_timer install_device_cert unknown exception";
+        // certificate (skipped while a BMCU auto retry is in flight, as in OrcaStudio)
+        if (!Slic3r::GUI::wxGetApp().is_bmcu_auto_retry_active(obj->get_dev_id())) {
+            try {
+                agent->install_device_cert(obj->get_dev_id(), obj->is_lan_mode_printer());
+            } catch (const std::exception& e) {
+                BOOST_LOG_TRIVIAL(error) << "DeviceManagerRefresher::on_timer install_device_cert exception="
+                                         << e.what();
+            } catch (...) {
+                BOOST_LOG_TRIVIAL(error) << "DeviceManagerRefresher::on_timer install_device_cert unknown exception";
+            }
         }
     }
 }

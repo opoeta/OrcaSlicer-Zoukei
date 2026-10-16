@@ -36358,3 +36358,18 @@ msgstr "Envia o G-code de todas as placas fatiadas; apenas a primeira placa é i
 
 msgid "The timelapse of a Creality print is part of the sliced G-code. Change it in the process settings and slice again."
 msgstr "O timelapse de uma impressão Creality faz parte do G-code fatiado. Altere-o nas configurações do processo e fatie novamente."
+
+msgid "(%d/%d) BMCU error. Retrying in %d s..."
+msgstr "(%d/%d) Erro do BMCU. Tentando de novo em %d s..."
+
+msgid "(%d/%d) Waiting for the printer to become ready..."
+msgstr "(%d/%d) Aguardando a impressora ficar pronta..."
+
+msgid "(%d/%d) Retrying print..."
+msgstr "(%d/%d) Tentando imprimir de novo..."
+
+msgid "The printer did not become ready after the BMCU error. You can send the print again; the slicer will retry without blocking the application."
+msgstr "A impressora não ficou pronta após o erro do BMCU. Você pode enviar a impressão de novo; o fatiador tentará novamente sem bloquear o aplicativo."
+
+msgid "The printer rejected the print after %d automatic BMCU retries. You can send it again without restarting the slicer."
+msgstr "A impressora recusou a impressão após %d tentativas automáticas do BMCU. Você pode enviar de novo sem reiniciar o fatiador."

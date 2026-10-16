@@ -332,6 +332,10 @@ private:
     std::map<std::string, std::string> need_delete_presets;   // store setting ids of preset
     std::vector<bool> m_create_preset_blocked { false, false, false, false, false, false }; // excceed limit
     std::vector<std::string> m_pending_conflict_setting_ids; // setting_id from the most recent 409 conflict
+    std::mutex       m_bmcu_auto_retry_mutex;
+    std::string      m_bmcu_auto_retry_dev_id;
+    std::chrono::steady_clock::time_point m_bmcu_auto_retry_until{};
+
     bool m_networking_compatible { false };
     bool m_networking_need_update { false };
     bool m_networking_cancel_update { false };
@@ -523,6 +527,12 @@ public:
     float           toolbar_icon_scale(const bool is_limited = false) const;
     void            set_auto_toolbar_icon_scale(float scale) const;
     void            check_printer_presets();
+
+    // BMCU (open-source AMS-lite) on Bambu A1/A1 mini: short-lived guard while an automatic
+    // print retry is in flight. Ported from OrcaStudio (jarczakpawel/OrcaStudio, AGPL-3.0).
+    void            begin_bmcu_auto_retry(const std::string& dev_id, int timeout_ms = 25000);
+    void            finish_bmcu_auto_retry(const std::string& dev_id = std::string());
+    bool            is_bmcu_auto_retry_active(const std::string& dev_id = std::string());
 
     void            recreate_GUI(const wxString& message);
     void            keyboard_shortcuts(ShortcutContext page, wxWindow* parent = nullptr);   // the main frame when null

@@ -5201,6 +5201,38 @@ void GUI_App::request_login(bool show_user_info, const std::string& provider/* =
     }
 }
 
+// BMCU auto-retry guard. Ported from OrcaStudio (jarczakpawel/OrcaStudio, AGPL-3.0).
+void GUI_App::begin_bmcu_auto_retry(const std::string& dev_id, int timeout_ms)
+{
+    if (dev_id.empty()) { return; }
+    std::lock_guard<std::mutex> lock(m_bmcu_auto_retry_mutex);
+    m_bmcu_auto_retry_dev_id = dev_id;
+    m_bmcu_auto_retry_until = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    BOOST_LOG_TRIVIAL(info) << "BMCU auto retry guard begin, dev_id=" << dev_id << ", timeout_ms=" << timeout_ms;
+}
+
+void GUI_App::finish_bmcu_auto_retry(const std::string& dev_id)
+{
+    std::lock_guard<std::mutex> lock(m_bmcu_auto_retry_mutex);
+    if (!dev_id.empty() && !m_bmcu_auto_retry_dev_id.empty() && dev_id != m_bmcu_auto_retry_dev_id) { return; }
+    BOOST_LOG_TRIVIAL(info) << "BMCU auto retry guard finish, dev_id=" << m_bmcu_auto_retry_dev_id;
+    m_bmcu_auto_retry_dev_id.clear();
+    m_bmcu_auto_retry_until = {};
+}
+
+bool GUI_App::is_bmcu_auto_retry_active(const std::string& dev_id)
+{
+    std::lock_guard<std::mutex> lock(m_bmcu_auto_retry_mutex);
+    if (m_bmcu_auto_retry_until.time_since_epoch().count() == 0) { return false; }
+    if (std::chrono::steady_clock::now() >= m_bmcu_auto_retry_until) {
+        m_bmcu_auto_retry_dev_id.clear();
+        m_bmcu_auto_retry_until = {};
+        return false;
+    }
+    if (dev_id.empty() || m_bmcu_auto_retry_dev_id.empty()) { return true; }
+    return dev_id == m_bmcu_auto_retry_dev_id;
+}
+
 void GUI_App::get_login_info(const std::string& provider/* = ORCA_CLOUD_PROVIDER*/)
 {
     if (m_agent) {
