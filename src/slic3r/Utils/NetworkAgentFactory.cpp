@@ -10,6 +10,7 @@
 #include "slic3r/plugin/PluginManager.hpp"
 #include "slic3r/plugin/pluginTypes/printerAgent/PrinterAgentPluginCapability.hpp"
 #include "CrealityPrintAgent.hpp"
+#include "CrealityCfsAgent.hpp"
 #include <algorithm>
 #include <boost/log/trivial.hpp>
 #include <chrono>
@@ -181,6 +182,9 @@ void NetworkAgentFactory::register_all_agents()
     register_agent<OrcaPrinterAgent>();
     register_agent<QidiPrinterAgent>();
     register_agent<SnapmakerPrinterAgent>();
+    // Native port of the "Creality CFS Sync" plugin; registered before any Python plugin, so an
+    // installed copy of that plugin (same agent id) is skipped rather than clashing.
+    register_agent<CrealityCfsAgent>();
     register_agent<CrealityPrintAgent>();  // Must come BEFORE MoonrakerPrinterAgent —
                                             // CrealityPrintAgent extends Moonraker behaviour
                                             // for K-series boards with CFS support.
@@ -386,6 +390,14 @@ void NetworkAgentFactory::register_python_printer_agent(const std::string& plugi
         //   plugin_identifier, another plugin/capability has a different plugin_full_ref. When it
         //   IS the same plugin_full_ref, this capability is just re-registering itself, so fall
         //   through and refresh.
+        // The native "creality_cfs" agent replaces the Creality CFS Sync plugin's agent: the
+        // built-in wins and the plugin's printer agent is skipped quietly; its other
+        // capabilities keep working.
+        if (agent_it != agents.end() && agent_it->second.plugin_identifier.empty() && info.id == CREALITY_CFS_PRINTER_AGENT_ID) {
+            BOOST_LOG_TRIVIAL(info) << "Printer-agent plugin '" << capability_name << "' from '" << plugin_key << "' not registered: agent ID '"
+                                    << info.id << "' belongs to the built-in agent '" << agent_it->second.display_name << "'";
+            return;
+        }
         if (agent_it != agents.end() && agent_it->second.plugin_identifier != plugin_full_ref) {
             const std::string error_message = GUI::format(
                 // TRN %1% is the printer agent name, %2% its ID and %3% the printer agent already using that ID.

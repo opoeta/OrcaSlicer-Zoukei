@@ -65,15 +65,15 @@ set(SLIC3R_GUI_SOURCES
     GUI/BuildCommit.hpp
     GUI/CrealityDiscoveryDialog.cpp
     GUI/CrealityDiscoveryDialog.hpp
+    GUI/CrealityCfsAutoSync.cpp
+    GUI/CrealityCfsAutoSync.hpp
     GUI/CrealityDevicePanel.cpp
     GUI/CrealityDevicePanel.hpp
     GUI/CrealityDevice/DeviceStore.cpp
     GUI/CrealityDevice/DeviceStore.hpp
-    GUI/CrealityDevice/ImageServer.cpp
     GUI/CrealityDevice/ImageServer.hpp
     GUI/CrealityDevice/LanDeviceProbe.cpp
     GUI/CrealityDevice/LanDeviceProbe.hpp
-    GUI/CrealityDevice/WsProxy.cpp
     GUI/CrealityDevice/WsProxy.hpp
     GUI/calib_dlg.cpp
     GUI/calib_dlg.hpp
@@ -749,6 +749,11 @@ set(SLIC3R_GUI_SOURCES
     Utils/ColorSpaceConvert.hpp
     Utils/CrealityPrint.cpp
     Utils/CrealityPrint.hpp
+    Utils/CrealityCfs.cpp
+    Utils/CrealityCfs.hpp
+    Utils/CrealityCfsAgent.cpp
+    Utils/CrealityCfsAgent.hpp
+    Utils/CrealityCfsClient.hpp
     Utils/CrealityPrintAgent.cpp
     Utils/CrealityPrintAgent.hpp
     Utils/BoxFilamentSync.cpp
@@ -961,7 +966,18 @@ else()
     set(_opengl_link_lib OpenGL::GL)
 endif()
 
-target_link_libraries(libslic3r_gui libslic3r cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
+# The Creality LAN links (Boost.Beast WebSocket/TLS templates) build into their own library:
+# inside libslic3r_gui they push the static library past MSVC's 4 GB archive limit.
+add_library(libslic3r_creality_net STATIC
+    GUI/CrealityDevice/ImageServer.cpp
+    GUI/CrealityDevice/WsProxy.cpp
+    Utils/CrealityCfsClient.cpp
+)
+target_include_directories(libslic3r_creality_net PRIVATE Utils ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(libslic3r_creality_net libslic3r ${wxWidgets_LIBRARIES} libcurl OpenSSL::SSL OpenSSL::Crypto)
+set_property(TARGET libslic3r_creality_net PROPERTY FOLDER "slic3r")
+
+target_link_libraries(libslic3r_gui libslic3r libslic3r_creality_net cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Linux finds wxWidgets in module mode, whose include dirs and definitions

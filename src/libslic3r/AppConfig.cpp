@@ -702,6 +702,10 @@ void AppConfig::set_defaults()
         set_bool("window_buttons_on_left", false);
 #endif
 
+    // Project -> CFS filament sync for Creality printers (native port of the CFS Sync plugin).
+    if (get("creality_cfs_auto_sync").empty())
+        set_bool("creality_cfs_auto_sync", true);
+
     if (get("use_printer_agents").empty())
     {
         // false = legacy behavior using print hosts
