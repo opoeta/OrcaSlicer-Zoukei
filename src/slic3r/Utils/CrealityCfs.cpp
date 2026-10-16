@@ -721,7 +721,7 @@ json build_push_status(const PrinterSnapshot& s, int sequence_id, const PresetFo
               {"mc_print_stage", s.device_state == DEVICE_STATE_PRINTING ? "2" : "1"},
               {"mc_print_error_code", "0"},
               {"print_error", 0},
-              {"home_flag", 0},
+              {"home_flag", 256}, // bits 8-9 = storage state 1 (normal); Orca reads the storage from here too
               {"support_bed_leveling", false},
               {"support_send_to_sd", false},
               {"sdcard", true}, // the printer stores its own G-code: tells Orca's dialogs the storage is present

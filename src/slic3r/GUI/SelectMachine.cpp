@@ -3244,10 +3244,8 @@ void SelectMachineDialog::load_option_vals(MachineObject *obj)
     for (auto item : m_checkbox_list) {
         PrintOption       *opt = item.second;
         const std::string &val = config->get(obj->printer_type, item.first);
-        if (item.first == "all_plates" || item.first == "filament_src") { // never carried over from an earlier print
-            opt->setValue(item.first == "all_plates" ? "off" : "cfs");
-        } else if (item.first == "self_test" && !opt->contain_opt(val)) {
-            opt->setValue("off");
+        if (!opt->contain_opt(val) && (item.first == "all_plates" || item.first == "self_test" || item.first == "filament_src")) {
+            opt->setValue(item.first == "filament_src" ? "cfs" : "off"); // first use
         } else if (opt->contain_opt(val)) {
             opt->setValue(val);
         } else if (opt->contain_opt("auto")) {
@@ -7059,6 +7057,11 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
     const bool creality = obj != nullptr && is_creality_dialog();
     m_button_send_only->Show(creality);
     m_button_ensure->SetLabel(creality ? _L("Start print") : _L("Send"));
+    for (Button* b : {m_button_send_only, m_button_ensure}) { // fit the labels (translations are longer than "Send")
+        const wxSize text = b->GetTextExtent(b->GetLabel());
+        b->SetMinSize(wxSize(std::max(FromDIP(100), text.x + FromDIP(40)), FromDIP(32)));
+    }
+    m_panel_prepare->Layout();
     if (!creality) {
         for (const char* key : {"self_test", "filament_src", "all_plates"})
             m_checkbox_list[key]->Hide();
@@ -7240,8 +7243,26 @@ void PrinterInfoBox::SetPrinters(const std::vector<MachineObject*>& sorted_print
         // update image
         try
         {
+            if (is_creality_printer_selected()) { // the printer model's cover from the Creality profile, else a generic picture
+                const boost::filesystem::path cover = boost::filesystem::path(resources_dir()) / "profiles" / "Creality" /
+                                                      (obj->get_printer_type_display_str().ToUTF8().data() + std::string("_cover.png"));
+                wxImage image;
+                if (boost::filesystem::exists(cover) && image.LoadFile(from_u8(cover.string()))) {
+                    auto scaled = [&image, this](int size) {
+                        wxImage img = image;
+                        img.Rescale(FromDIP(size), FromDIP(size), wxIMAGE_QUALITY_HIGH);
+                        return wxBitmap(img);
+                    };
+                    drop_item.icon          = scaled(32);
+                    drop_item.icon_textctrl = scaled(52);
+                } else {
+                    drop_item.icon          = create_scaled_bitmap("printer_placeholder", this, 32);
+                    drop_item.icon_textctrl = create_scaled_bitmap("printer_placeholder", this, 52);
+                }
+            } else {
             drop_item.icon = create_scaled_bitmap("printer_preview_" + obj->printer_type, this, 32);
             drop_item.icon_textctrl = create_scaled_bitmap("printer_preview_" + obj->printer_type, this, 52);
+            }
         }
         catch (const std::exception&)
         {
