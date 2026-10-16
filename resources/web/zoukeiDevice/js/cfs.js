@@ -104,8 +104,9 @@
         const feedBtn = h('button.btn.primary', { type: 'button', onclick: () => feed(true) }, icon('feed'), Z.t('feed'));
         const retractBtn = h('button.btn', { type: 'button', onclick: () => feed(false) }, icon('retract'), Z.t('retract'));
         const rfidBtn = h('button.btn', { type: 'button', onclick: refreshRfid }, icon('refresh'), Z.t('reread_rfid'));
+        const refillBtn = h('button.btn', { type: 'button', onclick: openAutoRefill }, icon('layers'), Z.t('auto_refill'));
         const note = h('p.note');
-        const el = h('div.cfs-tab', units, h('div.cfs-actions', editBtn, feedBtn, retractBtn, rfidBtn), note);
+        const el = h('div.cfs-tab', units, h('div.cfs-actions', editBtn, feedBtn, retractBtn, rfidBtn, refillBtn), note);
 
         function selectedSlot() {
             if (!sel || !link.boxes) return null;
@@ -147,6 +148,29 @@
                 h('div.pct', { text: s.loaded && num(s.percent, -1) >= 0 ? Math.round(num(s.percent)) + '%' : '' }));
         }
 
+        // Slots that hold the same material and colour take over from each other (1A > 1B > 2B).
+        function refillGroups() {
+            const same = (link.boxes && link.boxes.same_material) || [];
+            return same.filter(g => Array.isArray(g) && Array.isArray(g[2]) && g[2].length >= 2).map(g => ({
+                color: colorFromPrinter(g[1]), material: g[3] || '',
+                slots: g[2].map(m => m.boxId + String.fromCharCode(65 + num(m.materialId)))
+            }));
+        }
+        function openAutoRefill() {
+            const groups = refillGroups();
+            const input = h('input', { type: 'checkbox', role: 'switch' });
+            input.checked = Number((link.boxConfig || {}).autoRefill) === 1;
+            input.addEventListener('change', () => { if (link.online) link.setAutoRefill(input.checked); else input.checked = !input.checked; });
+            const body = h('div', h('div.ar-switch', h('label.switch', input, h('span.track')), h('b', { text: Z.t('auto_refill') })),
+                h('p.muted', { text: Z.t('auto_refill_info') }),
+                groups.length ? groups.map(g => h('div.ar-group', g.slots.reduce((acc, name, i) => {
+                    if (i) acc.push(icon('right'));
+                    acc.push(h('span.ar-chip', h('i', { style: g.color ? 'background:' + g.color : null }), name));
+                    return acc;
+                }, []), h('span.ar-mat', { text: g.material }))) : h('p.muted', { text: Z.t('auto_refill_none') }));
+            Z.dialog({ title: Z.t('auto_refill'), body: body, buttons: [{ label: Z.t('close') }] });
+        }
+
         function unitEl(box) {
             const slots = (box.materials || []).map(m => slotInfo(box, m));
             const external = box.type === 1;
@@ -159,7 +183,7 @@
             return h('div.unit' + (external ? '.ext' : ''),
                 h('div.unit-head', h('b', { text: external ? Z.t('ext_spool') : 'CFS ' + box.id }), h('div.spacer'), tags),
                 h('div.slots', slots.map(slotEl)),
-                !external && Number(cfg.autoRefill) === 1 ? h('div.unit-foot', h('span.tag.accent', { text: Z.t('auto_refill') })) : null);
+                !external && Number(cfg.autoRefill) === 1 ? h('div.unit-foot', h('button.tag.accent.btn-tag', { type: 'button', title: Z.t('auto_refill'), onclick: openAutoRefill }, 'AUTO')) : null);
         }
 
         function update() {

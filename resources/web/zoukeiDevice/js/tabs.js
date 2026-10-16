@@ -147,7 +147,59 @@
         return { el: el, update: update, activate() { link.get({ reqHistory: 1 }); } };
     }
 
+    // ---- timelapse videos ---------------------------------------------------------------------
+
+    function createTimelapseTab(ctx) {
+        const link = ctx.link, dev = ctx.dev;
+        let lastSig = '';
+        const list = h('div.file-list');
+        const refresh = h('button.btn', { type: 'button', onclick: () => link.get({ reqElapseVideoList: 1 }) }, icon('refresh'), Z.t('refresh'));
+        const el = h('div.timelapse-tab', h('div.row', refresh), list);
+
+        function row(v) {
+            const name = v.videoname || Z.fmt.baseName(v.video);
+            const stem = Z.fmt.baseName(v.gcodename || v.name).replace(/\.gcode[^.]*$/, '');
+            const url = Z.Host.imageUrl(dev, '/downloads/humbnail/' + encodeURIComponent(stem + '.png'), v.starttime);
+            const img = h('img', { alt: '', loading: 'lazy' });
+            if (url) img.setAttribute('src', url);
+            img.onerror = () => { img.hidden = true; };
+            const save = h('button.btn.small.primary', { type: 'button', disabled: !link.online, onclick: () => {
+                save.disabled = true;
+                Z.Host.request('download_video', { address: dev.address, name: name }, 'download_video', 900000).then(r => {
+                    if (r.ok) Z.toast(Z.t('video_saved', { path: r.path }));
+                    else if (!r.cancelled) Z.toast(Z.t('video_failed') + (r.error ? ': ' + r.error : ''));
+                }, () => Z.toast(Z.t('video_failed'))).then(() => { save.disabled = !link.online; });
+            } }, icon('feed'), Z.t('download'));
+            return h('div.file-row',
+                h('div.thumb.small', icon('camera'), img),
+                h('div.info', h('div.fname', { text: stem || name }),
+                    h('div.muted', { text: [v.dateTime, Z.fmt.bytes(v.size), v.duration ? Z.fmt.duration(v.duration) : ''].filter(Boolean).join(' · ') })),
+                save,
+                h('button.icon-btn', { type: 'button', disabled: !link.online, 'aria-label': Z.t('delete'), title: Z.t('delete'), onclick: () => {
+                    Z.confirm(Z.t('delete_confirm', { name: stem || name }), { danger: true, okLabel: Z.t('delete') }).then(yes => {
+                        if (!yes) return;
+                        link.deleteVideo(name);
+                        setTimeout(() => link.get({ reqElapseVideoList: 1 }), 1500);
+                    });
+                } }, icon('trash')));
+        }
+
+        function update() {
+            const v = link.videos;
+            const sig = JSON.stringify([v && v.map(x => x.id), link.online, Z.lang]);
+            if (sig === lastSig) return;
+            lastSig = sig;
+            list.replaceChildren();
+            if (!v) { list.appendChild(h('p.muted', { text: Z.t('loading') })); return; }
+            if (!v.length) list.appendChild(h('p.muted', { text: Z.t('video_none') }));
+            v.slice().sort((a, b) => num(b.starttime) - num(a.starttime)).forEach(x => list.appendChild(row(x)));
+        }
+
+        return { el: el, update: update, activate() { link.get({ reqElapseVideoList: 1 }); } };
+    }
+
     Z.createMoveTab = createMoveTab;
+    Z.createTimelapseTab = createTimelapseTab;
     Z.createFilesTab = createFilesTab;
     Z.createHistoryTab = createHistoryTab;
 })(window.Z = window.Z || {});

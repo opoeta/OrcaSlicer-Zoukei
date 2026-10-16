@@ -33,7 +33,8 @@
         target.addEventListener('keydown', e => { if (e.key === 'Enter') { commit(); target.blur(); } });
         const off = h('button.btn.small.ghost', { type: 'button', onclick: () => { target.value = 0; commit(); } }, Z.t('off'));
         const bar = h('div.mini-bar', h('i'));
-        const el = h('div.card.temp', h('h3', icon(cfg.icon || 'temp'), cfg.title),
+        const el = h('div.card.temp', h('h3', icon(cfg.icon || 'temp'), cfg.title, h('div.spacer'),
+                h('button.icon-btn', { type: 'button', 'aria-label': Z.t('history_chart'), title: Z.t('history_chart'), onclick: () => cfg.onChart && cfg.onChart() }, icon('chart'))),
             h('div.temp-row',
                 h('div', h('small', { text: Z.t('current') }), cur),
                 h('div', h('small', { text: Z.t('target') }), h('div.input-unit', target, h('span', { text: '°C' })))),
@@ -90,7 +91,7 @@
 
     function createDetail() {
         let link = null, camera = null, dev = null;
-        let tabs = [], activeTab = 0, pending = false, offs = [];
+        let tabs = [], activeTab = 0, pending = false, offs = [], histories = null;
 
         const root = h('section.screen.detail');
 
@@ -132,9 +133,11 @@
             const left = h('aside.left', h('div.card.camera', h('h3', icon('camera'), Z.t('camera')), camera.el), printCard);
 
             // controls
-            const nozzle = tempCard({ title: Z.t('nozzle'), cur: 'nozzleTemp', tgt: 'targetNozzleTemp', max: 'maxNozzleTemp', fallbackMax: 350, link: link, canWrite: canWrite, send: v => link.setNozzleTemp(v) });
-            const bed = tempCard({ title: Z.t('bed'), cur: 'bedTemp0', tgt: 'targetBedTemp0', max: 'maxBedTemp', fallbackMax: 120, link: link, canWrite: canWrite, send: v => link.setBedTemp(v) });
-            const chamber = tempCard({ title: Z.t('chamber'), cur: 'boxTemp', tgt: 'targetBoxTemp', max: 'maxBoxTemp', fallbackMax: 60, link: link, canWrite: canWrite,
+            const history = Z.createTempHistory(link);
+            const onChart = () => Z.openTempChart(history);
+            const nozzle = tempCard({ title: Z.t('nozzle'), cur: 'nozzleTemp', tgt: 'targetNozzleTemp', max: 'maxNozzleTemp', fallbackMax: 350, link: link, canWrite: canWrite, onChart: onChart, send: v => link.setNozzleTemp(v) });
+            const bed = tempCard({ title: Z.t('bed'), cur: 'bedTemp0', tgt: 'targetBedTemp0', max: 'maxBedTemp', fallbackMax: 120, link: link, canWrite: canWrite, onChart: onChart, send: v => link.setBedTemp(v) });
+            const chamber = tempCard({ title: Z.t('chamber'), cur: 'boxTemp', tgt: 'targetBoxTemp', max: 'maxBoxTemp', fallbackMax: 60, link: link, canWrite: canWrite, onChart: onChart,
                 present: s => 'boxTemp' in s && num(s.maxBoxTemp, 1) > 0, send: v => link.setChamberTemp(v) });
 
             const ledSw = toggle(on => link.setLight(on));
@@ -161,6 +164,7 @@
                 { key: 'cfs', label: Z.t('tab_cfs'), page: Z.createCfsTab(ctx) },
                 { key: 'move', label: Z.t('tab_move'), page: Z.createMoveTab(ctx) },
                 { key: 'files', label: Z.t('tab_files'), page: Z.createFilesTab(ctx) },
+                { key: 'timelapse', label: Z.t('tab_timelapse'), page: Z.createTimelapseTab(ctx) },
                 { key: 'history', label: Z.t('tab_history'), page: Z.createHistoryTab(ctx) }
             ];
             const tabButtons = tabs.map((t, i) => h('button.tab', { type: 'button', role: 'tab', onclick: () => selectTab(i) }, t.label));
@@ -184,6 +188,7 @@
             root.appendChild(h('div.cols', left, right));
 
             // ---- patching ---------------------------------------------------------------------
+            histories = history;
             const widgets = [nozzle, bed, chamber, led, speed].concat(fans);
             function update() {
                 pending = false;
@@ -228,7 +233,7 @@
             }
             const schedule = () => { if (!pending) { pending = true; requestAnimationFrame(update); } };
             offs = [link.on('state', schedule), link.on('boxes', schedule), link.on('online', schedule), link.on('files', schedule),
-                link.on('history', schedule), link.on('library', schedule), link.on('boxconfig', schedule), link.on('ready', schedule),
+                link.on('history', schedule), link.on('library', schedule), link.on('boxconfig', schedule), link.on('videos', schedule), link.on('ready', schedule),
                 link.on('online', on => { if (on) camera.start(); })];
             selectTab(0);
             update();
@@ -252,6 +257,8 @@
                 offs = [];
                 tabs.forEach(t => t.page.deactivate && t.page.deactivate());
                 if (camera) camera.stop();
+                if (histories) histories.stop();
+                histories = null;
                 if (link) link.close();
                 link = camera = dev = null;
                 tabs = [];

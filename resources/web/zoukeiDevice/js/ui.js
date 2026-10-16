@@ -72,6 +72,7 @@
         printer: '<path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/>',
         warn: '<path d="M12 3l10 18H2zM12 10v5M12 18h.01"/>',
         feed: '<path d="M12 4v13M6 12l6 6 6-6"/>',
+        chart: '<path d="M3 20h18M5 16l4-5 4 3 6-8"/>',
         retract: '<path d="M12 20V7M6 12l6-6 6 6"/>'
     };
 

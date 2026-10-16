@@ -19,6 +19,7 @@
             this.boxes = null;        // boxsInfo: {materialBoxs: [...], ...}
             this.boxConfig = null;
             this.files = null;        // retGcodeFileInfo2
+            this.videos = null;       // elapseVideoList (timelapse)
             this.history = null;      // {totalJob, totalUsageTime, totalUsageMaterial, historyList}
             this.library = null;      // retMaterials, reduced to what slot editing needs
             this.token = '';          // videoToken
@@ -133,6 +134,7 @@
                 return;
             }
             if (msg.boxConfig) { this.boxConfig = msg.boxConfig; this._emit('boxconfig'); return; }
+            if (msg.elapseVideoList) { this.videos = msg.elapseVideoList; this._emit('videos'); return; }
             if (msg.retGcodeFileInfo2) { this.files = msg.retGcodeFileInfo2; this._emit('files'); return; }
             if (msg.historyList) { this.history = msg; this._emit('history'); return; }
             if (msg.retMaterials) { this.library = reduceLibrary(msg.retMaterials); this._emit('library'); return; }
@@ -151,7 +153,22 @@
         setBedTemp(v) { return this.set({ bedTempControl: { num: 0, val: v } }, { targetBedTemp0: v }); }
         setChamberTemp(v) { return this.set({ boxTempControl: v }, { targetBoxTemp: v }); }
         setLight(on) { return this.set({ lightSw: on ? 1 : 0 }, { lightSw: on ? 1 : 0 }); }
-        setFan(key, pct) { return this.set({ [key]: pct }, { [key]: pct }); }   // modelFanPct | caseFanPct | auxiliaryFanPct
+        // key: modelFanPct | caseFanPct | auxiliaryFanPct. The K2 takes the fans as M106 (P0 model,
+        // P1 case, P2 side; S 0-255); only the F022 accepts the plain percentage for the model fan.
+        setFan(key, pct) {
+            const p = { modelFanPct: 0, caseFanPct: 1, auxiliaryFanPct: 2 }[key];
+            const patch = { [key]: pct };
+            if (key === 'modelFanPct' && this.state.model === 'F022') return this.set(patch, patch);
+            return this.set({ gcodeCmd: 'M106 P' + p + ' S' + Math.round(pct * 255 / 100) }, patch);
+        }
+        // Auto refill keeps the other CFS options as the printer reported them.
+        setAutoRefill(on) {
+            const c = this.boxConfig || {};
+            this.boxConfig = Object.assign({}, c, { autoRefill: on ? 1 : 0 });
+            this._emit('boxconfig');
+            return this.set({ boxConfig: { autoRefill: on ? 1 : 0, cAutoFeed: c.cAutoFeed || 0, cSelfTest: c.cSelfTest || 0 } });
+        }
+        deleteVideo(name) { return this.set({ ctrlVideoFiles: { cmd: 'remove', printId: '', file: name } }); }
         // mode: 'silent' | 50 | 100 | 125
         setSpeed(mode) {
             if (mode === 'silent') return this.set({ speedMode: 1 }, { speedMode: 1 });

@@ -73,6 +73,7 @@ private:
     void route_lan_scan(const json& j);
     void route_get_webrtc_local_param(const json& j);
     void route_get_filament_presets(const json& j);
+    void route_download_video(const json& j);
 
     wxWebView*                                   m_browser{nullptr};
     std::unique_ptr<CrealityDevice::WsProxy>     m_ws_proxy;

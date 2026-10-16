@@ -26,6 +26,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
 
+#include <wx/filedlg.h>
 #include <wx/sizer.h>
 #include <wx/utils.h>
 
@@ -712,6 +713,57 @@ void CrealityDevicePanel::route_get_webrtc_local_param(const json& j)
 }
 
 // ---------------------------------------------------------------------------------------------
+// Timelapse download: the page cannot save files, so the host asks for a path and fetches the
+// video from the printer.
+
+void CrealityDevicePanel::route_download_video(const json& j)
+{
+    const std::string address    = json_string(j, "address");
+    const std::string name       = json_string(j, "name");
+    const std::string request_id = json_string(j, "requestId");
+    auto reply = [this, request_id](json out) {
+        out["requestId"] = request_id;
+        post_command_async("download_video", std::move(out));
+    };
+    const bool name_ok = name.size() > 4 && name.size() < 128 && boost::iends_with(name, ".mp4") &&
+                         std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isalnum(c) || c == '.' || c == '_' || c == '-'; });
+    if (!is_known_lan_host(address) || !name_ok) {
+        reply({{"ok", false}, {"error", "invalid request"}});
+        return;
+    }
+    wxFileDialog dlg(this, wxString("Save timelapse video"), wxEmptyString, wxString::FromUTF8(name), "MP4 (*.mp4)|*.mp4",
+                     wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (dlg.ShowModal() != wxID_OK) {
+        reply({{"ok", false}, {"cancelled", true}});
+        return;
+    }
+    const std::string target = dlg.GetPath().ToUTF8().data();
+    try {
+        Http::get("http://" + address + "/downloads/video/" + name)
+            .timeout_connect(10)
+            .timeout_max(600)
+            .size_limit(1024ull * 1024 * 1024)
+            .on_complete([reply, target](std::string body, unsigned status) {
+                if (status != 200 || body.empty()) {
+                    reply({{"ok", false}, {"error", "HTTP " + std::to_string(status)}});
+                    return;
+                }
+                boost::nowide::ofstream out(target, std::ios::binary | std::ios::trunc);
+                out.write(body.data(), static_cast<std::streamsize>(body.size()));
+                out.close();
+                if (!out)
+                    reply({{"ok", false}, {"error", "could not write the file"}});
+                else
+                    reply({{"ok", true}, {"path", target}});
+            })
+            .on_error([reply](std::string, std::string error, unsigned) { reply({{"ok", false}, {"error", error}}); })
+            .perform();
+    } catch (const std::exception& e) {
+        reply({{"ok", false}, {"error", e.what()}});
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Routes: everything the page may ask of the host.
 
 void CrealityDevicePanel::register_routes()
@@ -743,6 +795,7 @@ void CrealityDevicePanel::register_routes()
     // Camera signalling and the Orca filament presets.
     h["get_webrtc_local_param"] = [this](const json& j) { route_get_webrtc_local_param(j); };
     h["get_filament_presets"]   = [this](const json& j) { route_get_filament_presets(j); };
+    h["download_video"]         = [this](const json& j) { route_download_video(j); };
 }
 
 }} // namespace Slic3r::GUI
