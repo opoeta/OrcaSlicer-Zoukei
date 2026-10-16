@@ -16613,7 +16613,7 @@ msgstr ""
 msgid "Seam position"
 msgstr ""
 
-msgid "This is the starting position for each part of the outer wall."
+msgid "This is the starting position for each part of the outer wall.\nAssemble zgap: seams are aligned like in Aligned mode, but within each layer the seams of different contours/holes are kept apart (at least 2 mm), so that the seam lines of mating parts do not stack in the same spot and the Z seam gaps stay distributed."
 msgstr ""
 
 msgid "Nearest"
@@ -16623,6 +16623,9 @@ msgid "Aligned"
 msgstr ""
 
 msgid "Aligned back"
+msgstr ""
+
+msgid "Assemble zgap"
 msgstr ""
 
 msgid "Back"

@@ -829,6 +829,12 @@ void gather_enforcers_blockers(GlobalModelInfo &result, const PrintObject *po) {
       << "SeamPlacer: build AABB trees for raycasting enforcers/blockers: end";
 }
 
+// Modes that align seams between layers and prefer the centers of enforcers.
+inline bool is_aligned_like(SeamPosition setup)
+{
+    return setup == spAligned || setup == spAlignedBack || setup == spAssembleZgap;
+}
+
 struct SeamComparator {
   SeamPosition setup;
   float angle_importance;
@@ -842,7 +848,7 @@ struct SeamComparator {
   // should return if a is better seamCandidate than b
   bool is_first_better(const SeamCandidate &a, const SeamCandidate &b, const Vec2f &preffered_location = Vec2f { 0.0f,
                                                                                                                0.0f }) const {
-    if ((setup == SeamPosition::spAligned || setup == SeamPosition::spAlignedBack) && a.central_enforcer != b.central_enforcer) {
+    if (is_aligned_like(setup) && a.central_enforcer != b.central_enforcer) {
       return a.central_enforcer;
     }
 
@@ -891,7 +897,7 @@ struct SeamComparator {
   // Also used by the random seam generator.
   bool is_first_not_much_worse(const SeamCandidate &a, const SeamCandidate &b) const {
     // Blockers/Enforcers discrimination, top priority
-    if ((setup == SeamPosition::spAligned || setup == SeamPosition::spAlignedBack) && a.central_enforcer != b.central_enforcer) {
+    if (is_aligned_like(setup) && a.central_enforcer != b.central_enforcer) {
       // Prefer centers of enforcers.
       return a.central_enforcer;
     }
@@ -1012,6 +1018,53 @@ void pick_seam_point(std::vector<SeamCandidate> &perimeter_points, size_t start_
     }
   }
   perimeter_points[start_index].perimeter.seam_index = seam_index;
+}
+
+// Assemble zgap: after alignment, the seams of the perimeters that were not part of an aligned seam string are moved
+// to their next best candidate when they lie closer than assemble_zgap_min_distance to a seam already placed in the same layer.
+void separate_unaligned_seams(std::vector<PrintObjectSeamData::LayerSeams> &layers, const SeamComparator &comparator)
+{
+    constexpr float min_distance    = SeamPlacer::assemble_zgap_min_distance;
+    constexpr float min_distance_sq = min_distance * min_distance;
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, layers.size()), [&layers, &comparator](tbb::blocked_range<size_t> r) {
+        for (size_t layer_idx = r.begin(); layer_idx < r.end(); ++layer_idx) {
+            std::vector<SeamCandidate> &points = layers[layer_idx].points;
+            std::vector<Vec2f>          taken; // seam positions already fixed in this layer
+            for (size_t current = 0; current < points.size(); current = points[current].perimeter.end_index) {
+                const Perimeter &p = points[current].perimeter;
+                if (p.finalized)
+                    taken.emplace_back(p.final_seam_position.head<2>());
+            }
+            auto is_free = [&taken](const Vec2f &pos) {
+                for (const Vec2f &t : taken)
+                    if ((t - pos).squaredNorm() < min_distance_sq)
+                        return false;
+                return true;
+            };
+            for (size_t current = 0; current < points.size();) {
+                Perimeter &perimeter = points[current].perimeter;
+                const size_t start = perimeter.start_index, end = perimeter.end_index;
+                current = end;
+                if (perimeter.finalized)
+                    continue;
+                if (!is_free(points[perimeter.seam_index].position.head<2>())) {
+                    std::vector<size_t> candidates;
+                    for (size_t i = start; i < end; ++i)
+                        if (i != perimeter.seam_index)
+                            candidates.push_back(i);
+                    std::stable_sort(candidates.begin(), candidates.end(), [&](size_t l, size_t r) {
+                        return comparator.is_first_better(points[l], points[r]);
+                    });
+                    for (size_t idx : candidates)
+                        if (points[idx].type != EnforcedBlockedSeamPoint::Blocked && is_free(points[idx].position.head<2>())) {
+                            perimeter.seam_index = idx;
+                            break;
+                        }
+                }
+                taken.emplace_back(points[perimeter.seam_index].position.head<2>());
+            }
+        }
+    });
 }
 
 size_t pick_nearest_seam_point_index(const std::vector<SeamCandidate> &perimeter_points, size_t start_index,
@@ -1549,7 +1602,7 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
           precise_seam_warnings.modifier_usage.try_emplace(vol);
 
       throw_if_canceled_func();
-      if (configured_seam_preference == spAligned || configured_seam_preference == spNearest || configured_seam_preference == spAlignedBack) {
+      if (configured_seam_preference == spAligned || configured_seam_preference == spNearest || configured_seam_preference == spAlignedBack || configured_seam_preference == spAssembleZgap) {
         compute_global_occlusion(global_model_info, po, throw_if_canceled_func, configured_seam_preference);
       }
       throw_if_canceled_func();
@@ -1560,7 +1613,7 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
       BOOST_LOG_TRIVIAL(debug)
           << "SeamPlacer: gather_seam_candidates: end";
       throw_if_canceled_func();
-      if (configured_seam_preference == spAligned || configured_seam_preference == spNearest || configured_seam_preference == spAlignedBack) {
+      if (configured_seam_preference == spAligned || configured_seam_preference == spNearest || configured_seam_preference == spAlignedBack || configured_seam_preference == spAssembleZgap) {
         BOOST_LOG_TRIVIAL(debug)
             << "SeamPlacer: calculate_candidates_visibility : start";
         calculate_candidates_visibility(po, global_model_info);
@@ -1596,10 +1649,12 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
           << "SeamPlacer: pick_seam_point : end";
     }
     throw_if_canceled_func();
-    if (configured_seam_preference == spAligned || configured_seam_preference == spRear || configured_seam_preference == spAlignedBack) {
+    if (configured_seam_preference == spAligned || configured_seam_preference == spRear || configured_seam_preference == spAlignedBack || configured_seam_preference == spAssembleZgap) {
       BOOST_LOG_TRIVIAL(debug)
           << "SeamPlacer: align_seam_points : start";
       align_seam_points(po, comparator);
+      if (configured_seam_preference == spAssembleZgap)
+          separate_unaligned_seams(m_seam_per_object[po].layers, comparator);
       BOOST_LOG_TRIVIAL(debug)
           << "SeamPlacer: align_seam_points : end";
     }

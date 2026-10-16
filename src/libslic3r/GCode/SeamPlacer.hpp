@@ -140,6 +140,8 @@ public:
   // When searching for seam clusters for alignment:
   // following value describes, how much worse score can point have and still be picked into seam cluster instead of original seam point on the same layer
   static constexpr float seam_align_score_tolerance = 0.3f;
+  // Assemble zgap: minimum distance (mm) kept between seams of different perimeters in one layer.
+  static constexpr float assemble_zgap_min_distance = 2.0f;
   // seam_align_tolerable_dist_factor - how far to search for seam from current position, final dist is seam_align_tolerable_dist_factor * flow_width
   static constexpr float seam_align_tolerable_dist_factor = 4.0f;
   // minimum number of seams needed in cluster to make alignment happen

@@ -17946,8 +17946,8 @@ msgstr "Desativar a geração do M73: Definir tempo restante de impressão no G-
 msgid "Seam position"
 msgstr "Posição da costura"
 
-msgid "This is the starting position for each part of the outer wall."
-msgstr "Esta é a posição inicial para cada parte da parede externa."
+msgid "This is the starting position for each part of the outer wall.\nAssemble zgap: seams are aligned like in Aligned mode, but within each layer the seams of different contours/holes are kept apart (at least 2 mm), so that the seam lines of mating parts do not stack in the same spot and the Z seam gaps stay distributed."
+msgstr "Esta é a posição inicial para cada parte da parede externa.\nMontagem (afastar costuras): as costuras são alinhadas como no modo Alinhada, mas, dentro de cada camada, as costuras de contornos/furos diferentes ficam afastadas (no mínimo 2 mm), para que as linhas de costura de peças que se encaixam não se empilhem no mesmo ponto e as folgas em Z fiquem distribuídas."
 
 msgid "Nearest"
 msgstr "Mais próximo"
@@ -17957,6 +17957,9 @@ msgstr "Alinhada"
 
 msgid "Aligned back"
 msgstr "Alinhada atrás"
+
+msgid "Assemble zgap"
+msgstr "Montagem (afastar costuras)"
 
 msgid "Back"
 msgstr "Atrás"
