@@ -36,7 +36,11 @@ Flow PrintRegion::flow(const PrintObject &object, FlowRole role, double layer_he
     ConfigOptionFloatOrPercent config_width;
     // Get extrusion width from configuration.
     // (might be an absolute value, or a percent value, or zero for auto)
-    if (first_layer && print_config.initial_layer_line_width.value > 0) {
+    // The infill of the first layer may have its own line width; zero keeps following "initial_layer_line_width".
+    const bool infill_role = role == frInfill || role == frSolidInfill || role == frTopSolidInfill;
+    if (first_layer && infill_role && print_config.initial_layer_infill_line_width.value > 0) {
+        config_width = print_config.initial_layer_infill_line_width;
+    } else if (first_layer && print_config.initial_layer_line_width.value > 0) {
         config_width = print_config.initial_layer_line_width;
     } else if (role == frExternalPerimeter) {
         config_width = m_config.outer_wall_line_width;

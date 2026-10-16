@@ -16261,6 +16261,9 @@ msgstr ""
 msgid "Line width of the first layer. If expressed as a %, it will be computed over the nozzle diameter."
 msgstr "Largura da linha da primeira camada. Se expresso como uma %, será calculado sobre o diâmetro do bico."
 
+msgid "Line width of the infill of the first layer, including sparse infill, solid infill and top surface. Walls and everything else of the first layer keep using the first layer line width. If expressed as a %, it will be computed over the nozzle diameter. Zero means to use the first layer line width."
+msgstr "Largura da linha do preenchimento da primeira camada, incluindo preenchimento esparso, preenchimento sólido e superfície superior. As paredes e todo o resto da primeira camada continuam usando a largura de linha da primeira camada. Se expresso como uma %, será calculado sobre o diâmetro do bico. Zero significa usar a largura de linha da primeira camada."
+
 msgid "First layer height"
 msgstr "Altura da primeira camada"
 

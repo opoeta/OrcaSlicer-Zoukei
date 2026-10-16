@@ -4023,6 +4023,20 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0., false));
 
+    def = this->add("initial_layer_infill_line_width", coFloatOrPercent);
+    def->label = L("First layer infill");
+    def->category = L("Quality");
+    def->tooltip = L("Line width of the infill of the first layer, including sparse infill, solid infill and top surface. "
+                     "Walls and everything else of the first layer keep using the first layer line width. "
+                     "If expressed as a %, it will be computed over the nozzle diameter. Zero means to use the first layer line width.");
+    def->sidetext = L("mm or %");
+    def->ratio_over = "nozzle_diameter";
+    def->min = 0;
+    def->max = 1000;
+    def->max_literal = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloatOrPercent(0., false));
+
     def = this->add("initial_layer_print_height", coFloat);
     def->label = L("First layer height");
     def->category = L("Quality");
@@ -13013,6 +13027,7 @@ std::map<std::string, std::string> validate(const FullPrintConfig &cfg, bool und
             "top_surface_line_width",
             "support_line_width",
             "initial_layer_line_width",
+            "initial_layer_infill_line_width",
             "skin_infill_line_width",
             "skeleton_infill_line_width"};
         for (size_t i = 0; i < sizeof(widths) / sizeof(widths[i]); ++ i) {

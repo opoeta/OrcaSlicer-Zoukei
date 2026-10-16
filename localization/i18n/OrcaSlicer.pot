@@ -15071,6 +15071,9 @@ msgstr ""
 msgid "Line width of the first layer. If expressed as a %, it will be computed over the nozzle diameter."
 msgstr ""
 
+msgid "Line width of the infill of the first layer, including sparse infill, solid infill and top surface. Walls and everything else of the first layer keep using the first layer line width. If expressed as a %, it will be computed over the nozzle diameter. Zero means to use the first layer line width."
+msgstr ""
+
 msgid "First layer height"
 msgstr ""
 
