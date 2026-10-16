@@ -3724,6 +3724,9 @@ void Sidebar::cfs_restore()
     for (wxSizer* r : p->cfs_rows)
         for (wxSizer* c : {cols[0], cols[1], (wxSizer*) p->sizer_cfs_ext})
             c->Detach(r);
+    for (size_t i = 0; i < p->cfs_rows.size(); ++i)
+        if (p->cfs_rows[i] && (i % 2) == 1 && !p->cfs_rows[i]->GetChildren().empty() && p->cfs_rows[i]->GetItem((size_t) 0)->IsSpacer())
+            p->cfs_rows[i]->Remove(0); // padding added by cfs_relayout
     cols[0]->Clear(true); // headers
     cols[1]->Clear(true);
     p->sizer_cfs_ext->Clear(true);
@@ -3757,6 +3760,13 @@ void Sidebar::cfs_relayout()
                     c->Detach(r);
             cols[0]->Clear(true); // spacers
             cols[1]->Clear(true);
+            // uniform grid: every row = [12 margin][badge][combo (expand)][...][margin]; odd-index rows lack the left margin
+            for (int i = 0; i < n; ++i) {
+                if ((i % 2) == 1)
+                    rows[i]->Insert(0, FromDIP(12), 0);
+                if (i < (int) p->combos_filament.size() && p->combos_filament[i])
+                    p->combos_filament[i]->SetMinSize(wxSize(FromDIP(40), p->combos_filament[i]->GetMinSize().y)); // let both columns shrink equally
+            }
             const int row_h = rows[0]->GetMinSize().y;
             auto header = [&](wxSizer* target, const wxString& text) {
                 auto* s  = new wxBoxSizer(wxHORIZONTAL);

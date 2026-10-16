@@ -5149,13 +5149,33 @@ bool is_creality_printer_selected()
     return app != nullptr && CrealityDevicePanel::is_creality_printer(*app);
 }
 
-wxString filament_system_name() { return is_creality_printer_selected() ? wxString("CFS") : wxString("AMS"); }
+static bool is_flashforge_printer_selected()
+{
+    auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return false;
+    const Preset& printer = bundle->printers.get_edited_preset();
+    const std::string model = printer.config.has("printer_model") ? printer.config.opt_string("printer_model") : std::string();
+    const VendorProfile* vendor = printer.vendor != nullptr ? printer.vendor : bundle->printers.get_preset_parent(printer) != nullptr ? bundle->printers.get_preset_parent(printer)->vendor : nullptr;
+    return boost::istarts_with(model, "Flashforge") || (vendor != nullptr && boost::iequals(vendor->id, "Flashforge"));
+}
+
+// Each brand's name for its multi-filament unit: Bambu AMS, Creality CFS, Flashforge IFS.
+wxString filament_system_name()
+{
+    if (is_creality_printer_selected())
+        return "CFS";
+    if (is_flashforge_printer_selected())
+        return "IFS";
+    return "AMS";
+}
 
 wxString creality_localize(const wxString& s)
 {
-    if (!is_creality_printer_selected()) return s;
+    const wxString name = filament_system_name();
+    if (name == "AMS") return s;
     wxString r = s;
-    r.Replace("AMS", "CFS");
+    r.Replace("AMS", name);
     return r;
 }
 

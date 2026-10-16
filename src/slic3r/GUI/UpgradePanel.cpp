@@ -1342,8 +1342,20 @@ void MachineInfoPanel::update_ams_ext(MachineObject *obj)
         ams_iter++;
     }
 
-    if (contain_four_slot) {
-        if (m_img_monitor_ams.name() != "monitor_upgrade_ams") {
+    bool contain_bmcu = false;
+    for (const auto& kv : obj->get_ams_version()) {
+        wxString sn = kv.second.sn;
+        if (is_custom_sn(sn.MakeUpper())) { contain_bmcu = true; break; }
+    }
+
+    if (contain_bmcu) {
+        // BMCU picture (from OrcaStudio, AGPL: github.com/jarczakpawel/OrcaStudio)
+        if (m_img_monitor_ams.name() != "bmcu320") {
+            m_img_monitor_ams = ScalableBitmap(this, "bmcu320", 150);
+            m_ams_img->SetBitmap(m_img_monitor_ams.bmp());
+        }
+    } else if (contain_four_slot) {
+        if (m_img_monitor_ams.name() != "monitor_upgrade_ams_png") {
             m_img_monitor_ams = ScalableBitmap(this, "monitor_upgrade_ams_png", 150);
             m_ams_img->SetBitmap(m_img_monitor_ams.bmp());
         }
