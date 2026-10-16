@@ -107,7 +107,7 @@ std::string CrealityCfsAgent::current_model_id()
     for (const auto& [vendor_id, vendor] : bundle->vendors)
         for (const auto& printer_model : vendor.models)
             if (printer_model.name == model || printer_model.id == model)
-                return printer_model.id;
+                return !printer_model.model_id.empty() ? printer_model.model_id : fallback_model_id(model);
     return fallback_model_id(model);
 }
 
