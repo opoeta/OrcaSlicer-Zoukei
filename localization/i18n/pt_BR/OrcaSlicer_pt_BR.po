@@ -36404,3 +36404,13 @@ msgid ""
 msgstr ""
 "Para uma impressora Creality com CFS (filamento 1 no slot 1A, 2 no 1B, ...) ou uma Flashforge AD5X com ZMOD e IFS, grava os filamentos "
 "do projeto nos slots quando eles mudam. Abrir um projeto não regrava os slots, e as mudanças esperam enquanto a impressora está ocupada."
+
+msgid "Apply printer slot changes to the project automatically"
+msgstr "Aplicar automaticamente mudanças de slot da impressora no projeto"
+
+msgid ""
+"For a Flashforge IFS: when a slot is changed on the printer (HelixScreen, Mainsail, its screen), apply it to the project filaments "
+"mapped to that slot instead of only offering a notification."
+msgstr ""
+"Para o IFS da Flashforge: quando um slot é alterado na impressora (HelixScreen, Mainsail, a tela), aplica aos filamentos do projeto "
+"mapeados a esse slot, em vez de só mostrar uma notificação."

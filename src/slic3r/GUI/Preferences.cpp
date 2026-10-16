@@ -1802,6 +1802,12 @@ void PreferencesDialog::create_items()
         "creality_cfs_auto_sync");
     g_sizer->Add(item_creality_cfs_sync);
 
+    auto item_ff_apply = create_item_checkbox(_L("Apply printer slot changes to the project automatically"),
+        _L("For a Flashforge IFS: when a slot is changed on the printer (HelixScreen, Mainsail, its screen), apply it to the project filaments "
+           "mapped to that slot instead of only offering a notification."),
+        "flashforge_apply_printer_changes");
+    g_sizer->Add(item_ff_apply);
+
     auto item_speed_dial = create_item_checkbox(_L("Open the Speed Dial from the keyboard"),
         _L("When enabled, the Speed Dial keyboard shortcut (Space by default) opens the action search from any page."),
         "enable_speed_dial");

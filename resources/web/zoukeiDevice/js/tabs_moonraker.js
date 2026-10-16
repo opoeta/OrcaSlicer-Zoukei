@@ -40,8 +40,14 @@
                 }).catch(() => Z.toast(Z.t('err_send'), 'err'));
             });
         } }, icon('refresh'), Z.t('ifs_repair'));
+        const syncAllBtn = h('button.btn', { type: 'button', title: Z.t('ifs_sync_all_info'), onclick: () => {
+            Z.Host.request('ifs_sync_all', {}, 'ifs_sync_all', 15000).then(r => {
+                if (!r.ok) Z.toast(Z.t('ifs_write_blocked', { reason: r.reason || '' }), 'err');
+                else Z.toast(r.changed ? Z.t('ifs_sync_all_done', { what: r.changed }) : Z.t('ifs_sync_all_none'));
+            }).catch(() => Z.toast(Z.t('err_send'), 'err'));
+        } }, icon('refresh'), Z.t('ifs_sync_all'));
         const note = h('p.note');
-        const el = h('div.cfs-tab', head, grid, h('div.cfs-actions', editBtn, loadBtn, unloadBtn, unlockBtn, repairBtn), note, lw);
+        const el = h('div.cfs-tab', head, grid, h('div.cfs-actions', editBtn, loadBtn, unloadBtn, unlockBtn, repairBtn, syncAllBtn), note, lw);
 
         function uiLabel(ifs) {
             if (!ifs) return '';
@@ -200,7 +206,7 @@
             if (mode === 'preset') {
                 if (!chosen) { Z.toast(Z.t('pick_preset'), 'err'); return false; }
                 const nozzle = chosen.minTemp && chosen.maxTemp ? Math.round((chosen.minTemp + chosen.maxTemp) / 2) : 0;
-                write({ type: chosen.type || 'PLA', hex: hex, vendor: chosen.vendor || '', name: baseName(chosen.name), nozzle_temp: nozzle, bed_temp: 0 });
+                write({ type: chosen.type || 'PLA', hex: hex, vendor: chosen.vendor || '', name: baseName(chosen.name), preset: chosen.name, nozzle_temp: nozzle, bed_temp: 0 });
             } else {
                 write({ type: fType.value, hex: hex, vendor: fVendor.value.trim(), name: fName.value.trim(),
                     nozzle_temp: Math.round(num(fNozzle.value)), bed_temp: Math.round(num(fBed.value)) });

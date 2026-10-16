@@ -54,6 +54,7 @@ public:
         std::string vendor;
         int         nozzle_temp = 0;
         int         bed_temp = 0;
+        int         spool_id = 0;  // Spoolman spool bound in HelixScreen's lane_data (0 = none)
     };
 
     explicit FlashforgePrinterAgent(std::string log_dir);
@@ -74,6 +75,10 @@ public:
     void        write_slots(std::vector<SlotWrite> writes);
     // Owner-initiated: reconcile HelixScreen's lane_data with the firmware for lanes that contradict it (async, plater notification).
     void        repair_lane_data();
+    // Forget the last active-spool push so the next poll re-evaluates it ("Sincronizar tudo agora").
+    void        resync_active_spool() { m_spool_key.clear(); }
+    // IFS channel (1..4) the printer reports as loaded / active, 0 when unknown.
+    int         current_channel() const { return m_channel.load(); }
 
     // The vendor model_id of the selected printer ("Flashforge-AD5X"), UI thread.
     static std::string current_model_id();
@@ -135,6 +140,7 @@ private:
     // ZMOD
     bool           fetch_zmod_slots(const std::string& base_url, const std::string& api_key, std::vector<IfsSlot>& slots);
     bool           write_lane_data(const std::string& base_url, const std::string& api_key, const SlotWrite& w, const std::string& zmod_type, const IfsSlot* before);
+    void           sync_active_spool(const std::string& base_url, const std::string& api_key, const std::vector<IfsSlot>& slots);
     void           write_slots_worker(std::vector<SlotWrite> writes);
     int            handle_ams_setting(const nlohmann::json& cmd);
     void           apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots);
@@ -162,6 +168,9 @@ private:
     std::atomic<int>      m_ui{0};
     std::atomic<bool>     m_busy{false};          // printing / paused (ZMOD)
     std::atomic<bool>     m_writing{false};
+    std::atomic<int>      m_channel{0};
+    std::string           m_spool_key;            // zmod loop thread only (+ cleared from the UI, benign)
+    int                   m_spoolman = -1;        // -1 unknown, 0 absent, 1 configured
     bool                  m_display_popup = false; // zmod_color.display: CHANGE_ZCOLOR raises a popup on the screen
     std::vector<std::string> m_valid_types;       // zmod_color.valid_types, without "?"
     std::string           m_zmod_url, m_zmod_key;

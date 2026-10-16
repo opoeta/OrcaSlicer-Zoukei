@@ -476,6 +476,18 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
         std::string state = str(ps, "state");
         m_busy            = state == "printing" || state == "paused" || (vs.is_object() && vs.value("is_active", false));
         m_display_popup   = color.value("display", false);
+        {   // the channel ZMOD feeds from (key names differ between ZMOD builds); 0 = unknown
+            int chan = 0;
+            const json zi = st.value("zmod_ifs", json::object());
+            for (const json* o : {&zi, &color})
+                for (const char* k : {"current_channel", "channel", "chan", "current_slot", "active_slot", "current"})
+                    if (chan == 0 && o->is_object() && o->contains(k)) {
+                        const json& v = (*o)[k];
+                        const int   n = v.is_number() ? int(v.get<double>()) : v.is_string() ? std::atoi(v.get<std::string>().c_str()) : 0;
+                        chan          = n >= 1 && n <= 4 ? n : 0;
+                    }
+            m_channel = chan;
+        }
         std::vector<std::string> valid;
         if (color.contains("valid_types") && color["valid_types"].is_array())
             for (const json& t : color["valid_types"])
@@ -511,6 +523,7 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
                 slot.vendor      = !str(lane, "vendor_name").empty() ? str(lane, "vendor_name") : str(lane, "vendor");
                 slot.nozzle_temp = int(num(lane, "nozzle_temp"));
                 slot.bed_temp    = int(num(lane, "bed_temp"));
+                slot.spool_id    = int(num(lane, "spool_id"));
             }
         }
         slots.push_back(std::move(slot));
@@ -545,8 +558,10 @@ void FlashforgePrinterAgent::zmod_loop(uint64_t generation, std::string base_url
             }
         }
         std::vector<IfsSlot> slots;
-        if (fetch_zmod_slots(base_url, api_key, slots))
+        if (fetch_zmod_slots(base_url, api_key, slots)) {
+            sync_active_spool(base_url, api_key, slots);
             apply_zmod_slots(generation, std::move(slots));
+        }
         else if (first) { // no zmod_color: other filament systems (Happy Hare, AFC...) keep the Moonraker agent's sync
             std::weak_ptr<FlashforgePrinterAgent> weak = weak_from_this();
             run_on_main([weak, generation] {
@@ -560,11 +575,66 @@ void FlashforgePrinterAgent::zmod_loop(uint64_t generation, std::string base_url
     }
 }
 
+// Moonraker's active Spoolman spool follows the IFS channel the printer feeds from: when that lane is bound to a spool
+// (lane_data spool_id) and Moonraker's active spool differs, set it. Idle: whenever it differs; printing: only on a channel
+// change (tool change). Runs only while Orca is connected; docs/zoukei/ifs-spoolman-macro.cfg does the same on the printer.
+void FlashforgePrinterAgent::sync_active_spool(const std::string& base_url, const std::string& api_key, const std::vector<IfsSlot>& slots)
+{
+    const int chan = m_channel.load();
+    if (chan < 1 || chan > 4 || m_writing)
+        return;
+    const IfsSlot* lane = nullptr;
+    for (const IfsSlot& s : slots)
+        if (s.port == chan)
+            lane = &s;
+    if (lane == nullptr || lane->spool_id <= 0)
+        return;
+    const std::string key = std::to_string(chan) + ":" + std::to_string(lane->spool_id);
+    if (key == m_spool_key)
+        return;
+    std::string body;
+    if (m_spoolman < 0) {
+        m_spoolman = 0;
+        if (http_get(base_url + "/server/config", api_key, body)) {
+            const json c = json::parse(body, nullptr, false);
+            if (!c.is_discarded() && c.contains("result") && c["result"].contains("config") && c["result"]["config"].contains("spoolman"))
+                m_spoolman = 1;
+        }
+    }
+    if (m_spoolman != 1)
+        return;
+    if (m_busy && !m_spool_key.empty() && m_spool_key.substr(0, m_spool_key.find(':')) == std::to_string(chan))
+        return; // printing and no tool change: leave it
+    int active = 0;
+    if (http_get(base_url + "/server/spoolman/spool_id", api_key, body)) {
+        const json r = json::parse(body, nullptr, false);
+        if (!r.is_discarded() && r.contains("result") && r["result"].contains("spool_id") && r["result"]["spool_id"].is_number())
+            active = r["result"]["spool_id"].get<int>();
+    }
+    m_spool_key = key;
+    if (active == lane->spool_id)
+        return;
+    bool ok   = false;
+    auto http = Http::post(base_url + "/server/spoolman/spool_id");
+    if (!api_key.empty())
+        http.header("X-Api-Key", api_key);
+    http.header("Content-Type", "application/json")
+        .set_post_body(json{{"spool_id", lane->spool_id}}.dump())
+        .timeout_connect(5)
+        .timeout_max(10)
+        .on_complete([&](std::string, unsigned status) { ok = status == 200; })
+        .on_error([](std::string, std::string, unsigned) {})
+        .perform_sync();
+    BOOST_LOG_TRIVIAL(info) << "Flashforge agent: active spool -> " << lane->spool_id << " (IFS" << chan << ")" << (ok ? "" : " FAILED");
+    if (ok)
+        CrealityCfsAgent::notify("Flashforge IFS" + std::to_string(chan) + ": active Spoolman spool set to #" + std::to_string(lane->spool_id));
+}
+
 void FlashforgePrinterAgent::apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots)
 {
     std::string signature;
     for (const IfsSlot& s : slots)
-        signature += std::to_string(s.port) + (s.has_filament ? "+" : "-") + s.material + s.color + s.name + s.vendor + ";";
+        signature += std::to_string(s.port) + (s.has_filament ? "+" : "-") + s.material + s.color + s.name + s.vendor + std::to_string(s.spool_id) + ";";
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (signature == m_slot_signature)
@@ -867,19 +937,23 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     const std::string material = base_type(w.type).empty() ? upper(w.type) : base_type(w.type);
     const bool changed_identity = norm_color(str(existing, "color")) != w.color || upper(str(existing, "material")) != upper(material) ||
                                   (!zmod_type.empty() && upper(str(existing, "helix_material")) != upper(zmod_type)); // PLA <-> SILK
+    // A "foreign" record on purpose (docs/zoukei/sync-flashforge.md): no helix_declared / helix_locked_* / scan_time and only the
+    // vendor_name / name spellings (HelixScreen treats vendor / spool_name / helix_* as its own authorship marks, and a declared
+    // colour or material outranks every later firmware reading, so the screen kept the old slot until a reboot).
+    for (auto it = rec.begin(); it != rec.end();) {
+        const std::string k = it.key();
+        if (k.rfind("helix_", 0) == 0 && k != "helix_spoolman_filament_id" || k == "vendor" || k == "spool_name" || k == "scan_time")
+            it = rec.erase(it);
+        else
+            ++it;
+    }
     rec["lane"]     = std::to_string(w.port - 1);
     rec["color"]    = w.color;
     rec["material"] = material;
-    if (!zmod_type.empty())
-        rec["helix_material"] = zmod_type;
-    if (!w.vendor.empty()) {
-        rec["vendor"]      = w.vendor;
+    if (!w.vendor.empty())
         rec["vendor_name"] = w.vendor;
-    }
-    if (!w.name.empty()) {
-        rec["name"]       = w.name;
-        rec["spool_name"] = w.name;
-    }
+    if (!w.name.empty())
+        rec["name"] = w.name;
     if (w.nozzle_temp > 0)
         rec["nozzle_temp"] = w.nozzle_temp;
     if (w.bed_temp > 0)
@@ -887,25 +961,9 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     if (changed_identity)
         rec["color_name"] = ""; // stale HelixScreen colour name (e.g. "Bronze") no longer matches
     if (changed_identity)
-        for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id", "helix_product_name",
+        for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id",
                                   "remaining_weight_g", "total_weight_g"})
             rec.erase(stale);
-    // helix_declared makes the record outrank the firmware on the panel; without scan_time it counts as the newest declaration.
-    json declared = existing.value("helix_declared", json::array());
-    if (!declared.is_array())
-        declared = json::array();
-    auto declare = [&declared](const char* what) {
-        if (std::find(declared.begin(), declared.end(), json(what)) == declared.end())
-            declared.push_back(what);
-    };
-    declare("color_rgb");
-    declare("material");
-    if (!w.vendor.empty())
-        declare("brand");
-    if (!w.name.empty())
-        declare("spool_name");
-    rec["helix_declared"] = declared;
-    rec.erase("scan_time");
     if (rec == existing)
         return true;
 
@@ -967,17 +1025,14 @@ void FlashforgePrinterAgent::repair_lane_data()
                 continue;
             if (!s.color.empty())
                 rec["color"] = s.color;
-            if (!s.material.empty()) {
-                rec["material"]       = base_type(s.material).empty() ? upper(s.material) : base_type(s.material);
-                rec["helix_material"] = s.material;
-            }
+            if (!s.material.empty())
+                rec["material"] = base_type(s.material).empty() ? upper(s.material) : base_type(s.material);
             rec["color_name"] = "";
             for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id", "helix_product_name",
                                       "remaining_weight_g", "total_weight_g", "name", "spool_name", "vendor", "vendor_name", "scan_time"})
                 rec.erase(stale);
-            rec["helix_declared"]        = json::array({"color_rgb", "material"});
-            rec["helix_locked_color"]    = true;
-            rec["helix_locked_material"] = true;
+            for (auto it = rec.begin(); it != rec.end();) // foreign record, see write_lane_data
+                it = it.key().rfind("helix_", 0) == 0 ? rec.erase(it) : std::next(it);
             bool ok   = false;
             auto http = Http::post(base_url + "/server/database/item");
             if (!api_key.empty())

@@ -3,12 +3,15 @@
 #include "CrealityCfsUi.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
+#include "GUI_ObjectList.hpp"
+#include "NotificationManager.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
 
 #include <chrono>
@@ -73,6 +76,35 @@ std::vector<int> current_ports(size_t n)
     return ports;
 }
 
+std::string base_material(std::string t)
+{
+    boost::to_upper(t);
+    return t == "SILK" || t == "PLA-SILK" ? std::string("PLA") : t;
+}
+
+std::string filament_type_of(const Preset* p)
+{
+    if (p != nullptr)
+        if (const auto* o = p->config.option<ConfigOptionStrings>("filament_type"); o != nullptr && !o->values.empty())
+            return o->values.front();
+    return {};
+}
+
+// Closest compatible preset of the given type: a "Generic <type>" one first.
+std::string closest_preset(PresetBundle& bundle, const std::string& type)
+{
+    std::string best;
+    for (const Preset& p : bundle.filaments) {
+        if (!p.is_visible || !p.is_compatible || !boost::iequals(filament_type_of(&p), type))
+            continue;
+        if (boost::icontains(p.name, "generic") && !boost::icontains(p.name, "silk"))
+            return p.name;
+        if (best.empty())
+            best = p.name;
+    }
+    return best;
+}
+
 std::unique_ptr<FlashforgeIfsAutoSync> s_instance;
 
 } // namespace
@@ -84,6 +116,131 @@ void FlashforgeIfsAutoSync::start()
 }
 
 void FlashforgeIfsAutoSync::shutdown() { s_instance.reset(); }
+
+void FlashforgeIfsAutoSync::rebaseline()
+{
+    if (s_instance) {
+        s_instance->m_have_baseline = false;
+        s_instance->m_has_pending   = false;
+    }
+}
+
+int FlashforgeIfsAutoSync::apply_slot_to_project(int port, const std::string& type, const std::string& color, const std::string& preset)
+{
+    PresetBundle* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr || port < 1 || port > 4)
+        return 0;
+    auto* colours = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (colours == nullptr)
+        return 0;
+    std::string hex = color;
+    for (char& c : hex)
+        c = char(std::toupper(static_cast<unsigned char>(c)));
+    int changed = 0;
+    for (size_t i = 0; i < bundle->filament_presets.size() && i < colours->values.size(); ++i) {
+        const auto slot = CfsUi::mapped_slot(int(i));
+        if (!slot || slot->first != 1 || slot->second + 1 != port)
+            continue;
+        std::string target = preset;
+        if (target.empty() && !type.empty()) {
+            const std::string want = base_material(type);
+            if (!boost::iequals(filament_type_of(bundle->filaments.find_preset(bundle->filament_presets[i])), want))
+                target = closest_preset(*bundle, want);
+        }
+        bool touched = false;
+        if (!target.empty() && target != bundle->filament_presets[i] && bundle->filaments.find_preset(target) != nullptr) {
+            bundle->set_filament_preset(i, target);
+            touched = true;
+        }
+        if (!hex.empty() && boost::to_upper_copy(colours->values[i]) != hex) {
+            colours->values[i] = hex;
+            touched            = true;
+        }
+        changed += touched ? 1 : 0;
+    }
+    if (changed > 0) {
+        Plater* plater = wxGetApp().plater();
+        plater->update_filament_colors_in_full_config();
+        wxGetApp().sidebar().update_presets(Preset::TYPE_FILAMENT);
+        wxGetApp().sidebar().update_dynamic_filament_list();
+        if (wxGetApp().obj_list() != nullptr)
+            wxGetApp().obj_list()->update_filament_colors();
+        plater->update_project_dirty_from_presets();
+        bundle->export_selections(*wxGetApp().app_config);
+    }
+    rebaseline(); // the next tick records this state: the project -> printer sync must not echo it back
+    return changed;
+}
+
+std::string FlashforgeIfsAutoSync::apply_all_to_project()
+{
+    std::string out;
+    if (const auto agent = CfsUi::ifs_agent())
+        for (const auto& s : agent->ifs_slots())
+            if (s.has_filament)
+                if (apply_slot_to_project(s.port, s.material, s.color, "") > 0)
+                    out += (out.empty() ? "" : ", ") + std::string("IFS") + std::to_string(s.port) + " " + s.material + " " + s.color;
+    return out;
+}
+
+// Printer -> Orca: a slot that changed on the printer (HelixScreen, Mainsail, the screen) and no longer matches the project
+// filament mapped to it raises a notification with a "Sincronizar" link (or applies at once with the opt-in preference).
+void FlashforgeIfsAutoSync::check_printer_changes(const std::shared_ptr<FlashforgePrinterAgent>& agent)
+{
+    std::map<int, std::string> now;
+    std::map<int, FlashforgePrinterAgent::IfsSlot> slots;
+    for (const auto& s : agent->ifs_slots()) {
+        now[s.port]   = s.has_filament ? boost::to_upper_copy(s.material) + "|" + boost::to_upper_copy(s.color) : std::string();
+        slots[s.port] = s;
+    }
+    if (now.empty())
+        return;
+    const std::string dev = agent->get_user_selected_machine();
+    if (dev != m_printer_dev || m_printer_last.empty()) {
+        m_printer_dev  = dev;
+        m_printer_last = now;
+        return;
+    }
+    const std::string auto_apply = wxGetApp().app_config->get("flashforge_apply_printer_changes");
+    for (const auto& [port, sig] : now) {
+        if (m_printer_last[port] == sig)
+            continue;
+        m_printer_last[port] = sig;
+        const auto& s = slots[port];
+        if (!s.has_filament)
+            continue;
+        // does a mapped project filament already match?
+        PresetBundle* bundle  = wxGetApp().preset_bundle;
+        const auto*   colours = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+        bool          mapped = false, differs = false;
+        for (size_t i = 0; i < bundle->filament_presets.size(); ++i) {
+            const auto slot = CfsUi::mapped_slot(int(i));
+            if (!slot || slot->first != 1 || slot->second + 1 != port)
+                continue;
+            mapped = true;
+            const std::string type = filament_type_of(bundle->filaments.find_preset(bundle->filament_presets[i]));
+            if (colours == nullptr || i >= colours->values.size() || !boost::iequals(colours->values[i], s.color) ||
+                !boost::iequals(type, base_material(s.material)))
+                differs = true;
+        }
+        if (!mapped || !differs)
+            continue;
+        const std::string type = s.material, color = s.color;
+        if (auto_apply == "true" || auto_apply == "1") {
+            apply_slot_to_project(port, type, color, "");
+            CrealityCfsAgent::notify("IFS " + std::to_string(port) + " mudou na impressora - projeto atualizado.");
+            continue;
+        }
+        if (Plater* plater = wxGetApp().plater(); plater != nullptr && plater->get_notification_manager() != nullptr)
+            plater->get_notification_manager()->push_notification(
+                NotificationType::CustomNotification, NotificationManager::NotificationLevel::RegularNotificationLevel,
+                "Slot IFS " + std::to_string(port) + " mudou na impressora (" + s.material + " " + s.color + ")", "Sincronizar",
+                [port, type, color](wxEvtHandler*) {
+                    apply_slot_to_project(port, type, color, "");
+                    return true;
+                });
+    }
+}
 
 FlashforgeIfsAutoSync::FlashforgeIfsAutoSync()
 {
@@ -102,6 +259,10 @@ void FlashforgeIfsAutoSync::tick()
             return;
         const std::string enabled = config->get(CONFIG_KEY);
         const auto        agent   = CfsUi::ifs_agent();
+        if (agent && agent->mode() == FlashforgePrinterAgent::Mode::zmod)
+            check_printer_changes(agent);
+        else
+            m_printer_last.clear();
         if (!(enabled.empty() || enabled == "true" || enabled == "1") || !agent || agent->mode() != FlashforgePrinterAgent::Mode::zmod) {
             m_have_baseline = false;
             m_has_pending   = false;

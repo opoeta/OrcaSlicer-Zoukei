@@ -1,4 +1,5 @@
 #include "FlashforgeDevicePanel.hpp"
+#include "FlashforgeIfsAutoSync.hpp"
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
@@ -369,6 +370,10 @@ void FlashforgeDevicePanel::route_ifs_write_slot(const json& j)
         }
         agent->write_slots({w});
         out["ok"] = true;
+        // Printer -> project: the filaments mapped to this slot follow what was just written (no echo back).
+        const std::string preset = json_string(j, "preset"), wtype = w.type, wcolor = w.color;
+        const int         wport  = w.port;
+        wxGetApp().CallAfter([wport, wtype, wcolor, preset] { FlashforgeIfsAutoSync::apply_slot_to_project(wport, wtype, wcolor, preset); });
     }
     post_command("ifs_write_slot", std::move(out));
 }
@@ -388,6 +393,26 @@ void FlashforgeDevicePanel::route_ifs_repair(const json& j)
     post_command("ifs_repair", std::move(out));
 }
 
+// "Sincronizar tudo agora": lane_data follows the firmware, the active Spoolman spool is re-evaluated, the project follows the slots.
+void FlashforgeDevicePanel::route_ifs_sync_all(const json& j)
+{
+    json       out   = {{"requestId", json_string(j, "requestId")}, {"ok", false}, {"reason", ""}, {"changed", ""}};
+    const auto agent = CfsUi::ifs_agent();
+    if (!agent)
+        out["reason"] = "no Flashforge printer selected";
+    else {
+        if (agent->write_block_reason().empty())
+            agent->repair_lane_data();
+        agent->resync_active_spool();
+        const std::string changed = FlashforgeIfsAutoSync::apply_all_to_project();
+        out["ok"]      = true;
+        out["changed"] = changed;
+        CrealityCfsAgent::notify(changed.empty() ? "Flashforge IFS: projeto j\u00e1 coincide com a impressora." :
+                                                   "Flashforge IFS: projeto atualizado - " + changed);
+    }
+    post_command("ifs_sync_all", std::move(out));
+}
+
 void FlashforgeDevicePanel::register_routes()
 {
     auto& h = m_handlers;
@@ -398,6 +423,7 @@ void FlashforgeDevicePanel::register_routes()
     h["get_filament_presets"] = [this](const json& j) { route_get_filament_presets(j); };
     h["ifs_write_slot"]       = [this](const json& j) { route_ifs_write_slot(j); };
     h["ifs_repair"]           = [this](const json& j) { route_ifs_repair(j); };
+    h["ifs_sync_all"]         = [this](const json& j) { route_ifs_sync_all(j); };
 }
 
 }} // namespace Slic3r::GUI

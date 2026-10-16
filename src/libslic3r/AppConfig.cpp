@@ -705,6 +705,8 @@ void AppConfig::set_defaults()
     // Project -> CFS filament sync for Creality printers (native port of the CFS Sync plugin).
     if (get("creality_cfs_auto_sync").empty())
         set_bool("creality_cfs_auto_sync", true);
+    if (get("flashforge_apply_printer_changes").empty())
+        set_bool("flashforge_apply_printer_changes", false);
 
     if (get("use_printer_agents").empty())
     {
