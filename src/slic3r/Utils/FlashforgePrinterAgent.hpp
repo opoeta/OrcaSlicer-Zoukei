@@ -79,6 +79,9 @@ public:
     std::vector<IfsSlot> ifs_slots() const;
     // MJPEG stream of the printer camera ("" when unknown), any thread.
     std::string camera_url() const;
+    // Native Device panel: snapshot polling in its webview (ZMOD / stock), else the MJPEG stream through the media player.
+    CameraStreamMode get_camera_stream_mode() const override;
+    std::string      get_camera_url() const override;
 
     int  connect_printer(const PrinterConnectionParams& params) override;
     int  disconnect_printer() override;
@@ -167,6 +170,7 @@ private:
     std::vector<IfsSlot>  m_slots;
     std::string           m_slot_signature;
     std::string           m_camera_url;
+    std::string           m_camera_snapshot_url;
     nlohmann::json        m_detail;       // last stock /detail
     std::atomic<int>      m_sequence{1};
     bool                  m_announced = false;

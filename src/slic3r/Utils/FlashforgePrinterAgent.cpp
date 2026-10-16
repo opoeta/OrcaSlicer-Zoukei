@@ -202,6 +202,18 @@ std::string FlashforgePrinterAgent::camera_url() const
     return m_camera_url;
 }
 
+CameraStreamMode FlashforgePrinterAgent::get_camera_stream_mode() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return !m_camera_snapshot_url.empty() ? CameraStreamMode::http_snapshot : !m_camera_url.empty() ? CameraStreamMode::http : CameraStreamMode::none;
+}
+
+std::string FlashforgePrinterAgent::get_camera_url() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return !m_camera_snapshot_url.empty() ? m_camera_snapshot_url : m_camera_url;
+}
+
 std::string FlashforgePrinterAgent::make_device_name(const std::string& hostname) const
 {
     // Both printers of the owner report the hostname "flashforge": the model is the useful name.
@@ -314,6 +326,7 @@ int FlashforgePrinterAgent::connect_printer(const PrinterConnectionParams& param
         m_slots.clear();
         m_slot_signature.clear();
         m_camera_url.clear();
+        m_camera_snapshot_url.clear();
         m_detail             = json();
         m_announced          = false;
         m_connected_reported = false;
@@ -371,7 +384,8 @@ void FlashforgePrinterAgent::resolve_mode(const PrinterConnectionParams& params,
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_session.base_url = normalize_base_url(false, params.host, STOCK_PORT);
-            m_camera_url       = "http://" + params.host + ":8080/?action=stream";
+            m_camera_url          = "http://" + params.host + ":8080/?action=stream";
+            m_camera_snapshot_url = "http://" + params.host + ":8080/?action=snapshot";
         }
         m_mode = int(Mode::stock);
         stock_loop(generation);
@@ -493,7 +507,9 @@ void FlashforgePrinterAgent::zmod_loop(uint64_t generation, std::string base_url
                                     host = host.substr(0, colon);
                             }
                             std::lock_guard<std::mutex> lock(m_mutex);
-                            m_camera_url = host + str(cam, "stream_url");
+                            auto absolute = [&host](const std::string& u) { return u.rfind("http", 0) == 0 || u.empty() ? u : host + (u[0] == '/' ? "" : "/") + u; };
+                            m_camera_url          = absolute(str(cam, "stream_url"));
+                            m_camera_snapshot_url = absolute(str(cam, "snapshot_url"));
                             break;
                         }
             }
