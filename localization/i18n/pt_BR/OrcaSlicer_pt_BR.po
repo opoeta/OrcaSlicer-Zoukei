@@ -17981,7 +17981,7 @@ msgstr ""
 "Esta quantidade pode ser especificada em milímetros ou como uma porcentagem do diâmetro atual da extrusora. O valor padrão para este parâmetro é 10%."
 
 msgid "Scarf joint seam (beta)"
-msgstr "Costura scarf (beta)"
+msgstr "Costura scarf"
 
 msgid "Use scarf joint to minimize seam visibility and increase seam strength."
 msgstr "Use a costura scarf para minimizar a visibilidade da costura e aumentar a resistência da costura."
