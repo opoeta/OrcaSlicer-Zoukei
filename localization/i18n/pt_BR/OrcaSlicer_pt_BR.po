@@ -36373,3 +36373,24 @@ msgstr "A impressora não ficou pronta após o erro do BMCU. Você pode enviar a
 
 msgid "The printer rejected the print after %d automatic BMCU retries. You can send it again without restarting the slicer."
 msgstr "A impressora recusou a impressão após %d tentativas automáticas do BMCU. Você pode enviar de novo sem reiniciar o fatiador."
+
+msgid "Installed firmware version has invalid format (expected x.x.x.x)."
+msgstr "A versão do firmware instalado tem formato inválido (esperado x.x.x.x)."
+
+msgid "Firmware is up to date (GitHub)."
+msgstr "O firmware está atualizado (GitHub)."
+
+msgid "New firmware is available on GitHub. Installed: %s, Latest: %s."
+msgstr "Há um novo firmware no GitHub. Instalado: %s, mais recente: %s."
+
+msgid "Unable to check GitHub version."
+msgstr "Não foi possível verificar a versão no GitHub."
+
+msgid "Checking GitHub version..."
+msgstr "Verificando a versão no GitHub..."
+
+msgid "Firmware:"
+msgstr "Firmware:"
+
+msgid "Status:"
+msgstr "Status:"

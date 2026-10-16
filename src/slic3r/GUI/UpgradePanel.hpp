@@ -56,6 +56,12 @@ public:
     wxStaticText *m_staticText_ams_sn_val;
     wxStaticText *m_staticText_ams_ver_val;
     wxStaticText *m_staticText_beta_version;
+    // BMCU firmware link/status (from OrcaStudio); hidden for genuine AMS units
+    wxStaticText *m_fw_link_lbl{nullptr};
+    wxStaticText *m_fw_link{nullptr};
+    wxStaticText *m_fw_status_lbl{nullptr};
+    wxStaticText *m_fw_status{nullptr};
+    wxString      m_fw_url;
     wxStaticBitmap *m_ams_new_version_img;
     ScalableBitmap upgrade_green_icon;
 
