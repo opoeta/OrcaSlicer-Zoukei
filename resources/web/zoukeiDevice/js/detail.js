@@ -119,6 +119,8 @@
             const pct = h('span.pct', { text: '0%' });
             const fill = h('i');
             const meta = h('div.meta');
+            const marks = h('div.marks');
+            let marksKey = '';
             const pauseBtn = h('button.btn', { type: 'button', onclick: () => {
                 const d = phaseOf();
                 if (d.phase === 'paused') link.resume(); else link.pause();
@@ -128,7 +130,7 @@
             } }, icon('stop'), Z.t('stop'));
             const printCard = h('div.card.print',
                 h('div.print-head', thumbBox, h('div.print-info', fileName, h('div.row', phaseText, h('div.spacer'), pct))),
-                h('div.progress', fill), meta,
+                h('div.progress', fill, marks), meta,
                 h('div.row.actions', pauseBtn, stopBtn));
 
             const left = h('aside.left', h('div.card.camera', h('h3', icon('camera'), Z.t('camera')), camera.el), printCard);
@@ -222,11 +224,22 @@
                 pct.textContent = Math.round(d.progress) + '%';
                 fill.style.width = d.progress + '%';
                 const left = leftSeconds(s.printLeftTime);
+                const pm = d.busy && Array.isArray(s.pauseMarks) ? s.pauseMarks : [];
+                const mk = pm.map(p => p.frac.toFixed(4)).join(',');
+                if (mk !== marksKey) {
+                    marksKey = mk;
+                    marks.replaceChildren(...pm.map(p => h('b', { title: Z.t('layer') + ' ' + p.layer, style: 'left:' + (p.frac * 100).toFixed(2) + '%' })));
+                }
+                const frac = d.progress / 100;
+                const passed = pm.filter(p => p.frac <= frac).length;
+                const nextP = pm.find(p => p.frac > frac);
                 meta.textContent = '';
                 if (d.busy || d.phase === 'done') {
                     [[Z.t('layer'), Number(s.TotalLayer) ? (s.layer || 0) + ' / ' + s.TotalLayer : '--'],
                         [Z.t('elapsed'), Z.fmt.duration(s.printJobTime)],
-                        [Z.t('remaining'), d.busy ? Z.fmt.duration(left) : '--']].forEach(kv => meta.appendChild(h('div', h('small', { text: kv[0] }), h('b', { text: kv[1] }))));
+                        [Z.t('remaining'), d.busy ? Z.fmt.duration(left) : '--']]
+                        .concat(pm.length && d.busy ? [[Z.t('pause_n'), passed + '/' + pm.length],
+                            [Z.t('next_pause'), nextP && left > 0 ? Z.fmt.duration(left * (nextP.frac - frac) / Math.max(0.0001, 1 - frac)) : '--']] : []).forEach(kv => meta.appendChild(h('div', h('small', { text: kv[0] }), h('b', { text: kv[1] }))));
                 }
                 const showThumb = !!job && (d.busy || d.phase === 'done' || d.phase === 'stopped');
                 const url = !showThumb ? '' : mr ? link.currentThumb() : Z.Host.imageUrl(dev, '/downloads/original/current_print_image.png', (s.printStartTime || '') + job);

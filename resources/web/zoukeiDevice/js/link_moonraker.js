@@ -256,6 +256,8 @@
                 tools: lw.tools, startPurge: num(lw.start_purge_setting), linePurge: num(lw.line_purge) === 1, leveling: num(lw.kamp) === 1,
                 backup: num(lw.backup) === 1, external: num(lw.external) === 1, currentTool: num(lw.current_tool, -1), minVersion: lw.min_version
             } : null;
+            o.pauseMarks = this.pauses && this._pauseKey && this._pauseKey.indexOf(file + '|') === 0 && this.pauses.size > 0
+                ? this.pauses.list.map(p => ({ layer: num(p[0]), frac: Math.min(1, num(p[1]) / this.pauses.size) })) : null;
             Object.assign(this.state, o);
             this.boxes = this.ifs ? this.ifs : null;
             this._emit('state', o);
@@ -264,7 +266,23 @@
 
         _loadMeta(file) {
             this._metaFor = file;
-            this.api('GET', '/server/files/metadata?filename=' + enc(file)).then(m => { if (this._metaFor === file) { this.meta = m; this._derive(); } }).catch(() => {});
+            this.api('GET', '/server/files/metadata?filename=' + enc(file)).then(m => { if (this._metaFor === file) { this.meta = m; this._derive(); this._loadPauses(file, m); } }).catch(() => {});
+        }
+
+        // Pause / filament-change commands of the job's file (M600, M601, PAUSE, @pause), scanned by the host once
+        // per file version: list of [layer, byte offset]. The bar position is offset / size, like Klipper's progress.
+        _loadPauses(file, m) {
+            const key = file + '|' + num(m && m.modified) + '|' + num(m && m.size);
+            const cache = Z._pauseCache = Z._pauseCache || {};
+            this._pauseKey = key;
+            this.pauses = cache[key] || null;
+            if (cache[key] || !m || num(m.size) <= 0 || num(m.size) > 300e6) { this._derive(); return; }
+            Z.Host.request('moonraker_pauses', { address: this.dev.address, path: '/server/files/gcodes/' + String(file).split('/').map(enc).join('/') }, 'moonraker_pauses', 240000)
+                .then(r => {
+                    if (!r || !r.ok) return;
+                    cache[key] = { list: r.pauses || [], size: num(r.size) };
+                    if (this._pauseKey === key) { this.pauses = cache[key]; this._derive(); }
+                }).catch(() => {});
         }
 
         // Picture of a G-code file: the largest thumbnail the slicer embedded.

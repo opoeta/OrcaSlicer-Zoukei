@@ -22,6 +22,7 @@
 
 #include <iomanip>
 #include <regex>
+#include <cstring>
 #include <set>
 #include <sstream>
 
@@ -420,6 +421,70 @@ void FlashforgeDevicePanel::register_routes()
     h["get_lang"]       = [this](const json&) { post_command("get_lang", wxGetApp().current_language_code().ToStdString()); };
     h["device_list"]    = [this](const json&) { send_device_list(); };
     h["moonraker_http"] = [this](const json& j) { route_moonraker_http(j); };
+    // Pause / filament-change commands (M600, M601, PAUSE, @pause) of a job file: [[layer, byte offset], ...].
+    h["moonraker_pauses"] = [this](const json& j) {
+        const std::string request_id = json_string(j, "requestId");
+        const std::string address    = json_string(j, "address");
+        const std::string path       = json_string(j, "path");
+        auto              reply      = [this, request_id](json out) {
+            out["requestId"] = request_id;
+            post_command_async("moonraker_pauses", std::move(out));
+        };
+        int           port   = 0;
+        PresetBundle* bundle = wxGetApp().preset_bundle;
+        if (bundle != nullptr)
+            for (const FfPrinter& p : flashforge_printers(*bundle, nullptr))
+                if (p.host == address)
+                    port = p.port;
+        if (request_id.empty() || port == 0 || path.rfind("/server/files/gcodes/", 0) != 0 || path.find("..") != std::string::npos ||
+            path.find_first_of("\r\n ") != std::string::npos) {
+            reply({{"ok", false}, {"error", "request not allowed"}});
+            return;
+        }
+        try {
+            Http::get("http://" + address + ":" + std::to_string(port) + path)
+                .timeout_connect(5)
+                .timeout_max(240)
+                .size_limit(300u * 1024 * 1024)
+                .on_complete([reply](std::string body, unsigned status) {
+                    if (status < 200 || status >= 300) {
+                        reply({{"ok", false}, {"error", "HTTP " + std::to_string(status)}});
+                        return;
+                    }
+                    json         list  = json::array();
+                    int          layer = 0;
+                    const size_t n     = body.size();
+                    for (size_t pos = 0; pos < n;) {
+                        size_t e = body.find('\n', pos);
+                        if (e == std::string::npos)
+                            e = n;
+                        const char* l   = body.data() + pos;
+                        const size_t len = e - pos;
+                        if (len > 0 && l[0] == ';') {
+                            if (len >= 13 && std::strncmp(l, ";LAYER_CHANGE", 13) == 0)
+                                ++layer;
+                            else if (len >= 7 && std::strncmp(l, ";LAYER:", 7) == 0)
+                                layer = std::atoi(l + 7) + 1;
+                        } else if (len > 1 && layer > 0) {
+                            size_t k = 0;
+                            while (k < len && l[k] != ' ' && l[k] != '\t' && l[k] != '\r')
+                                ++k;
+                            std::string cmd(l, k);
+                            for (char& ch : cmd)
+                                ch = char(std::toupper((unsigned char) ch));
+                            if (cmd == "M600" || cmd == "M601" || cmd == "PAUSE" || cmd == "@PAUSE")
+                                list.push_back({layer, pos});
+                        }
+                        pos = e + 1;
+                    }
+                    reply({{"ok", true}, {"size", n}, {"layers", layer}, {"pauses", std::move(list)}});
+                })
+                .on_error([reply](std::string, std::string error, unsigned) { reply({{"ok", false}, {"error", std::move(error)}}); })
+                .perform();
+        } catch (const std::exception& ex) {
+            reply({{"ok", false}, {"error", ex.what()}});
+        }
+    };
     h["get_filament_presets"] = [this](const json& j) { route_get_filament_presets(j); };
     h["ifs_write_slot"]       = [this](const json& j) { route_ifs_write_slot(j); };
     h["ifs_repair"]           = [this](const json& j) { route_ifs_repair(j); };
