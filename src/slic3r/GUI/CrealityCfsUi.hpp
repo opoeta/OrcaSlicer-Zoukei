@@ -40,7 +40,12 @@ private:
     std::function<int()>  m_count;
     std::function<void()> m_change;
     size_t                m_sig{0};
+    bool                  m_busy{false};
 };
+
+// Shows the combined badges and hides the original colour boxes (or the reverse) according to whether the printer
+// has CFS/slot data. Returns true when any widget changed visibility (the caller then lays the panel out).
+bool sync_badges();
 
 // Combined "2 . 1A <->" box (filament no. + slot) replacing the colour box on Creality rows; click opens the slot picker.
 class Badge : public wxPanel
@@ -48,7 +53,8 @@ class Badge : public wxPanel
 public:
     Badge(wxWindow* parent, int filament_idx, wxWindow* colour_btn);
     ~Badge() override;
-    void refresh_state();
+    bool apply(bool want);
+    void retire();
 
 private:
     void on_paint(wxPaintEvent&);

@@ -953,8 +953,10 @@ struct Sidebar::priv
     wxScrolledWindow* m_mixed_scroll_area{nullptr};       // independent scrollbar for mixed rows
     wxPanel*          m_panel_mixed_content{nullptr};
     wxBoxSizer*       sizer_cfs_ext{nullptr};            // Creality: "external / no slot" rows under the two columns
+    wxGridSizer*      cfs_ext_grid{nullptr};             // Creality: two-per-line grid inside sizer_cfs_ext
     std::vector<wxSizer*> cfs_rows;                      // Creality: row sizers per filament while grouped by CFS
     bool              cfs_active{false};
+    bool              cfs_busy{false};                   // re-entrancy guard of cfs_relayout
     wxBoxSizer*       m_sizer_mixed_filaments{nullptr};   // two-column, mirrors sizer_filaments
     wxPanel*          m_panel_mixed_warning{nullptr};     // red bar for broken/mismatched mixes
     wxStaticText*     m_text_mixed_warning{nullptr};
@@ -3428,9 +3430,10 @@ Sidebar::Sidebar(Plater *parent)
 
     //bSizer_filament_content->Add(p->sizer_filaments, 1, wxALIGN_CENTER | wxALL);
     wxSizer *sizer_filaments2 = new wxBoxSizer(wxVERTICAL);
-    sizer_filaments2->Add(p->sizer_filaments, 0, wxEXPAND, 0);
+    // left margin lives here (not in the rows), so a row looks the same in either column and under the CFS grouping
+    sizer_filaments2->Add(p->sizer_filaments, 0, wxEXPAND | wxLEFT, FromDIP(12));
     p->sizer_cfs_ext = new wxBoxSizer(wxVERTICAL);
-    sizer_filaments2->Add(p->sizer_cfs_ext, 0, wxEXPAND, 0);
+    sizer_filaments2->Add(p->sizer_cfs_ext, 0, wxEXPAND | wxLEFT, FromDIP(12));
     new CfsUi::Watcher(p->m_panel_filament_content, [this] { return (int) p->combos_filament.size(); }, [this] { cfs_relayout(); });
     p->m_panel_filament_content->SetSizer(sizer_filaments2);
     p->m_panel_filament_content->Layout();
@@ -3715,21 +3718,20 @@ void Sidebar::create_printer_preset()
     }
 }
 
-// Creality: back to Orca's index-based two columns (rows are only moved, never recreated).
+// Creality: back to Orca's index-based two columns. Row sizers are only detached and re-added, never recreated.
 void Sidebar::cfs_restore()
 {
     if (!p->cfs_active)
         return;
     wxSizer* cols[2] = {p->sizer_filaments->GetItem((size_t) 0)->GetSizer(), p->sizer_filaments->GetItem((size_t) 1)->GetSizer()};
     for (wxSizer* r : p->cfs_rows)
-        for (wxSizer* c : {cols[0], cols[1], (wxSizer*) p->sizer_cfs_ext})
-            c->Detach(r);
-    for (size_t i = 0; i < p->cfs_rows.size(); ++i)
-        if (p->cfs_rows[i] && (i % 2) == 1 && !p->cfs_rows[i]->GetChildren().empty() && p->cfs_rows[i]->GetItem((size_t) 0)->IsSpacer())
-            p->cfs_rows[i]->Remove(0); // padding added by cfs_relayout
-    cols[0]->Clear(true); // headers
+        for (wxSizer* c : {cols[0], cols[1], (wxSizer*) p->cfs_ext_grid})
+            if (c != nullptr)
+                c->Detach(r); // detach first: Clear(true) below would destroy the row's windows
+    cols[0]->Clear(true); // column headers
     cols[1]->Clear(true);
-    p->sizer_cfs_ext->Clear(true);
+    p->sizer_cfs_ext->Clear(true); // "external" header + its grid
+    p->cfs_ext_grid = nullptr;
     const size_t n = p->cfs_rows.size();
     for (size_t i = 0; i < n; ++i)
         cols[i % 2]->Add(p->cfs_rows[i], 1, wxEXPAND);
@@ -3739,9 +3741,21 @@ void Sidebar::cfs_restore()
     p->cfs_active = false;
 }
 
-// Creality: with CFS data, group the rows by CFS unit (left CFS 1, right CFS 2, rest below). Visual only.
+// Creality: with CFS data, rebuild the item order of Orca's two columns: header ("CFS 1" | "CFS 2") first, then the rows
+// of each unit top to bottom (so row k of both columns share a line), then the rest under an "external" header, two per
+// line. Rows keep their own sizers (and their colour box / badge); only the order changes. Visual only.
 void Sidebar::cfs_relayout()
 {
+    if (p->cfs_busy)
+        return;
+    p->cfs_busy = true;
+    struct Release
+    {
+        bool& flag;
+        ~Release() { flag = false; }
+    } release{p->cfs_busy};
+
+    wxWindowUpdateLocker lock(p->m_panel_filament_content);
     cfs_restore();
     const int n = (int) p->combos_filament.size();
     std::vector<int> box;
@@ -3758,17 +3772,10 @@ void Sidebar::cfs_relayout()
             for (wxSizer* r : rows)
                 for (wxSizer* c : cols)
                     c->Detach(r);
-            cols[0]->Clear(true); // spacers
+            cols[0]->Clear(true); // leftover stretch spacer
             cols[1]->Clear(true);
-            // uniform grid: every row = [12 margin][badge][combo (expand)][...][margin]; odd-index rows lack the left margin
-            for (int i = 0; i < n; ++i) {
-                if ((i % 2) == 1)
-                    rows[i]->Insert(0, FromDIP(12), 0);
-                if (i < (int) p->combos_filament.size() && p->combos_filament[i])
-                    p->combos_filament[i]->SetMinSize(wxSize(FromDIP(40), p->combos_filament[i]->GetMinSize().y)); // let both columns shrink equally
-            }
             const int row_h = rows[0]->GetMinSize().y;
-            auto header = [&](wxSizer* target, const wxString& text) {
+            auto header = [&](const wxString& text) {
                 auto* s  = new wxBoxSizer(wxHORIZONTAL);
                 auto* t  = new wxStaticText(p->m_panel_filament_content, wxID_ANY, text);
                 wxFont f = t->GetFont();
@@ -3776,25 +3783,25 @@ void Sidebar::cfs_relayout()
                 f.SetPointSize(std::max(7, f.GetPointSize() - 1));
                 t->SetFont(f);
                 t->SetForegroundColour(wxGetApp().get_label_clr_default());
-                s->AddSpacer(FromDIP(12));
                 s->Add(t, 0, wxALIGN_CENTER_VERTICAL);
                 s->SetMinSize(-1, row_h);
-                target->Add(s, 0, wxEXPAND);
+                return s;
             };
-            header(cols[0], "CFS 1");
-            header(cols[1], "CFS 2");
+            cols[0]->Add(header("CFS 1"), 0, wxEXPAND);
+            cols[1]->Add(header("CFS 2"), 0, wxEXPAND);
             std::vector<int> ext;
-            for (int u = 1; u <= 2; ++u)
-                for (int i = 0; i < n; ++i)
-                    if (box[i] == u)
-                        cols[u - 1]->Add(rows[i], 0, wxEXPAND);
-            for (int i = 0; i < n; ++i)
-                if (box[i] != 1 && box[i] != 2)
+            for (int i = 0; i < n; ++i) {
+                if (box[i] == 1 || box[i] == 2)
+                    cols[box[i] - 1]->Add(rows[i], 0, wxEXPAND); // proportion 0: columns of different length keep equal row heights
+                else
                     ext.push_back(i);
+            }
             if (!ext.empty()) {
-                header(p->sizer_cfs_ext, wxString("Externo / sem slot"));
+                p->sizer_cfs_ext->Add(header("Externo / sem slot"), 0, wxEXPAND);
+                p->cfs_ext_grid = new wxGridSizer(0, 2, 0, 0); // equal cells, same proportions as the two columns
+                p->sizer_cfs_ext->Add(p->cfs_ext_grid, 0, wxEXPAND);
                 for (int i : ext)
-                    p->sizer_cfs_ext->Add(rows[i], 0, wxEXPAND);
+                    p->cfs_ext_grid->Add(rows[i], 0, wxEXPAND);
             }
             p->cfs_rows   = rows;
             p->cfs_active = true;
@@ -3802,6 +3809,7 @@ void Sidebar::cfs_relayout()
             wxLogWarning("CFS layout skipped: unexpected filament grid");
         }
     }
+    CfsUi::sync_badges(); // exactly one of {colour box, badge} per row
     if (p->m_panel_filament_content->GetSizer() != nullptr) {
         p->m_panel_filament_content->Layout();
         p->m_panel_filament_content->FitInside();
@@ -3821,8 +3829,7 @@ void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filame
     // BBS:  filament double columns
 
     // int em = wxGetApp().em_unit();
-    if ((filament_idx % 2) == 0) // Dont add right column item. this one create equal spacing on left, right & middle
-        combo_and_btn_sizer->AddSpacer(FromDIP((filament_idx % 2) == 0 ? 12 : 3)); // Content Margin
+    // (the left margin is applied once to the whole grid, see sizer_filaments2; rows carry only the right margin)
 
     (*combo)->clr_picker->SetLabel(wxString::Format("%d", filament_idx + 1));
     combo_and_btn_sizer->Add((*combo)->clr_picker, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // ElementSpacing - 2 (from combo box))
@@ -5888,6 +5895,7 @@ void Sidebar::on_filaments_delete(size_t filament_id)
     // A mixed (virtual) slot has no combo of its own, so there is no combo UI to remove —
     // but the shared refresh below must still run so the mixed filament panel drops its row.
     if (filament_id < choices.size()) {
+        cfs_restore(); // rows are about to be removed from the plain two-column order
         if (choices.size() == 1)
             choices[0]->GetDropDown().Invalidate();
 

@@ -381,6 +381,9 @@ Watcher::~Watcher()
 
 void Watcher::check(bool force)
 {
+    if (m_busy) // the change callback re-lays out the sidebar; never re-enter from a timer / picker callback
+        return;
+    m_busy = true;
     std::vector<int> box;
     size_t sig = grouping(m_count(), box) ? box.size() + 1 : 0;
     for (int b : box)
@@ -390,8 +393,9 @@ void Watcher::check(bool force)
         if (m_change)
             m_change();
     }
-    for (Badge* b : s_badges)
-        b->refresh_state();
+    if (sync_badges() && GetParent() != nullptr)
+        GetParent()->Layout();
+    m_busy = false;
 }
 
 // ---- Badge -------------------------------------------------------------------------------------
@@ -420,21 +424,52 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
     });
     s_badges.insert(this);
     Hide();
+    // The colour box belongs to the filament combo and is destroyed with it; this badge is a separate child of the
+    // panel and would otherwise survive as an orphan, drawn over whatever row is later laid out at its old position.
+    if (colour_btn != nullptr)
+        colour_btn->Bind(wxEVT_DESTROY, [w = wxWeakRef<Badge>(this)](wxWindowDestroyEvent& ev) {
+            if (w)
+                w->retire();
+            ev.Skip();
+        });
 }
 
 Badge::~Badge() { s_badges.erase(this); }
 
-void Badge::refresh_state()
+void Badge::retire()
 {
-    const bool want = !entries(snapshot()).empty();
-    if (want != IsShown()) {
+    s_badges.erase(this);
+    Hide();
+    wxTheApp->CallAfter([w = wxWeakRef<Badge>(this)] {
+        if (w)
+            w->Destroy();
+    });
+}
+
+// Exactly one of {original colour box, combined badge} is visible: badge shown <=> the printer has CFS/slot data.
+bool Badge::apply(bool want)
+{
+    bool changed = false;
+    if (IsShown() != want) {
         Show(want);
-        if (m_btn)
-            m_btn->Show(!want);
-        if (GetParent() != nullptr)
-            GetParent()->Layout();
+        changed = true;
+    }
+    if (m_btn && m_btn->IsShown() == want) {
+        m_btn->Show(!want);
+        changed = true;
     }
     Refresh();
+    return changed;
+}
+
+bool sync_badges()
+{
+    const bool        want = !entries(snapshot()).empty();
+    bool              changed = false;
+    const std::vector<Badge*> all(s_badges.begin(), s_badges.end());
+    for (Badge* b : all)
+        changed |= b->apply(want);
+    return changed;
 }
 
 void Badge::on_paint(wxPaintEvent&)
