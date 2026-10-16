@@ -3,7 +3,7 @@
     'use strict';
 
     const root = document.getElementById('app');
-    const app = { devices: [], list: null, detail: null, current: null };
+    const app = { devices: [], list: null, detail: null, current: null, currentMac: '' };
     Z.app = app;
 
     function build() {
@@ -33,9 +33,22 @@
         app.list.activate();
     };
 
+    // The Device tab opens straight on the printer Orca is using (e.g. right after sending a print);
+    // the list stays one click away through the back button.
+    function openCurrent() {
+        if (app.current || !app.detail) return;
+        const mac = (app.currentMac || '').toUpperCase();
+        const dev = app.devices.find(d => (d.mac || '').toUpperCase() === mac) ||
+                    (app.devices.length === 1 ? app.devices[0] : null);
+        if (dev) app.open(dev);
+    }
+
     Z.Host.on('device_list', data => {
+        const first = app.devices.length === 0;
         app.devices = (data && data.devices) || [];
+        if (data && typeof data.current === 'string') app.currentMac = data.current;
         app.list.setDevices(app.devices);
+        if (first) openCurrent();
         if (app.current) {
             const still = app.devices.find(d => d.address === app.current.address);
             if (!still) app.back();
@@ -46,6 +59,7 @@
     // The host tells when the Device tab is shown or hidden: no camera or polling while hidden.
     Z.Host.on('panel_visible', visible => {
         if (visible) {
+            openCurrent();
             if (app.current) app.detail.resume(); else app.list.activate();
         } else {
             app.detail.suspend();
