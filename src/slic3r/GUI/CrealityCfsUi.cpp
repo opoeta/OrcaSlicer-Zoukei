@@ -426,7 +426,7 @@ void Badge::on_paint(wxPaintEvent&)
     PresetBundle*  b = wxGetApp().preset_bundle;
     const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
     wxColour col = cols != nullptr && m_idx < (int) cols->values.size() ? wxColour(cols->values[m_idx]) : wxColour();
-    draw_chip(dc, wxRect(wxPoint(0, 0), GetClientSize()), wxString::Format("%d Â· ", m_idx + 1) + t + wxString::FromUTF8(" â"), col, true);
+    draw_chip(dc, wxRect(wxPoint(0, 0), GetClientSize()), wxString::Format(L"%d \u00B7 ", m_idx + 1) + t + wxString(L" \u21C4"), col, true);
 }
 
 }}} // namespace Slic3r::GUI::CfsUi
