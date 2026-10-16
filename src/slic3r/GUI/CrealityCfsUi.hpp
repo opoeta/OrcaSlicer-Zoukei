@@ -9,6 +9,7 @@
 #include <optional>
 #include <utility>
 #include <wx/panel.h>
+#include <wx/string.h>
 #include <wx/timer.h>
 #include <wx/weakref.h>
 
@@ -22,6 +23,11 @@ std::optional<std::pair<int, int>> mapped_slot(int filament_idx);
 std::optional<int> mapped_tray(int filament_idx);
 // Stores a choice made in the print dialog (tray id as above) in the project's filament_cfs_slot.
 void set_mapped_tray(int filament_idx, int tray_id);
+
+// Flashforge AD5X with the native agent: the IFS (one unit, box 1, slots 0-3 = IFS1..IFS4) takes the place of the CFS.
+bool ifs_active();
+// Header of the sidebar column of a unit: "CFS n", or "IFS" for the Flashforge unit (empty for the unused second column).
+wxString unit_title(int box);
 
 // Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
 bool grouping(int n, std::vector<int>& box_of);

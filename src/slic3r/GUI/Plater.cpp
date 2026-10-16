@@ -3787,8 +3787,8 @@ void Sidebar::cfs_relayout()
                 s->SetMinSize(-1, row_h);
                 return s;
             };
-            cols[0]->Add(header("CFS 1"), 0, wxEXPAND);
-            cols[1]->Add(header("CFS 2"), 0, wxEXPAND);
+            cols[0]->Add(header(CfsUi::unit_title(1)), 0, wxEXPAND);
+            cols[1]->Add(header(CfsUi::unit_title(2)), 0, wxEXPAND);
             std::vector<int> ext;
             for (int i = 0; i < n; ++i) {
                 if (box[i] == 1 || box[i] == 2)
@@ -6258,7 +6258,7 @@ std::map<int, DynamicPrintConfig> Sidebar::build_filament_ams_list(MachineObject
         return tray_config;
     };
 
-    if (obj->ams_support_virtual_tray && !is_creality_printer_selected()) { // Creality: the Ext tray only serves the print dialog
+    if (obj->ams_support_virtual_tray && !is_creality_printer_selected() && !CfsUi::ifs_active()) { // Creality / Flashforge: the Ext tray only serves the print dialog
         int extruder = 0x10000; // Main (first) extruder at right
         for (auto & vt_tray : obj->vt_slot) {
             filament_ams_list.emplace(extruder + stoi(vt_tray.id), build_tray_config(vt_tray, "Ext",vt_tray.id, "0"));//254 or 255

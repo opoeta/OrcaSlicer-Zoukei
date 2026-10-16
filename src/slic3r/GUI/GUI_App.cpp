@@ -5149,7 +5149,7 @@ bool is_creality_printer_selected()
     return app != nullptr && CrealityDevicePanel::is_creality_printer(*app);
 }
 
-static bool is_flashforge_printer_selected()
+bool is_flashforge_printer_selected()
 {
     auto* bundle = wxGetApp().preset_bundle;
     if (bundle == nullptr)

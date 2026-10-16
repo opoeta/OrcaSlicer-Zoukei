@@ -911,6 +911,7 @@ bool has_filaments(const std::vector<std::string>& model_filaments);
 Vec3d build_plate_tilt_up_direction();
 // Creality printers call the multi-filament unit "CFS" (slots 1A,1B,...) instead of "AMS".
 bool is_creality_printer_selected();
+bool is_flashforge_printer_selected();
 wxString filament_system_name(); // "AMS", "CFS" (Creality) or "IFS" (Flashforge)
 wxString creality_localize(const wxString& s); // replaces "AMS" by the selected brand's name (CFS / IFS)
 

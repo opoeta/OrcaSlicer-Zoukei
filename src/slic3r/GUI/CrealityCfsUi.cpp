@@ -8,6 +8,8 @@
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/CrealityCfsClient.hpp"
+#include "slic3r/Utils/FlashforgePrinterAgent.hpp"
+#include "slic3r/Utils/NetworkAgent.hpp"
 
 #include <wx/dcbuffer.h>
 #include <wx/popupwin.h>
@@ -44,6 +46,15 @@ PrinterSnapshot snapshot()
         return {};
     auto client = Client::get(host);
     return client ? client->snapshot() : PrinterSnapshot{};
+}
+
+std::shared_ptr<FlashforgePrinterAgent> flashforge_agent()
+{
+    PresetBundle* b = wxGetApp().preset_bundle;
+    if (b == nullptr || CrealityDevicePanel::is_creality_printer(*b) || !is_flashforge_printer_selected())
+        return nullptr;
+    NetworkAgent* agent = wxGetApp().getAgent();
+    return agent != nullptr ? std::dynamic_pointer_cast<FlashforgePrinterAgent>(agent->get_printer_agent()) : nullptr;
 }
 
 // Explicit slot choices live in the project config (option filament_cfs_slot, one "box:slot" string per
@@ -144,6 +155,22 @@ std::vector<Entry> entries(const PrinterSnapshot& snap)
             out.push_back({box.id, s.slot_id, wxString::FromUTF8(s.label().c_str()), s.color.empty() ? wxColour() : wxColour(s.color),
                            s.type, s.is_loaded()});
     return out;
+}
+
+// The slots to choose from: the IFS of a Flashforge printer (box 1 = IFS1..IFS4, box 0 = external spool), else the CFS.
+std::vector<Entry> current_entries()
+{
+    if (auto ff = flashforge_agent()) {
+        std::vector<Entry> out;
+        const auto         slots = ff->ifs_slots();
+        if (slots.empty() && ff->mode() == FlashforgePrinterAgent::Mode::unresolved)
+            return out;
+        out.push_back({0, 0, "Ext", wxColour(), std::string(), false});
+        for (const auto& s : slots)
+            out.push_back({1, s.port - 1, wxString::Format("IFS%d", s.port), s.color.empty() ? wxColour() : wxColour(s.color), s.material, s.has_filament});
+        return slots.empty() ? std::vector<Entry>() : out;
+    }
+    return entries(snapshot());
 }
 
 wxColour bg_col() { return StateColor::darkModeColorFor(*wxWHITE); }
@@ -252,16 +279,16 @@ private:
             dc.SetBrush(wxBrush(m_tabs[i] == m_tab ? wxColour(0, 150, 136) : StateColor::darkModeColorFor(wxColour("#EBEBEB"))));
             dc.DrawRectangle(r);
             dc.SetTextForeground(m_tabs[i] == m_tab ? *wxWHITE : fg_col());
-            const wxString t  = m_tabs[i] == 0 ? wxString("EXT") : wxString::Format("CFS%d", m_tabs[i]);
+            const wxString t  = m_tabs[i] == 0 ? wxString("EXT") : flashforge_agent() ? wxString("IFS") : wxString::Format("CFS%d", m_tabs[i]);
             const wxSize   ts = dc.GetTextExtent(t);
             dc.DrawText(t, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
         }
         const auto v = shown();
         for (size_t i = 0; i < v.size(); ++i) {
             const wxRect r = row_rect(i);
-            draw_chip(dc, wxRect(r.x, r.y, FromDIP(40), r.height), v[i]->label, v[i]->colour, v[i]->loaded);
+            draw_chip(dc, wxRect(r.x, r.y, FromDIP(48), r.height), v[i]->label, v[i]->colour, v[i]->loaded);
             dc.SetTextForeground(fg_col());
-            dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : wxString("-"), r.x + FromDIP(48), r.y + FromDIP(4));
+            dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : wxString("-"), r.x + FromDIP(56), r.y + FromDIP(4));
         }
         if (m_edit) {
             const wxRect r = edit_rect();
@@ -310,7 +337,7 @@ private:
 std::optional<std::pair<int, int>> mapped_slot(int idx)
 {
     const Entry* e  = nullptr;
-    const auto   es = entries(snapshot());
+    const auto   es = current_entries();
     label_of(idx, es, &e);
     if (e == nullptr)
         return std::nullopt;
@@ -324,6 +351,8 @@ std::optional<int> mapped_tray(int idx)
         return std::nullopt;
     if (slot->first == 0)
         return 255;
+    if (flashforge_agent())
+        return slot->second; // the IFS is one unit: tray id = slot 0..3
     const auto boxes = snapshot().cfs_boxes();
     for (size_t u = 0; u < boxes.size(); ++u)
         if (boxes[u].id == slot->first)
@@ -331,8 +360,24 @@ std::optional<int> mapped_tray(int idx)
     return std::nullopt;
 }
 
+bool ifs_active() { return flashforge_agent() != nullptr && !current_entries().empty(); }
+
+wxString unit_title(int box)
+{
+    if (flashforge_agent())
+        return box == 1 ? wxString("IFS") : wxString();
+    return wxString::Format("CFS %d", box);
+}
+
 void set_mapped_tray(int idx, int tray)
 {
+    if (flashforge_agent()) {
+        if (tray == 254 || tray == 255)
+            set_slot(idx, 0, 0);
+        else if (tray >= 0 && tray <= 3)
+            set_slot(idx, 1, tray);
+        return;
+    }
     const PrinterSnapshot snap = snapshot();
     if (tray == 254 || tray == 255) {
         for (const Entry& e : entries(snap))
@@ -351,7 +396,7 @@ void set_mapped_tray(int idx, int tray)
 
 bool grouping(int n, std::vector<int>& box_of)
 {
-    const auto es = entries(snapshot());
+    const auto es = current_entries();
     if (es.empty())
         return false;
     box_of.assign(size_t(std::max(n, 0)), -1);
@@ -403,11 +448,11 @@ void Watcher::check(bool force)
 Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, wxID_ANY), m_idx(idx), m_btn(colour_btn)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(FromDIP(wxSize(64, 20)));
+    SetMinSize(FromDIP(wxSize(76, 20)));
     SetToolTip(_L("Printer slot for this filament"));
     Bind(wxEVT_PAINT, &Badge::on_paint, this);
     Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) {
-        auto* p = new Picker(this, m_idx, entries(snapshot()), [this] {
+        auto* p = new Picker(this, m_idx, current_entries(), [this] {
             for (Badge* b : s_badges)
                 b->Refresh();
             if (s_watcher != nullptr)
@@ -464,7 +509,7 @@ bool Badge::apply(bool want)
 
 bool sync_badges()
 {
-    const bool        want = !entries(snapshot()).empty();
+    const bool        want = !current_entries().empty();
     bool              changed = false;
     const std::vector<Badge*> all(s_badges.begin(), s_badges.end());
     for (Badge* b : all)
@@ -477,7 +522,7 @@ void Badge::on_paint(wxPaintEvent&)
     wxAutoBufferedPaintDC dc(this);
     dc.SetBackground(bg_col());
     dc.Clear();
-    const auto   es = entries(snapshot());
+    const auto   es = current_entries();
     const Entry* e  = nullptr;
     const wxString t = label_of(m_idx, es, &e);
     PresetBundle*  b = wxGetApp().preset_bundle;
