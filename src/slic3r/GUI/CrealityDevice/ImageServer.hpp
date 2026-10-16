@@ -1,4 +1,4 @@
-// Local image relay for the embedded Creality device panel.
+// Local image relay for the Zoukei device panel.
 //
 // The panel shows the printer's current-print picture and G-code thumbnails through
 // http://localhost:<port>/device_image?address=&path=&secure= (Creality Print serves this from

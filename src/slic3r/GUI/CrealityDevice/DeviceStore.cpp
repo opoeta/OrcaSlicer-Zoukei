@@ -1,6 +1,6 @@
 // Ported from Creality Print (src/slic3r/GUI/print_manage/PrinterMgr.cpp,
 // CrealityOfficial/CrealityPrint@59ae8cbb0437dcc7236e27433ecd4aeb52be0244, AGPL-3.0).
-// Device list of the embedded Creality device panel, kept in the same schema as
+// Device list of the Zoukei device panel, kept in the same schema as
 // Creality Print's deviceInfo.json but in Orca's own data dir.
 #include "DeviceStore.hpp"
 

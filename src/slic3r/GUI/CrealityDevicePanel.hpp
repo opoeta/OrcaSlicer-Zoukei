@@ -1,8 +1,10 @@
-// Device tab for Creality printers: hosts Creality Print's own device panel (a compiled web
-// page, resources/web/crealityDevice) and answers its host commands. The routes are ported
-// from Creality Print's src/slic3r/GUI/print_manage (DeviceMgrRoutes, SysRoutes, PrinterMgrView),
-// CrealityOfficial/CrealityPrint@59ae8cbb0437dcc7236e27433ecd4aeb52be0244, AGPL-3.0.
-// Cloud and account features are not ported; the panel only reaches LAN printers.
+// Device tab for Creality printers: hosts Orca Zoukei's own device panel (resources/web/zoukeiDevice,
+// plain HTML/CSS/JS) and answers the few host commands it sends: language and theme, the device
+// list (add by IP, LAN scan, rename, remove), camera signalling and the Orca filament presets.
+// The panel talks to the printers over WebSocket through WsProxy; only LAN addresses from the
+// device list (or just probed by the user) are ever contacted. No Creality cloud or account.
+// The device store, LAN probe, WebSocket proxy and image relay in CrealityDevice/ are ported from
+// Creality Print (CrealityOfficial/CrealityPrint@59ae8cbb0437dcc7236e27433ecd4aeb52be0244, AGPL-3.0).
 #ifndef slic3r_GUI_CrealityDevicePanel_hpp_
 #define slic3r_GUI_CrealityDevicePanel_hpp_
 
@@ -52,7 +54,6 @@ private:
     void load_page();
     void register_routes();
     void on_script_message(wxWebViewEvent& evt);
-    void on_loaded(wxWebViewEvent& evt);
     void on_new_window(wxWebViewEvent& evt);
 
     // Sends {command, data} to the page's window.handleStudioCmd. UI thread.
@@ -65,30 +66,21 @@ private:
     static void ensure_device_store_loaded();
     static bool is_known_lan_host(const std::string& host);
 
-    json        machine_list() const;
-    json        user_operation_state() const;
-    bool        save_user_operation_state(const json& state) const;
-    std::string system_id() const;
+    json device_list() const;
+    void send_device_list();
 
-    void route_init_device(const json& j);
-    void route_update_device(const json& j);
-    void route_reconcile_device_ownership_batch(const json& j);
-    void route_probe_lan_device(const json& j);
-    void route_get_printer_https_info(const json& j);
+    void route_device_add(const json& j);
+    void route_lan_scan(const json& j);
     void route_get_webrtc_local_param(const json& j);
-    void route_scan_device(const json& j);
-    void route_req_device_move_direction(const json& j);
-    void route_set_user_custom_color_list(const json& j);
-    void route_get_model_match(const json& j);
+    void route_get_filament_presets(const json& j);
 
-    wxWebView*                                 m_browser{nullptr};
+    wxWebView*                                   m_browser{nullptr};
     std::unique_ptr<CrealityDevice::WsProxy>     m_ws_proxy;
     std::unique_ptr<CrealityDevice::ImageServer> m_image_server;
-    std::shared_ptr<Bridge>                    m_bridge;
-    std::unordered_map<std::string, Handler>   m_handlers;
-    bool                                       m_page_requested{false};
-    bool                                       m_scan_running{false};
-    json                                       m_latest_devices;
+    std::shared_ptr<Bridge>                      m_bridge;
+    std::unordered_map<std::string, Handler>     m_handlers;
+    bool                                         m_page_requested{false};
+    bool                                         m_scan_running{false};
 };
 
 } // namespace GUI

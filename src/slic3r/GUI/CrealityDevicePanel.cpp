@@ -7,14 +7,13 @@
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
-#include "MainFrame.hpp"
-#include "Plater.hpp"
 #include "Widgets/WebView.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/Http.hpp"
 
 #include "cxmdns.h"
@@ -26,16 +25,15 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/fstream.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 #include <wx/sizer.h>
 #include <wx/utils.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <iomanip>
-#include <limits>
+#include <map>
 #include <mutex>
 #include <set>
 #include <sstream>
@@ -55,9 +53,6 @@ struct CrealityDevicePanel::Bridge
 };
 
 namespace {
-
-// Creality Print's version this page comes from; the page reports it, nothing else.
-const char* const PANEL_VERSION = "7.3.0";
 
 std::string url_encode(const std::string& value)
 {
@@ -113,22 +108,6 @@ json read_json_file(const fs::path& path)
     }
 }
 
-bool write_json_file(const fs::path& path, const json& data)
-{
-    try {
-        if (!path.parent_path().empty() && !fs::exists(path.parent_path()))
-            fs::create_directories(path.parent_path());
-        boost::nowide::ofstream out(path.string(), std::ios::out | std::ios::trunc);
-        if (!out.is_open())
-            return false;
-        out << std::setw(4) << data << std::endl;
-        return out.good();
-    } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(warning) << "Creality panel: cannot write " << path.string() << ": " << e.what();
-        return false;
-    }
-}
-
 // The newest Creality Print data folder holding `file` (read only; never written).
 fs::path creality_print_file(const std::string& file)
 {
@@ -179,95 +158,6 @@ void refresh_hosts_from_store()
                     remember_host(item.value("address", std::string()));
 }
 
-const char* UpdateDeviceCode(DeviceStore::UpdateDeviceOutcome outcome)
-{
-    using Outcome = DeviceStore::UpdateDeviceOutcome;
-    switch (outcome) {
-    case Outcome::Updated: return "updated";
-    case Outcome::AlreadyApplied: return "already_applied";
-    case Outcome::StaleSource: return "stale_source";
-    case Outcome::SourceNotFound: return "source_not_found";
-    case Outcome::DuplicateMacConflict: return "duplicate_mac_conflict";
-    case Outcome::AddressConflict: return "address_conflict";
-    case Outcome::PersistenceFailed: return "persistence_failed";
-    case Outcome::InvalidRequest: return "invalid_request";
-    }
-    return "invalid_request";
-}
-
-bool UpdateDeviceSucceeded(DeviceStore::UpdateDeviceOutcome outcome)
-{
-    return outcome == DeviceStore::UpdateDeviceOutcome::Updated || outcome == DeviceStore::UpdateDeviceOutcome::AlreadyApplied;
-}
-
-const char* DeviceOwnershipBatchCode(DeviceStore::DeviceOwnershipBatchOutcome outcome)
-{
-    using Outcome = DeviceStore::DeviceOwnershipBatchOutcome;
-    switch (outcome) {
-    case Outcome::Reconciled: return "reconciled";
-    case Outcome::AlreadyApplied: return "already_applied";
-    case Outcome::StaleSource: return "stale_source";
-    case Outcome::PersistenceFailed: return "persistence_failed";
-    case Outcome::InvalidRequest: return "invalid_request";
-    }
-    return "invalid_request";
-}
-
-bool DeviceOwnershipBatchSucceeded(DeviceStore::DeviceOwnershipBatchOutcome outcome)
-{
-    return outcome == DeviceStore::DeviceOwnershipBatchOutcome::Reconciled ||
-           outcome == DeviceStore::DeviceOwnershipBatchOutcome::AlreadyApplied;
-}
-
-json ModernLanSnapshotToJson(const DeviceStore::ModernLanDeviceSnapshot& snapshot)
-{
-    const auto& data = snapshot.data;
-    return {{"rawIndex", snapshot.rawIndex},
-            {"group", snapshot.group},
-            {"address", data.address},
-            {"addressRevision", data.addressRevision},
-            {"mac", data.mac},
-            {"model", data.model},
-            {"name", data.name},
-            {"deviceUI", data.deviceUI},
-            {"connectType", data.connectType},
-            {"type", data.connectType},
-            {"oldPrinter", data.oldPrinter},
-            {"secureConnection", data.secureConnection},
-            {"wssPort", data.wssPort},
-            {"videoPort", data.videoPort},
-            {"moonrakerPort", data.moonrakerPort},
-            {"fluiddPort", data.fluiddPort},
-            {"mainsailPort", data.mainsailPort},
-            {"apiKey", data.apiKey},
-            {"hostType", data.hostType},
-            {"caFile", data.caFile},
-            {"ignoreCertRevocation", data.ignoreCertRevocation}};
-}
-
-json InvalidProbeRequest(const std::string& request_id, const std::string& detail)
-{
-    return {{"requestId", request_id}, {"status", 1}, {"errorType", "invalid_request"}, {"error", detail}, {"httpStatus", 0},
-            {"attempts", json::array()}};
-}
-
-// Creality Print's frontend language codes.
-std::string frontend_language_code()
-{
-    const wxString code = wxGetApp().current_language_code();
-    if (code == "zh_TW")
-        return "zh_TW";
-    if (code == "zh_CN")
-        return "zh_CN";
-    static const std::map<std::string, std::string> mapping{
-        {"en", "en_GB"}, {"ca", "ca_ES"}, {"cs", "cs_CZ"}, {"sk", "cs_CZ"}, {"de", "de_DE"}, {"es", "es_ES"}, {"fr", "fr_FR"},
-        {"hu", "hu_HU"}, {"id", "id_ID"}, {"it", "it_IT"}, {"ja", "ja_JP"}, {"ko", "ko_KR"}, {"nl", "nl_NL"}, {"pl", "pl_PL"},
-        {"pt", "pt_BR"}, {"ru", "ru_RU"}, {"sv", "sv_SE"}, {"th", "th_TH"}, {"tr", "tr_TR"}, {"uk", "uk_UA"}, {"vi", "vi_VN"},
-        {"zh", "zh_CN"}};
-    const auto it = mapping.find(code.BeforeFirst('_').ToStdString());
-    return it != mapping.end() ? it->second : "en_GB";
-}
-
 // Printer host of the selected printer (physical printer first), without scheme or port.
 std::string selected_print_host_address()
 {
@@ -282,6 +172,50 @@ std::string selected_print_host_address()
     if (!config->has("print_host"))
         return {};
     return host_of_url(config->opt_string("print_host"));
+}
+
+// Model code ("F008") -> product name and Orca's printer picture. The names come from Creality
+// Print's machine list when it is installed (read only), else from a short built-in table.
+struct ModelInfo
+{
+    std::string name;
+    std::string cover; // file:// URL, empty when Orca has no picture
+};
+
+ModelInfo model_info(const std::string& code)
+{
+    static std::map<std::string, std::string> names;
+    static std::map<std::string, std::string> covers;
+    static bool                               loaded = false;
+    if (!loaded) {
+        loaded = true;
+        json list = read_json_file(fs::path(data_dir()) / "zoukei_creality_machine_list.json");
+        if (!list.is_array()) {
+            const fs::path cp_list = creality_print_file("system/Creality/machineList.json");
+            const json     parsed  = cp_list.empty() ? json() : read_json_file(cp_list);
+            if (parsed.is_object() && parsed.contains("printerList") && parsed["printerList"].is_array())
+                list = parsed["printerList"];
+        }
+        if (list.is_array())
+            for (const auto& item : list)
+                if (item.is_object() && !json_string(item, "printerIntName").empty() && !json_string(item, "name").empty())
+                    names[json_string(item, "printerIntName")] = json_string(item, "name");
+        for (const auto& [id, name] : std::vector<std::pair<const char*, const char*>>{
+                 {"F008", "K2 Plus"}, {"F012", "K2 Pro"}, {"F021", "K2"}, {"F022", "SPARKX i7"}, {"K1", "K1"}, {"K1 SE", "K1 SE"}, {"K1C", "K1C"}})
+            names.emplace(id, name);
+    }
+    ModelInfo info;
+    const auto it = names.find(code);
+    info.name     = it != names.end() ? it->second : code;
+    if (it != names.end()) {
+        auto cached = covers.find(code);
+        if (cached == covers.end()) {
+            const fs::path cover = fs::path(resources_dir()) / "profiles" / "Creality" / ("Creality " + it->second + "_cover.png");
+            cached               = covers.emplace(code, fs::exists(cover) ? file_url_from_path(cover).ToStdString() : std::string()).first;
+        }
+        info.cover = cached->second;
+    }
+    return info;
 }
 
 } // namespace
@@ -345,7 +279,6 @@ void CrealityDevicePanel::create_browser()
         return;
     m_browser->AddUserScript(wxString::FromUTF8(WsProxy::page_script()));
     m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &CrealityDevicePanel::on_script_message, this);
-    m_browser->Bind(wxEVT_WEBVIEW_LOADED, &CrealityDevicePanel::on_loaded, this);
     m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, &CrealityDevicePanel::on_new_window, this);
     m_browser->EnableAccessToDevTools(wxGetApp().app_config->get_bool("developer_mode"));
     GetSizer()->Add(m_browser, wxSizerFlags().Expand().Proportion(1));
@@ -356,19 +289,23 @@ void CrealityDevicePanel::load_page()
     if (m_browser == nullptr || m_page_requested)
         return;
     m_page_requested = true;
-    const fs::path page = fs::path(resources_dir()) / "web" / "crealityDevice" / "index.html";
+    const fs::path page = fs::path(resources_dir()) / "web" / "zoukeiDevice" / "index.html";
     wxString url = file_url_from_path(page);
-    url += wxString::Format("?version=%s&port=%u&os=%s&customized=0&type=Release", PANEL_VERSION,
-                            unsigned(m_image_server ? m_image_server->port() : 0), url_encode(wxGetOsDescription().ToStdString()));
+    url += wxString::Format("?port=%u&dark=%d", unsigned(m_image_server ? m_image_server->port() : 0), wxGetApp().dark_mode() ? 1 : 0);
     BOOST_LOG_TRIVIAL(info) << "Creality panel: loading " << page.string();
     m_browser->LoadURL(url);
 }
 
 bool CrealityDevicePanel::Show(bool show)
 {
+    const bool page_was_loading = m_page_requested;
     if (show)
         load_page();
-    return wxPanel::Show(show);
+    const bool result = wxPanel::Show(show);
+    // The page stops the camera and the list's refresh while the tab is not on screen.
+    if (page_was_loading)
+        post_command("panel_visible", show);
+    return result;
 }
 
 void CrealityDevicePanel::on_sys_color_changed()
@@ -376,16 +313,9 @@ void CrealityDevicePanel::on_sys_color_changed()
     post_command("is_dark_theme", wxGetApp().dark_mode());
 }
 
-void CrealityDevicePanel::on_loaded(wxWebViewEvent& evt)
-{
-    BOOST_LOG_TRIVIAL(info) << "Creality panel: page loaded";
-}
-
+// The panel never opens windows of its own; anything it asks for is dropped.
 void CrealityDevicePanel::on_new_window(wxWebViewEvent& evt)
 {
-    const std::string url = evt.GetURL().ToStdString();
-    if (boost::istarts_with(url, "http://") || boost::istarts_with(url, "https://"))
-        wxLaunchDefaultBrowser(evt.GetURL());
     evt.Veto();
 }
 
@@ -454,6 +384,42 @@ void CrealityDevicePanel::on_script_message(wxWebViewEvent& evt)
 // ---------------------------------------------------------------------------------------------
 // Device list
 
+namespace {
+
+// Adds the probed printer to the list, or points its entry at the new address when the printer
+// (same MAC) is already known. Returns false when nothing was stored.
+bool store_probed_device(const LanConnectionProfile& profile)
+{
+    DeviceStore& store = DeviceStore::Ins();
+    if (store.FindByAddress(profile.address))
+        return true;
+    if (!profile.mac.empty() && store.FindByMac(profile.mac)) {
+        DeviceStore::UpdatePatch patch;
+        patch.address                     = profile.address;
+        patch.model                       = profile.model;
+        patch.connection.secureConnection = profile.secure_connection;
+        patch.connection.wssPort          = profile.wss_port;
+        patch.connection.videoPort        = profile.video_port;
+        return store.UpdateDevicePatch(profile.mac, patch, true);
+    }
+    DeviceStore::Data data{};
+    data.address          = profile.address;
+    data.mac              = profile.mac;
+    data.model            = profile.model;
+    data.connectType      = 3;
+    data.hostType         = 0;
+    data.secureConnection = profile.secure_connection;
+    data.wssPort          = profile.wss_port;
+    data.videoPort        = profile.video_port;
+    const json        groups = store.GetData()["groups"];
+    const std::string group  = groups.is_array() && !groups.empty() ? groups[0].value("group", std::string("New Group1")) : std::string("New Group1");
+    store.AddDevice(group, data);
+    remember_host(profile.address);
+    return true;
+}
+
+} // namespace
+
 void CrealityDevicePanel::ensure_device_store_loaded()
 {
     static bool loaded = false;
@@ -478,35 +444,17 @@ void CrealityDevicePanel::ensure_device_store_loaded()
                                             std::string();
             if (is_lan_ipv4(address)) {
                 remember_host(address);
-                // Fill in the device from the printer itself; the page needs its MAC.
+                // Fill in the device from the printer itself; the list needs its MAC.
                 std::thread([address] {
                     const auto result = LanDeviceProbe().probe(address, ProbePolicy::PreferSecure);
-                    if (!result.ok())
+                    if (!result.ok() || wxTheApp == nullptr)
                         return;
                     const auto profile = *result.profile;
-                    if (wxTheApp == nullptr)
-                        return;
                     wxTheApp->CallAfter([profile] {
-                        DeviceStore& store = DeviceStore::Ins();
-                        if (store.FindByAddress(profile.address) || store.FindByMac(profile.mac))
-                            return;
-                        DeviceStore::Data data{};
-                        data.address          = profile.address;
-                        data.mac              = profile.mac;
-                        data.model            = profile.model;
-                        data.connectType      = 3;
-                        data.hostType         = 0;
-                        data.secureConnection = profile.secure_connection;
-                        data.wssPort          = profile.wss_port;
-                        data.videoPort        = profile.video_port;
-                        const json groups = store.GetData()["groups"];
-                        const std::string group = groups.is_array() && !groups.empty() ? groups[0].value("group", std::string("New Group1")) :
-                                                                                         std::string("New Group1");
-                        store.AddDevice(group, data);
-                        store.SetCurrentDevice(profile.mac);
+                        store_probed_device(profile);
                         BOOST_LOG_TRIVIAL(info) << "Creality panel: added the selected printer " << profile.address << " (" << profile.model << ")";
                         if (CrealityDevicePanel* panel = CrealityDevicePanel::if_built())
-                            panel->route_init_device(json::object());
+                            panel->send_device_list();
                     });
                 }).detach();
             }
@@ -515,260 +463,158 @@ void CrealityDevicePanel::ensure_device_store_loaded()
     refresh_hosts_from_store();
 }
 
-void CrealityDevicePanel::route_init_device(const json&)
+// The printers the page lists: LAN Creality printers of the device store.
+nlohmann::json CrealityDevicePanel::device_list() const
 {
-    json data = DeviceStore::Ins().GetData();
-    if (!data.contains("current_device") || !data["current_device"].is_object() ||
-        data["current_device"].value("mac", std::string()).empty()) {
-        // One device and nothing chosen yet: that is the current one.
-        std::vector<std::string> macs;
-        if (data.contains("groups") && data["groups"].is_array())
-            for (const auto& group : data["groups"])
-                if (group.is_object() && group.contains("list") && group["list"].is_array())
-                    for (const auto& item : group["list"])
-                        if (item.is_object() && !item.value("mac", std::string()).empty())
-                            macs.push_back(item.value("mac", std::string()));
-        if (macs.size() == 1)
-            data["current_device"] = {{"mac", macs.front()}};
-    }
-    post_command("init_device", std::move(data));
-}
-
-// ---------------------------------------------------------------------------------------------
-// Machine list (printer names and pictures by model code)
-
-json CrealityDevicePanel::machine_list() const
-{
-    const fs::path cache = fs::path(data_dir()) / "zoukei_creality_machine_list.json";
-    json           list  = read_json_file(cache);
-    if (!list.is_array()) {
-        const fs::path cp_list = creality_print_file("system/Creality/machineList.json");
-        json           parsed  = cp_list.empty() ? json() : read_json_file(cp_list);
-        if (parsed.is_object() && parsed.contains("printerList") && parsed["printerList"].is_array()) {
-            list = parsed["printerList"];
-            write_json_file(cache, list);
-        }
-    }
-    if (!list.is_array()) {
-        static const std::vector<std::pair<const char*, const char*>> known = {
-            {"F008", "K2 Plus"}, {"F012", "K2 Pro"}, {"F021", "K2"}, {"F022", "SPARKX i7"}, {"K1", "K1"}, {"K1 SE", "K1 SE"}, {"K1C", "K1C"}};
-        list = json::array();
-        for (const auto& [code, name] : known)
-            list.push_back({{"name", name}, {"printerIntName", code}, {"nozzleDiameter", {"0.4"}}, {"type", 1}});
-    }
-
-    // Pictures: Orca's own printer covers instead of Creality's CDN.
-    const fs::path covers = fs::path(resources_dir()) / "profiles" / "Creality";
-    json           out    = json::array();
-    for (json item : list) {
-        if (!item.is_object())
+    json              out  = json::array();
+    const json        data = DeviceStore::Ins().GetData();
+    const std::string current = DeviceStore::Ins().GetCurrentDevice();
+    if (!data.contains("groups") || !data["groups"].is_array())
+        return out;
+    for (const auto& group : data["groups"]) {
+        if (!group.is_object() || !group.contains("list") || !group["list"].is_array())
             continue;
-        const std::string name  = item.value("name", std::string());
-        const fs::path    cover = covers / ("Creality " + name + "_cover.png");
-        item["thumbnail"]       = !name.empty() && fs::exists(cover) ? file_url_from_path(cover).ToStdString() : std::string();
-        item.erase("zipUrl");
-        out.push_back(std::move(item));
+        for (const auto& item : group["list"]) {
+            if (!item.is_object() || item.value("connectType", 0) == 1001)
+                continue;
+            const std::string address = item.value("address", std::string());
+            if (!is_lan_ipv4(address))
+                continue;
+            const std::string model = item.value("model", std::string());
+            const ModelInfo   info  = model_info(model);
+            out.push_back({{"address", address},
+                           {"mac", item.value("mac", std::string())},
+                           {"model", model},
+                           {"modelName", info.name},
+                           {"cover", info.cover},
+                           {"name", item.value("name", std::string())},
+                           {"secure", item.value("secureConnection", false)},
+                           {"wssPort", item.value("wssPort", 0)},
+                           {"videoPort", item.value("videoPort", 0)}});
+        }
     }
     return out;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Per-user page state (card/list layout, custom slot colours)
-
-static fs::path user_operation_state_path() { return fs::path(data_dir()) / "cache" / "creality_device" / "user_operation_state.json"; }
-
-json CrealityDevicePanel::user_operation_state() const
+void CrealityDevicePanel::send_device_list()
 {
-    json state = read_json_file(user_operation_state_path());
-    if (!state.is_object())
-        state = json::object();
-    if (state.value("deviceLayout", std::string()) != "list")
-        state["deviceLayout"] = "card";
-    if (!state.contains("customColorList") || !state["customColorList"].is_array())
-        state["customColorList"] = json::array();
-    return state;
-}
-
-bool CrealityDevicePanel::save_user_operation_state(const json& state) const { return write_json_file(user_operation_state_path(), state); }
-
-void CrealityDevicePanel::route_set_user_custom_color_list(const json& j)
-{
-    const json payload = j.contains("data") ? j["data"] : j;
-    const json* incoming = payload.is_array() ? &payload :
-                           (payload.is_object() && payload.contains("customColorList") && payload["customColorList"].is_array()) ?
-                                                &payload["customColorList"] :
-                                                nullptr;
-    auto slot_key = [](const json& item) {
-        auto part = [&](const char* key) { return item.contains(key) ? item[key].dump() : std::string(); };
-        return part("address") + "|" + part("boxType") + "|" + part("boxId") + "|" + part("materialId");
-    };
-    json state = user_operation_state();
-    json& list = state["customColorList"];
-    bool  ok   = false;
-    if (incoming != nullptr) {
-        for (const json& item : *incoming) {
-            if (!item.is_object() || json_string(item, "address").empty() || json_string(item, "customColor").empty() ||
-                !item.contains("boxType") || !item.contains("boxId") || !item.contains("materialId"))
-                continue;
-            const json normalized = {{"address", item["address"]}, {"boxType", item["boxType"]}, {"boxId", item["boxId"]},
-                                     {"materialId", item["materialId"]}, {"customColor", item["customColor"]}};
-            bool replaced = false;
-            for (json& existing : list)
-                if (slot_key(existing) == slot_key(normalized)) {
-                    existing = normalized;
-                    replaced = true;
-                    break;
-                }
-            if (!replaced)
-                list.push_back(normalized);
-        }
-        ok = save_user_operation_state(state);
+    refresh_hosts_from_store();
+    json list;
+    try {
+        list = device_list();
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "Creality panel: device list unreadable: " << e.what();
+        list = json::array();
     }
-    post_command("set_user_custom_color_list", {{"success", ok}, {"customColorList", state["customColorList"]}});
+    post_command("device_list", {{"devices", std::move(list)}, {"current", DeviceStore::Ins().GetCurrentDevice()}});
 }
 
-std::string CrealityDevicePanel::system_id() const
-{
-    AppConfig* config = wxGetApp().app_config;
-    std::string id    = config->get("creality_panel_system_id");
-    if (id.empty()) {
-        id = boost::uuids::to_string(boost::uuids::random_generator()());
-        config->set("creality_panel_system_id", id);
-    }
-    return id;
-}
-
-// ---------------------------------------------------------------------------------------------
-// LAN probing
-
-void CrealityDevicePanel::route_probe_lan_device(const json& j)
+// Adds a printer by IP: it is asked for its identity first (HTTPS, then HTTP), so a wrong
+// address never ends up in the list.
+void CrealityDevicePanel::route_device_add(const json& j)
 {
     const std::string request_id = json_string(j, "requestId");
-    if (request_id.empty() || request_id.size() > 128) {
-        post_command("probe_lan_device_result", InvalidProbeRequest(request_id, "requestId is required"));
-        return;
-    }
-    const std::string address     = json_string(j, "address");
-    const std::string policy_name = j.value("policy", std::string("prefer_secure"));
-    ProbePolicy       policy;
-    if (policy_name == "prefer_secure")
-        policy = ProbePolicy::PreferSecure;
-    else if (policy_name == "secure_only")
-        policy = ProbePolicy::SecureOnly;
-    else if (policy_name == "http_only")
-        policy = ProbePolicy::HttpOnly;
-    else {
-        post_command("probe_lan_device_result", InvalidProbeRequest(request_id, "unknown probe policy"));
-        return;
-    }
-    if (!is_lan_ipv4(address)) {
-        json response         = InvalidProbeRequest(request_id, "only LAN addresses are probed");
-        response["errorType"] = "invalid_address";
-        post_command("probe_lan_device_result", std::move(response));
-        return;
-    }
-    std::weak_ptr<Bridge> weak = m_bridge;
-    submit_lan_device_probe_task([weak, request_id, address, policy] {
-        const auto result   = LanDeviceProbe().probe(address, policy);
-        json       response = result.to_json();
-        response["requestId"] = request_id;
-        if (result.ok())
-            remember_host(address);
+    const std::string address    = json_string(j, "address");
+    auto reply = [weak = std::weak_ptr<Bridge>(m_bridge), request_id](json out) {
+        out["requestId"] = request_id;
         if (wxTheApp != nullptr)
-            wxTheApp->CallAfter([weak, response = std::move(response)]() mutable {
-                if (auto bridge = weak.lock(); bridge && bridge->panel)
-                    bridge->panel->post_command("probe_lan_device_result", std::move(response));
+            wxTheApp->CallAfter([weak, out = std::move(out)]() mutable {
+                if (auto bridge = weak.lock(); bridge && bridge->panel) {
+                    const bool ok = out.value("ok", false);
+                    bridge->panel->post_command("device_add_result", std::move(out));
+                    if (ok)
+                        bridge->panel->send_device_list();
+                }
             });
+    };
+    if (request_id.empty() || request_id.size() > 128 || !is_lan_ipv4(address)) {
+        reply({{"ok", false}, {"errorType", "invalid_address"}, {"error", ""}});
+        return;
+    }
+    submit_lan_device_probe_task([reply, address] {
+        const auto result = LanDeviceProbe().probe(address, ProbePolicy::PreferSecure);
+        if (!result.ok()) {
+            reply({{"ok", false}, {"errorType", probe_error_name(result.error)}, {"error", result.detail}});
+            return;
+        }
+        const LanConnectionProfile profile = *result.profile;
+        if (wxTheApp == nullptr)
+            return;
+        wxTheApp->CallAfter([reply, profile] {
+            reply({{"ok", store_probed_device(profile)}, {"errorType", ""}, {"error", ""}});
+        });
     });
 }
 
-void CrealityDevicePanel::route_get_printer_https_info(const json& j)
-{
-    std::string url = json_string(j, "url");
-    const std::string address = url.rfind("https://", 0) == 0 ? host_of_url(url) : std::string();
-    if (!is_lan_ipv4(address)) {
-        post_command("get_printer_https_info", InvalidProbeRequest(std::string(), "only LAN addresses are probed"));
-        return;
-    }
-    std::weak_ptr<Bridge> weak = m_bridge;
-    submit_lan_device_probe_task([weak, address] {
-        ProbeOptions options;
-        options.https_timeout_seconds = 6;
-        const auto result = LanDeviceProbe().probe(address, ProbePolicy::SecureOnly, options);
-        if (result.ok())
-            remember_host(address);
-        json response = result.to_json();
-        if (wxTheApp != nullptr)
-            wxTheApp->CallAfter([weak, response = std::move(response)]() mutable {
-                if (auto bridge = weak.lock(); bridge && bridge->panel)
-                    bridge->panel->post_command("get_printer_https_info", std::move(response));
-            });
-    });
-}
-
-void CrealityDevicePanel::route_scan_device(const json& j)
+// Finds Creality printers by mDNS and asks each for its identity.
+void CrealityDevicePanel::route_lan_scan(const json& j)
 {
     const std::string request_id = json_string(j, "requestId");
     if (m_scan_running) {
-        json busy = {{"status", 1}, {"errorType", "scan_busy"}, {"servers", json::array()}, {"serverInfos", json::array()},
-                     {"boxs", json::array()}, {"klipper", json::array()}};
-        if (!request_id.empty())
-            busy["requestId"] = request_id;
-        post_command("scan_device", std::move(busy));
+        post_command("lan_scan_result", {{"requestId", request_id}, {"status", 1}, {"busy", true}, {"found", json::array()}});
         return;
     }
-    m_scan_running              = true;
+    m_scan_running             = true;
     std::weak_ptr<Bridge> weak = m_bridge;
     std::thread([weak, request_id] {
-        auto post = [weak](const std::string& command, json data, bool done) {
-            if (wxTheApp != nullptr)
-                wxTheApp->CallAfter([weak, command, data = std::move(data), done]() mutable {
-                    if (auto bridge = weak.lock(); bridge && bridge->panel) {
-                        if (done)
-                            bridge->panel->m_scan_running = false;
-                        bridge->panel->post_command(command, std::move(data));
-                    }
-                });
-        };
-        std::vector<std::string> ips, box_ips, klipper_ips;
+        std::vector<std::string> ips;
         try {
             for (const auto& item : cxnet::syncDiscoveryService({"CXSWBox", "creality", "Creality"})) {
-                if (!is_lan_ipv4(item.machineIp))
+                if (!is_lan_ipv4(item.machineIp) || item.answer.rfind("_CXSWBox", 0) == 0)
                     continue;
-                if (item.answer.rfind("_CXSWBox", 0) == 0) {
-                    box_ips.push_back(item.machineIp);
-                    continue;
-                }
-                // "_creality<type:2><moonraker port:4>..." announces a Klipper host.
+                // "_creality<type:2><moonraker port:4>..." announces a Klipper host, not a K-series printer.
                 if (item.answer.size() > 15 && item.answer.rfind("_creality00", 0) == 0 &&
-                    std::all_of(item.answer.begin() + 9, item.answer.begin() + 15, [](unsigned char c) { return std::isdigit(c) != 0; })) {
-                    klipper_ips.push_back(item.machineIp + ":" + item.answer.substr(11, 4));
+                    std::all_of(item.answer.begin() + 9, item.answer.begin() + 15, [](unsigned char c) { return std::isdigit(c) != 0; }))
                     continue;
-                }
                 if (std::find(ips.begin(), ips.end(), item.machineIp) == ips.end())
                     ips.push_back(item.machineIp);
             }
         } catch (const std::exception& e) {
             BOOST_LOG_TRIVIAL(warning) << "Creality panel: LAN discovery failed: " << e.what();
         }
-        post("scan_device_verifying", request_id.empty() ? json("") : json{{"requestId", request_id}}, false);
 
         ProbeOptions options;
         options.preflight_ports       = true;
         options.https_timeout_seconds = 2;
         options.http_timeout_seconds  = 3;
         const auto results            = LanDeviceProbe().probe_many(ips, ProbePolicy::PreferSecure, options);
-        json       infos              = json::array();
+        json       found              = json::array();
         for (const auto& result : results)
             if (result.ok()) {
                 remember_host(result.profile->address);
-                infos.push_back(result.profile->to_json());
+                json entry = {{"address", result.profile->address}, {"mac", result.profile->mac}, {"model", result.profile->model},
+                              {"modelName", model_info(result.profile->model).name}};
+                found.push_back(std::move(entry));
             }
-        json data = {{"status", 0}, {"servers", ips}, {"serverInfos", infos}, {"boxs", box_ips}, {"klipper", klipper_ips}};
-        if (!request_id.empty())
-            data["requestId"] = request_id;
-        post("scan_device", std::move(data), true);
+        if (wxTheApp != nullptr)
+            wxTheApp->CallAfter([weak, request_id, found = std::move(found)]() mutable {
+                if (auto bridge = weak.lock(); bridge && bridge->panel) {
+                    bridge->panel->m_scan_running = false;
+                    bridge->panel->post_command("lan_scan_result", {{"requestId", request_id}, {"status", 0}, {"found", std::move(found)}});
+                }
+            });
     }).detach();
+}
+
+// The Orca filament presets of the selected printer, for the CFS slot editor.
+void CrealityDevicePanel::route_get_filament_presets(const json& j)
+{
+    CrealityCfsAgent::refresh_presets();
+    json presets = json::array();
+    for (const auto& p : CrealityCfsAgent::presets()) {
+        if (!p.is_visible || !p.is_compatible)
+            continue;
+        presets.push_back({{"name", p.name},
+                           {"vendor", p.vendor},
+                           {"type", p.type},
+                           {"filament_id", p.filament_id},
+                           {"color", p.color},
+                           {"minTemp", p.min_temp},
+                           {"maxTemp", p.max_temp},
+                           {"pressure", p.pressure_advance},
+                           {"system", p.is_system}});
+    }
+    post_command("get_filament_presets", {{"requestId", json_string(j, "requestId")}, {"presets", std::move(presets)}});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -866,669 +712,37 @@ void CrealityDevicePanel::route_get_webrtc_local_param(const json& j)
 }
 
 // ---------------------------------------------------------------------------------------------
-// Printer capabilities shown in the panel (LED, chamber heater, side fan, filtration).
-
-void CrealityDevicePanel::route_req_device_move_direction(const json& j)
-{
-    static const json caps_table = read_json_file(fs::path(resources_dir()) / "web" / "crealityDevice" / "machine_caps.json");
-    const std::string preset_name = json_string(j, "preset_name");
-    const std::string address     = json_string(j, "address");
-    static const char* keys[]     = {"machine_platform_motion_enable", "machine_LED_light_exist", "auxiliary_fan", "support_air_filtration",
-                                     "machine_ptc_exist"};
-    std::map<std::string, int> caps;
-    for (const char* key : keys)
-        caps[key] = 0;
-    bool found = false;
-    if (caps_table.is_object() && caps_table.contains(preset_name)) {
-        for (const char* key : keys)
-            caps[key] = caps_table[preset_name].value(key, 0);
-        found = true;
-    } else if (PresetBundle* bundle = wxGetApp().preset_bundle) {
-        if (const Preset* preset = bundle->printers.find_preset(preset_name)) {
-            for (const char* key : keys)
-                if (const ConfigOption* option = preset->config.option(key))
-                    caps[key] = option->getBool() ? 1 : 0;
-            found = true;
-        }
-    }
-    if (!found)
-        BOOST_LOG_TRIVIAL(info) << "Creality panel: no capabilities known for " << preset_name;
-    post_command("req_device_move_direction", {{"direction", caps["machine_platform_motion_enable"]},
-                                               {"machine_LED_light_exist", caps["machine_LED_light_exist"]},
-                                               {"auxiliary_fan", caps["auxiliary_fan"]},
-                                               {"support_air_filtration", caps["support_air_filtration"]},
-                                               {"machine_ptc_exist", caps["machine_ptc_exist"]},
-                                               {"address", address}});
-}
-
-void CrealityDevicePanel::route_get_model_match(const json& j)
-{
-    const std::string a = json_string(j, "modelA");
-    const std::string b = json_string(j, "modelB");
-    int               result = 0;
-    if (a != b) {
-        auto model_of = [](const std::string& preset_name, const std::string& fallback) {
-            std::string model = fallback;
-            if (PresetBundle* bundle = wxGetApp().preset_bundle)
-                if (const Preset* preset = bundle->printers.find_preset(preset_name); preset && preset->config.has("printer_model"))
-                    model = preset->config.opt_string("printer_model");
-            boost::algorithm::trim(model);
-            if (!model.empty() && !boost::istarts_with(model, "Creality") && !boost::istarts_with(model, "SPARKX"))
-                model = "Creality " + model;
-            return model;
-        };
-        const std::string ma = model_of(a, json_string(j, "printerModelA"));
-        const std::string mb = model_of(b, json_string(j, "printerModelB"));
-        result               = !ma.empty() && !mb.empty() && boost::iequals(ma, mb) ? 0 : 1;
-    }
-    run_script("window.handleStudioCmd('" + url_encode(json{{"command", "get_model_match"}, {"result", result}}.dump()) + "');");
-}
-
-// ---------------------------------------------------------------------------------------------
+// Routes: everything the page may ask of the host.
 
 void CrealityDevicePanel::register_routes()
 {
     auto& h = m_handlers;
-    auto ignore = [](const json&) {};
 
-    // --- system (SysRoutes) ---
+    // Orca's language and theme (the theme is also pushed on a live switch, see on_sys_color_changed).
     h["is_dark_theme"] = [this](const json&) { post_command("is_dark_theme", wxGetApp().dark_mode()); };
-    h["get_lang"]      = [this](const json&) { post_command("get_lang", frontend_language_code()); };
-    h["get_region"]    = [this](const json&) { post_command("get_region", wxGetApp().app_config->get_region()); };
-    h["get_system_id"] = [this](const json&) { post_command("get_system_id", system_id()); };
-    // Creality Cloud is not used: always signed out.
-    h["get_user"] = [this](const json&) {
-        post_command("get_user", {{"bLogin", 0}, {"token", ""}, {"userId", ""}, {"region", wxGetApp().app_config->get_region()},
-                                  {"pid", Slic3r::get_current_pid()}});
-    };
-    h["common_openurl"] = [](const json& j) {
-        const std::string url = json_string(j, "url");
-        if (boost::istarts_with(url, "http://") || boost::istarts_with(url, "https://"))
-            wxLaunchDefaultBrowser(wxString::FromUTF8(url));
-    };
-    h["switch_to_tab"] = [](const json& j) {
-        const std::string tab = boost::algorithm::to_lower_copy(json_string(j, "tabName"));
-        MainFrame*        frame = wxGetApp().mainframe;
-        if (frame == nullptr)
-            return;
-        if (tab == "home")
-            frame->request_select_tab(TAB_ID_HOME);
-        else if (tab == "prepare" || tab == "slice" || tab == "3d")
-            frame->request_select_tab(TAB_ID_PREPARE);
-        else if (tab == "preview")
-            frame->request_select_tab(TAB_ID_PREVIEW);
-        else
-            BOOST_LOG_TRIVIAL(info) << "Creality panel: no Orca tab for " << tab;
-    };
-    h["get_machine_list"] = [this](const json&) { post_command("get_machine_list", machine_list()); };
+    h["get_lang"]      = [this](const json&) { post_command("get_lang", wxGetApp().current_language_code().ToStdString()); };
 
-    // --- device list (DeviceMgrRoutes) ---
-    h["init_device"]   = [this](const json& j) { route_init_device(j); };
-    h["update_devices"] = [this](const json& j) {
-        if (j.contains("data"))
-            m_latest_devices = j["data"];
-    };
-    h["request_all_device"] = h["get_devices"] = [this](const json& j) {
-        post_command(json_string(j, "command"), m_latest_devices.is_null() ? json::object() : m_latest_devices);
-    };
-    h["set_current_device"] = [](const json& j) {
-        std::string mac = j.value("device_id", j.value("mac", std::string()));
+    // Device list.
+    h["device_list"]   = [this](const json&) { send_device_list(); };
+    h["device_select"] = [](const json& j) {
+        const std::string mac = json_string(j, "mac");
         if (!mac.empty())
             DeviceStore::Ins().SetCurrentDevice(mac);
     };
-    h["get_current_device"] = [this](const json&) {
-        const std::string mac = DeviceStore::Ins().GetCurrentDevice();
-        if (!mac.empty())
-            post_command("get_current_device", {{"mac", mac}});
+    h["device_rename"] = [this](const json& j) {
+        DeviceStore::Ins().EditDeiveName(json_string(j, "address"), json_string(j, "name"));
+        send_device_list();
     };
-    h["get_device_merge_state"] = [this](const json&) { post_command("get_device_merge_state", DeviceStore::Ins().IsMergeState()); };
-    h["set_device_merge_state"] = [](const json& j) {
-        if (j.contains("state") && j["state"].is_boolean())
-            DeviceStore::Ins().SetMergeState(j["state"].get<bool>());
+    h["device_remove"] = [this](const json& j) {
+        DeviceStore::Ins().RemoveDevice(json_string(j, "address"));
+        send_device_list();
     };
-    h["add_group"]              = [](const json& j) { DeviceStore::Ins().AddGroup(json_string(j, "group")); };
-    h["remove_group"]           = [](const json& j) { DeviceStore::Ins().RemoveGroup(json_string(j, "name")); };
-    h["edit_device_group_name"] = [](const json& j) { DeviceStore::Ins().EditGroupName(json_string(j, "oldName"), json_string(j, "newName")); };
-    h["edit_device_name"]       = [](const json& j) { DeviceStore::Ins().EditDeiveName(json_string(j, "address"), json_string(j, "name")); };
-    h["remove_device"]          = [](const json& j) { DeviceStore::Ins().RemoveDevice(json_string(j, "address")); };
-    h["remove_to_first"]        = [](const json& j) { DeviceStore::Ins().remove2FirstGroup(json_string(j, "name")); };
-    h["move_to_group"]          = [](const json& j) {
-        DeviceStore::Ins().move2Group(json_string(j, "originGroup"), json_string(j, "targetGroup"), json_string(j, "address"));
-    };
-    h["sort_group"] = [](const json& j) {
-        const json order = json::parse(json_string(j, "groupMap"), nullptr, false);
-        if (!order.is_array())
-            return;
-        std::vector<std::string> groups;
-        for (const auto& name : order)
-            if (name.is_string())
-                groups.push_back(name.get<std::string>());
-        DeviceStore::Ins().sortGroup(groups);
-    };
-    auto add_device = [](const json& j, int kind) {
-        DeviceStore::Data device{};
-        device.address     = json_string(j, "address");
-        device.mac         = json_string(j, "mac");
-        device.model       = json_string(j, "model");
-        device.connectType = j.value("type", 3);
-        device.hostType    = 0;
-        device.oldPrinter  = j.value("oldPrinter", false);
-        if (kind == 0) {
-            device.secureConnection = j.value("secureConnection", false);
-            device.wssPort          = j.value("wssPort", 0);
-            device.videoPort        = j.value("videoPort", 0);
-        } else if (kind == 1) {
-            device.moonrakerPort = j.value("moonrakerPort", 0);
-            device.fluiddPort    = j.value("fluiddPort", 0);
-            device.mainsailPort  = j.value("mainsailPort", 0);
-        } else {
-            device.oldPrinter           = false;
-            device.deviceUI             = json_string(j, "deviceUI");
-            device.apiKey               = json_string(j, "apiKey");
-            device.hostType             = j.value("hostType", 0);
-            device.caFile               = json_string(j, "caFile");
-            device.ignoreCertRevocation = j.value("ignoreCertRevocation", false);
-        }
-        remember_host(host_of_url(device.address));
-        DeviceStore::Ins().AddDevice(json_string(j, "group"), device);
-    };
-    h["add_device"]         = [add_device](const json& j) { add_device(j, 0); };
-    h["add_device_klipper"] = [add_device](const json& j) { add_device(j, 1); };
-    h["add_device_fluidd"]  = [add_device](const json& j) { add_device(j, 2); };
-    h["update_device"]      = [this](const json& j) { route_update_device(j); };
-    h["reconcile_device_ownership_batch"] = [this](const json& j) { route_reconcile_device_ownership_batch(j); };
-    h["probe_lan_device"]                 = [this](const json& j) { route_probe_lan_device(j); };
-    h["get_printer_https_info"]           = [this](const json& j) { route_get_printer_https_info(j); };
-    h["scan_device"]                      = [this](const json& j) { route_scan_device(j); };
-    h["request_device_address_correction"] = [this](const json&) {
-        // Creality Print re-runs mDNS here; the page probes stored addresses itself afterwards.
-        post_command("device_address_correction_result", {{"accepted", true}, {"completed", true}, {"busy", false}, {"corrections", 0}});
-    };
-    h["get_webrtc_local_param"]    = [this](const json& j) { route_get_webrtc_local_param(j); };
-    h["req_device_move_direction"] = [this](const json& j) { route_req_device_move_direction(j); };
-    h["get_model_match"]           = [this](const json& j) { route_get_model_match(j); };
-    h["test_fluidd_device"]        = [this](const json&) {
-        run_script("window.handleStudioCmd('" +
-                   url_encode(json{{"command", "test_fluidd_device_status"}, {"result", 0}, {"info", "Not supported in OrcaSlicer"}}.dump()) +
-                   "');");
-    };
-    h["sync_mappinp_cfs_filament"] = [](const json&) {
-        // The panel's "sync to slicer": Orca's sidebar sync with the connected printer.
-        wxGetApp().CallAfter([] {
-            if (wxGetApp().plater() != nullptr)
-                wxGetApp().sidebar().sync_ams_list(true);
-        });
-    };
+    h["device_add"] = [this](const json& j) { route_device_add(j); };
+    h["lan_scan"]   = [this](const json& j) { route_lan_scan(j); };
 
-    // --- page state ---
-    h["request_user_operation_state"] = [this](const json&) { post_command("request_user_operation_state", user_operation_state()); };
-    h["save_user_operation_state"]    = [this](const json& j) {
-        const json payload = j.contains("data") ? j["data"] : j;
-        std::string layout = payload.is_object() ? payload.value("deviceLayout", std::string("card")) :
-                             payload.is_string() ? payload.get<std::string>() : std::string("card");
-        json state            = user_operation_state();
-        state["deviceLayout"] = layout == "list" ? "list" : "card";
-        const bool ok         = save_user_operation_state(state);
-        post_command("save_user_operation_state", {{"success", ok}, {"deviceLayout", state["deviceLayout"]}});
-    };
-    h["get_user_custom_color_list"] = [this](const json&) {
-        post_command("get_user_custom_color_list", {{"customColorList", user_operation_state()["customColorList"]}});
-    };
-    h["set_user_custom_color_list"] = [this](const json& j) { route_set_user_custom_color_list(j); };
-
-    // --- cloud, analytics and Creality Print-only features: accepted and dropped ---
-    for (const char* command : {"set_device_detail_state", "viewDetialEvent", "print_video_connect", "device_detail_print",
-                                "track_learn_about_cfs", "buy_filament_cmd", "set_cloud_device_mqtt", "get_printer_progress",
-                                "diagnosis_close_cmd", "forward_device_detail", "set_current_plate_index", "start_time_lapse_share",
-                                "cancel_time_lapse_share", "open_login_dialog"})
-        h[command] = ignore;
+    // Camera signalling and the Orca filament presets.
+    h["get_webrtc_local_param"] = [this](const json& j) { route_get_webrtc_local_param(j); };
+    h["get_filament_presets"]   = [this](const json& j) { route_get_filament_presets(j); };
 }
 
-// ---------------------------------------------------------------------------------------------
-// Ported verbatim (apart from names) from Creality Print's DeviceMgrRoutes.
-
-void CrealityDevicePanel::route_update_device(const json& j)
-{
-    std::string request_id;
-    std::string session_id;
-    const bool valid_request_id = j.contains("requestId") &&
-        j.at("requestId").is_string() &&
-        !j.at("requestId").get_ref<const std::string&>().empty() &&
-        j.at("requestId").get_ref<const std::string&>().size() <= 128;
-    if (valid_request_id)
-        request_id = j.at("requestId").get<std::string>();
-
-    auto post_response = [&](nlohmann::json response) {
-        if (!valid_request_id)
-            return;
-        response["requestId"] = request_id;
-        if (!session_id.empty())
-            response["sessionId"] = session_id;
-        post_command("update_device_result", std::move(response));
-    };
-    auto post_invalid = [&](const std::string& detail, const std::string& code = "invalid_request") {
-        post_response({
-            {"status", 1},
-            {"ok", false},
-            {"code", code},
-            {"changed", false},
-            {"errorType", code},
-            {"error", detail}
-        });
-    };
-
-    const bool has_expected_address = j.contains("expectedAddress");
-    const bool has_expected_revision = j.contains("expectedAddressRevision");
-    const bool cas_requested = has_expected_address || has_expected_revision;
-    if (cas_requested && !valid_request_id) {
-        BOOST_LOG_TRIVIAL(warning) << "update_device CAS rejected: valid requestId is required";
-        return;
-    }
-
-    bool allow_secure_downgrade = false;
-    if (j.contains("allowSecureDowngrade")) {
-        if (!j.at("allowSecureDowngrade").is_boolean()) {
-            post_invalid("allowSecureDowngrade must be a boolean");
-            return;
-        }
-        allow_secure_downgrade = j.at("allowSecureDowngrade").get<bool>();
-    }
-
-    if (j.contains("sessionId")) {
-        if (!j.at("sessionId").is_string() ||
-            j.at("sessionId").get_ref<const std::string&>().size() > 128) {
-            post_invalid("sessionId must be a string of at most 128 characters");
-            return;
-        }
-        session_id = j.at("sessionId").get<std::string>();
-    }
-
-    try {
-        DeviceStore::UpdatePatch patch;
-        std::string new_mac;
-        std::string lookup_mac;
-        auto read_int = [&](const char* field, int& value) {
-            if (!j.contains(field) || !j.at(field).is_number_integer())
-                return false;
-            const auto& number = j.at(field);
-            if (number.is_number_unsigned()) {
-                const std::uint64_t unsigned_value = number.get<std::uint64_t>();
-                if (unsigned_value > static_cast<std::uint64_t>(std::numeric_limits<int>::max()))
-                    return false;
-                value = static_cast<int>(unsigned_value);
-                return true;
-            }
-            const std::int64_t signed_value = number.get<std::int64_t>();
-            if (signed_value < std::numeric_limits<int>::min() ||
-                signed_value > std::numeric_limits<int>::max())
-                return false;
-            value = static_cast<int>(signed_value);
-            return true;
-        };
-
-        if (j.contains("mac")) {
-            if (!j.at("mac").is_string()) {
-                post_invalid("mac must be a string");
-                return;
-            }
-            new_mac = j.at("mac").get<std::string>();
-            if (!new_mac.empty())
-                patch.mac = new_mac;
-        }
-        lookup_mac = new_mac;
-        if (j.contains("lookupMac")) {
-            if (!j.at("lookupMac").is_string()) {
-                post_invalid("lookupMac must be a string");
-                return;
-            }
-            lookup_mac = j.at("lookupMac").get<std::string>();
-        }
-        if (j.contains("lookupAddress")) {
-            if (!j.at("lookupAddress").is_string()) {
-                post_invalid("lookupAddress must be a string");
-                return;
-            }
-            patch.lookupAddress = j.at("lookupAddress").get<std::string>();
-        }
-        if (j.contains("address")) {
-            if (!j.at("address").is_string()) {
-                post_invalid("address must be a string");
-                return;
-            }
-            patch.address = j.at("address").get<std::string>();
-        }
-        if (j.contains("model")) {
-            if (!j.at("model").is_string()) {
-                post_invalid("model must be a string");
-                return;
-            }
-            patch.model = j.at("model").get<std::string>();
-        }
-        if (j.contains("type")) {
-            int connect_type = 0;
-            if (!read_int("type", connect_type)) {
-                post_invalid("type must be an integer");
-                return;
-            }
-            patch.connectType = connect_type;
-        }
-        if (j.contains("secureConnection")) {
-            if (!j.at("secureConnection").is_boolean()) {
-                post_invalid("secureConnection must be a boolean");
-                return;
-            }
-            patch.connection.secureConnection = j.at("secureConnection").get<bool>();
-        }
-        if (j.contains("wssPort")) {
-            int wss_port = 0;
-            if (!read_int("wssPort", wss_port)) {
-                post_invalid("wssPort must be an integer");
-                return;
-            }
-            patch.connection.wssPort = wss_port;
-        }
-        if (j.contains("videoPort")) {
-            int video_port = 0;
-            if (!read_int("videoPort", video_port)) {
-                post_invalid("videoPort must be an integer");
-                return;
-            }
-            patch.connection.videoPort = video_port;
-        }
-
-        if (cas_requested) {
-            if (!has_expected_address || !has_expected_revision) {
-                post_invalid("expectedAddress and expectedAddressRevision must be provided together");
-                return;
-            }
-            if (!j.at("expectedAddress").is_string()) {
-                post_invalid("expectedAddress must be a string");
-                return;
-            }
-            if (!j.at("expectedAddressRevision").is_number_integer()) {
-                post_invalid("expectedAddressRevision must be a non-negative integer");
-                return;
-            }
-            if (!patch.address) {
-                post_invalid("address is required for a CAS update");
-                return;
-            }
-
-            DeviceStore::AddressUpdateExpectation expectation;
-            expectation.expectedAddress = j.at("expectedAddress").get<std::string>();
-            const auto& revision_json = j.at("expectedAddressRevision");
-            if (revision_json.is_number_unsigned()) {
-                expectation.expectedAddressRevision = revision_json.get<std::uint64_t>();
-            } else {
-                const std::int64_t signed_revision = revision_json.get<std::int64_t>();
-                if (signed_revision < 0) {
-                    post_invalid("expectedAddressRevision must be non-negative");
-                    return;
-                }
-                expectation.expectedAddressRevision =
-                    static_cast<std::uint64_t>(signed_revision);
-            }
-            const auto result = DeviceStore::Ins().UpdateDevicePatchCas(
-                lookup_mac,
-                patch,
-                expectation,
-                allow_secure_downgrade);
-            const bool ok = UpdateDeviceSucceeded(result.outcome);
-            const std::string code = UpdateDeviceCode(result.outcome);
-            nlohmann::json response = {
-                {"status", ok ? 0 : 1},
-                {"ok", ok},
-                {"code", code},
-                {"changed", result.changed},
-                {"expectedAddress", expectation.expectedAddress},
-                {"expectedAddressRevision", expectation.expectedAddressRevision}
-            };
-            if (result.device) {
-                response["mac"] = result.device->mac;
-                response["address"] = result.device->address;
-                response["addressRevision"] = result.device->addressRevision;
-            }
-            if (!result.error.empty()) {
-                response["errorType"] = code;
-                response["error"] = result.error;
-            }
-            post_response(std::move(response));
-            return;
-        }
-
-        const bool updated = DeviceStore::Ins().UpdateDevicePatch(
-            lookup_mac, patch, allow_secure_downgrade);
-        if (!updated)
-            BOOST_LOG_TRIVIAL(warning) << "update_device rejected for lookup mac: " << lookup_mac;
-
-        if (valid_request_id) {
-            std::optional<DeviceStore::Data> current_device;
-            if (updated) {
-                const std::string result_mac = patch.mac.value_or(lookup_mac);
-                if (!result_mac.empty())
-                    current_device = DeviceStore::Ins().FindByMac(result_mac);
-                if (!current_device) {
-                    const std::string result_address = patch.address.value_or(
-                        patch.lookupAddress.value_or(std::string()));
-                    if (!result_address.empty())
-                        current_device = DeviceStore::Ins().FindByAddress(result_address);
-                }
-            }
-
-            nlohmann::json response = {
-                {"status", updated ? 0 : 1},
-                {"ok", updated},
-                {"code", updated ? "updated" : "rejected"},
-                {"changed", updated}
-            };
-            if (current_device) {
-                response["mac"] = current_device->mac;
-                response["address"] = current_device->address;
-                response["addressRevision"] = current_device->addressRevision;
-            }
-            post_response(std::move(response));
-        }
-    } catch (const std::exception& e) {
-        post_invalid(e.what(), cas_requested ? "invalid_request" : "rejected");
-    } catch (...) {
-        post_invalid("unexpected update_device failure", "internal_error");
-    }
-    return;
-}
-
-void CrealityDevicePanel::route_reconcile_device_ownership_batch(const json& j)
-{
-    std::string request_id;
-    std::string session_id;
-
-    auto post_invalid = [&](const std::string& detail, const std::string& code = "invalid_request") {
-        nlohmann::json response = {
-            {"requestId", request_id},
-            {"status", 1},
-            {"ok", false},
-            {"code", code},
-            {"changed", false},
-            {"snapshot", nlohmann::json::array()},
-            {"errorType", code},
-            {"error", detail}
-        };
-        if (!session_id.empty())
-            response["sessionId"] = session_id;
-        post_command(
-            "reconcile_device_ownership_batch_result",
-            std::move(response));
-    };
-
-    try {
-        if (!j.is_object()) {
-            post_invalid("request data must be an object");
-            return;
-        }
-        if (!j.contains("requestId") || !j.at("requestId").is_string()) {
-            post_invalid("requestId is required and must be a string");
-            return;
-        }
-        request_id = j.at("requestId").get<std::string>();
-        if (request_id.empty() || request_id.size() > 128) {
-            post_invalid("requestId must contain 1 to 128 characters");
-            return;
-        }
-
-        if (j.contains("sessionId")) {
-            if (!j.at("sessionId").is_string()) {
-                post_invalid("sessionId must be a string");
-                return;
-            }
-            session_id = j.at("sessionId").get<std::string>();
-            if (session_id.size() > 128) {
-                post_invalid("sessionId must not exceed 128 characters");
-                return;
-            }
-        }
-
-        if (!j.contains("expectedRecords") ||
-            !j.at("expectedRecords").is_array() ||
-            j.at("expectedRecords").size() > 4096) {
-            post_invalid("expectedRecords must be an array with at most 4096 records");
-            return;
-        }
-        if (!j.contains("probes") ||
-            !j.at("probes").is_array() ||
-            j.at("probes").size() > 1024) {
-            post_invalid("probes must be an array with at most 1024 records");
-            return;
-        }
-
-        auto read_non_negative = [](const nlohmann::json& value, std::uint64_t& result) {
-            if (!value.is_number_integer())
-                return false;
-            if (value.is_number_unsigned()) {
-                result = value.get<std::uint64_t>();
-                return true;
-            }
-            const std::int64_t signed_value = value.get<std::int64_t>();
-            if (signed_value < 0)
-                return false;
-            result = static_cast<std::uint64_t>(signed_value);
-            return true;
-        };
-        auto read_port = [&](const nlohmann::json& value, int& port) {
-            std::uint64_t parsed = 0;
-            if (!read_non_negative(value, parsed) || parsed > 65535)
-                return false;
-            port = static_cast<int>(parsed);
-            return true;
-        };
-
-        DeviceStore::DeviceOwnershipBatchRequest request;
-        for (const auto& record_json : j.at("expectedRecords")) {
-            if (!record_json.is_object() ||
-                !record_json.contains("rawIndex") ||
-                !record_json.contains("group") || !record_json.at("group").is_string() ||
-                !record_json.contains("mac") || !record_json.at("mac").is_string() ||
-                !record_json.contains("address") || !record_json.at("address").is_string() ||
-                !record_json.contains("addressRevision")) {
-                post_invalid(
-                    "each expected record requires rawIndex, group, mac, address and addressRevision");
-                return;
-            }
-
-            std::uint64_t raw_index = 0;
-            std::uint64_t address_revision = 0;
-            if (!read_non_negative(record_json.at("rawIndex"), raw_index) ||
-                raw_index > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
-                post_invalid("rawIndex must be a non-negative integer");
-                return;
-            }
-            if (!read_non_negative(record_json.at("addressRevision"), address_revision)) {
-                post_invalid("addressRevision must be a non-negative integer");
-                return;
-            }
-
-            DeviceStore::DeviceOwnershipExpectedRecord expected;
-            expected.rawIndex = static_cast<std::size_t>(raw_index);
-            expected.group = record_json.at("group").get<std::string>();
-            expected.mac = record_json.at("mac").get<std::string>();
-            expected.address = record_json.at("address").get<std::string>();
-            expected.addressRevision = address_revision;
-            request.expectedRecords.push_back(std::move(expected));
-        }
-
-        for (const auto& probe_json : j.at("probes")) {
-            if (!probe_json.is_object() ||
-                !probe_json.contains("address") || !probe_json.at("address").is_string() ||
-                !probe_json.contains("ok") || !probe_json.at("ok").is_boolean()) {
-                post_invalid("each probe requires address and ok");
-                return;
-            }
-
-            DeviceStore::DeviceOwnershipProbe probe;
-            probe.address = probe_json.at("address").get<std::string>();
-            probe.ok = probe_json.at("ok").get<bool>();
-            if (probe.ok) {
-                if (!probe_json.contains("observedMac") ||
-                    !probe_json.at("observedMac").is_string() ||
-                    !probe_json.contains("secureConnection") ||
-                    !probe_json.at("secureConnection").is_boolean() ||
-                    !probe_json.contains("wssPort") ||
-                    !probe_json.contains("videoPort")) {
-                    post_invalid(
-                        "successful probes require observedMac, secureConnection, wssPort and videoPort");
-                    return;
-                }
-                if (probe_json.contains("model") && !probe_json.at("model").is_string()) {
-                    post_invalid("probe model must be a string");
-                    return;
-                }
-                if (probe_json.contains("allowSecureDowngrade") &&
-                    !probe_json.at("allowSecureDowngrade").is_boolean()) {
-                    post_invalid("allowSecureDowngrade must be a boolean");
-                    return;
-                }
-                probe.observedMac = probe_json.at("observedMac").get<std::string>();
-                probe.model = probe_json.value("model", std::string());
-                probe.secureConnection = probe_json.at("secureConnection").get<bool>();
-                probe.allowSecureDowngrade =
-                    probe_json.value("allowSecureDowngrade", false);
-                if (!read_port(probe_json.at("wssPort"), probe.wssPort) ||
-                    !read_port(probe_json.at("videoPort"), probe.videoPort)) {
-                    post_invalid("probe ports must be between 0 and 65535");
-                    return;
-                }
-            }
-            request.probes.push_back(std::move(probe));
-        }
-
-        const auto result = DeviceStore::Ins().ReconcileDeviceOwnershipBatch(request);
-        const bool ok = DeviceOwnershipBatchSucceeded(result.outcome);
-        const std::string code = DeviceOwnershipBatchCode(result.outcome);
-        nlohmann::json response = {
-            {"requestId", request_id},
-            {"status", ok ? 0 : 1},
-            {"ok", ok},
-            {"code", code},
-            {"changed", result.changed},
-            {"snapshot", nlohmann::json::array()}
-        };
-        if (!session_id.empty())
-            response["sessionId"] = session_id;
-        for (const auto& device : result.snapshot)
-            response["snapshot"].push_back(ModernLanSnapshotToJson(device));
-        if (!result.error.empty()) {
-            response["errorType"] = code;
-            response["error"] = result.error;
-        }
-        post_command(
-            "reconcile_device_ownership_batch_result",
-            std::move(response));
-    } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << "reconcile_device_ownership_batch failed: " << e.what();
-        post_invalid(e.what(), "internal_error");
-    } catch (...) {
-        BOOST_LOG_TRIVIAL(error) <<
-            "reconcile_device_ownership_batch failed with unknown error";
-        post_invalid("unknown device ownership batch failure", "internal_error");
-    }
-    return;
-}
 }} // namespace Slic3r::GUI

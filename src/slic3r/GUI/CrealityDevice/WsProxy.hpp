@@ -1,4 +1,4 @@
-// WebSocket proxy for the embedded Creality device panel.
+// WebSocket proxy for the Zoukei device panel.
 //
 // The panel talks to the printer over ws://<ip>:9999 or wss://<ip>:<wssPort>. WebView2 refuses
 // the printer's self-signed certificate, so, like Creality Print (print_manage/App/WebSocketProxy*,
