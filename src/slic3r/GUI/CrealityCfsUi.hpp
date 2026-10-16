@@ -10,6 +10,7 @@
 #include <utility>
 #include <wx/panel.h>
 #include <wx/timer.h>
+#include <wx/weakref.h>
 
 namespace Slic3r { namespace GUI { namespace CfsUi {
 
@@ -52,7 +53,7 @@ public:
 private:
     void on_paint(wxPaintEvent&);
     int  m_idx;
-    wxWindow* m_btn; // the original colour box, hidden while this combined box is shown
+    wxWeakRef<wxWindow> m_btn; // the original colour box, hidden while this combined box is shown
 };
 
 }}} // namespace Slic3r::GUI::CfsUi

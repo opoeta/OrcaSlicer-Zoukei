@@ -409,6 +409,8 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
             if (s_watcher != nullptr)
                 s_watcher->check();
         }, [this] {
+            if (!m_btn)
+                return;
             wxCommandEvent ev(wxEVT_BUTTON, m_btn->GetId());
             ev.SetEventObject(m_btn);
             m_btn->GetEventHandler()->ProcessEvent(ev);
@@ -427,7 +429,8 @@ void Badge::refresh_state()
     const bool want = !entries(snapshot()).empty();
     if (want != IsShown()) {
         Show(want);
-        m_btn->Show(!want);
+        if (m_btn)
+            m_btn->Show(!want);
         if (GetParent() != nullptr)
             GetParent()->Layout();
     }
