@@ -49,6 +49,8 @@ private:
     void run_script(const std::string& script);
     void send_device_list();
     void route_moonraker_http(const json& j);
+    void route_get_filament_presets(const json& j);
+    void route_ifs_write_slot(const json& j);
 
     wxWebView*                               m_browser{nullptr};
     std::shared_ptr<Bridge>                  m_bridge;

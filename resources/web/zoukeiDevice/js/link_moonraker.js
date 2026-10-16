@@ -332,6 +332,19 @@
         ifsUnload() { return this._order('UNLOAD_FILAMENT'); }
         ifsUnlock() { return this._order('IFS_UNLOCK'); }
 
+        // ZMOD's accepted materials (zmod_color.valid_types) and a fresh read of the IFS objects.
+        validTypes() {
+            const zc = this.raw.zmod_color;
+            return zc && Array.isArray(zc.valid_types) ? zc.valid_types.map(String) : [];
+        }
+        async refreshIfs() {
+            try {
+                const q = await this._query(['zmod_color', 'zmod_ifs', 'save_variables'].filter(k => this._objects.indexOf(k) >= 0));
+                Object.assign(this.raw, q);
+                this._derive();
+            } catch (e) { /* the next poll retries */ }
+        }
+
         // ---- starting a print -----------------------------------------------------------------------------
 
         // Without lessWaste: Moonraker's own print start. With it: the plugin's dialog flow driven from here.

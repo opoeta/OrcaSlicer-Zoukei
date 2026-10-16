@@ -3,11 +3,14 @@
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "Widgets/WebView.hpp"
+#include "CrealityCfsUi.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/Http.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -312,6 +315,64 @@ void FlashforgeDevicePanel::route_moonraker_http(const json& j)
     }
 }
 
+// The Orca filament presets of the selected printer, for the IFS slot editor (same data as the Creality panel).
+void FlashforgeDevicePanel::route_get_filament_presets(const json& j)
+{
+    CrealityCfsAgent::refresh_presets();
+    json presets = json::array();
+    for (const auto& p : CrealityCfsAgent::presets()) {
+        if (!p.is_visible || !p.is_compatible)
+            continue;
+        presets.push_back({{"name", p.name},
+                           {"vendor", p.vendor},
+                           {"type", p.type},
+                           {"filament_id", p.filament_id},
+                           {"color", p.color},
+                           {"minTemp", p.min_temp},
+                           {"maxTemp", p.max_temp},
+                           {"pressure", p.pressure_advance},
+                           {"system", p.is_system}});
+    }
+    post_command("get_filament_presets", {{"requestId", json_string(j, "requestId")}, {"presets", std::move(presets)}});
+}
+
+// Writes one IFS slot through the agent's own path (CHANGE_ZCOLOR, plus lane_data with HelixScreen).
+// Answered as {requestId, ok, reason}; nothing is sent while the agent reports a block (printing, ...).
+void FlashforgeDevicePanel::route_ifs_write_slot(const json& j)
+{
+    json out = {{"requestId", json_string(j, "requestId")}, {"ok", false}, {"reason", ""}};
+    const auto agent = CfsUi::ifs_agent();
+    const int  slot  = j.contains("slot") && j["slot"].is_number_integer() ? j["slot"].get<int>() : 0;
+    std::string hex  = json_string(j, "hex");
+    if (!hex.empty() && hex[0] == '#')
+        hex.erase(0, 1);
+    static const std::regex hex_re("^[0-9A-Fa-f]{6}$");
+    if (!agent)
+        out["reason"] = "no Flashforge printer selected";
+    else if (slot < 1 || slot > 4 || (!hex.empty() && !std::regex_match(hex, hex_re)))
+        out["reason"] = "invalid slot or colour";
+    else if (const std::string reason = agent->write_block_reason(); !reason.empty())
+        out["reason"] = reason;
+    else {
+        FlashforgePrinterAgent::SlotWrite w;
+        w.port        = slot;
+        w.type        = json_string(j, "type");
+        w.name        = json_string(j, "name");
+        w.vendor      = json_string(j, "vendor");
+        w.color       = hex.empty() ? std::string() : "#" + boost::to_upper_copy(hex); // empty -> the agent writes 161616
+        w.nozzle_temp = j.contains("nozzle_temp") && j["nozzle_temp"].is_number() ? j["nozzle_temp"].get<int>() : 0;
+        w.bed_temp    = j.contains("bed_temp") && j["bed_temp"].is_number() ? j["bed_temp"].get<int>() : 0;
+        if (boost::iequals(w.type, "SILK")) { // ZMOD's SILK is a PLA whose name says silk
+            w.type = "PLA";
+            if (!boost::icontains(w.name, "silk"))
+                w.name = w.name.empty() ? "Silk PLA" : "Silk " + w.name;
+        }
+        agent->write_slots({w});
+        out["ok"] = true;
+    }
+    post_command("ifs_write_slot", std::move(out));
+}
+
 void FlashforgeDevicePanel::register_routes()
 {
     auto& h = m_handlers;
@@ -319,6 +380,8 @@ void FlashforgeDevicePanel::register_routes()
     h["get_lang"]       = [this](const json&) { post_command("get_lang", wxGetApp().current_language_code().ToStdString()); };
     h["device_list"]    = [this](const json&) { send_device_list(); };
     h["moonraker_http"] = [this](const json& j) { route_moonraker_http(j); };
+    h["get_filament_presets"] = [this](const json& j) { route_get_filament_presets(j); };
+    h["ifs_write_slot"]       = [this](const json& j) { route_ifs_write_slot(j); };
 }
 
 }} // namespace Slic3r::GUI
