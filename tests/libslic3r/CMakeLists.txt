@@ -34,6 +34,7 @@ add_executable(${_TEST_NAME}_tests
     test_elephant_foot_compensation.cpp
     test_fill_corner_smoothing.cpp
     test_filament_mixer.cpp
+    test_color_mix_engine.cpp
     test_fill_plane_path.cpp
     test_fill_tpms_adaptive.cpp
     test_geometry.cpp

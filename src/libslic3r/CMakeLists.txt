@@ -207,6 +207,8 @@ set(lisbslic3r_sources
     FilamentMixerModel.hpp
     ColorDecomposeRecipe.cpp
     ColorDecomposeRecipe.hpp
+    ColorMixEngine.cpp
+    ColorMixEngine.hpp
     TexturePainting.hpp
     TexturePainting.cpp
     TextureToColor/TextureToColor.hpp
