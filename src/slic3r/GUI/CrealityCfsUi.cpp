@@ -587,15 +587,9 @@ void Badge::on_paint(wxPaintEvent&)
         draw_chip(dc, rc, txt, col, true);
         return;
     }
-    // multi-colour: plain chip, sectors only in a small square swatch at the left
-    const int sw = rc.height - 4;
-    draw_chip(dc, wxRect(rc.x + sw + 4, rc.y, rc.width - sw - 4, rc.height), txt, col, true);
-    wxBitmap bmp = create_filament_bitmap(mc, wxSize(sw, sw), gradient);
-    if (bmp.IsOk())
-        dc.DrawBitmap(bmp, rc.x + 1, rc.y + 2);
-    dc.SetPen(wxPen(edge_col()));
-    dc.SetBrush(*wxTRANSPARENT_BRUSH);
-    dc.DrawRectangle(wxRect(rc.x + 1, rc.y + 2, sw, sw));
+    // multi-colour: the sectors / gradient fill the whole compact badge, label on top
+    wxBitmap bmp = create_filament_bitmap(mc, wxSize(rc.width - 2, rc.height - 2), gradient);
+    draw_chip(dc, rc, txt, col, true, &bmp);
 }
 
 std::vector<wxColour> filament_colours(int idx, bool& gradient)
