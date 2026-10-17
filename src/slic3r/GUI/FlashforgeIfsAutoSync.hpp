@@ -25,7 +25,9 @@ public:
     // Printer -> project: every project filament mapped to IFS slot `port` (1..4) takes the colour and, when
     // needed, the preset (`preset` = chosen Orca preset, "" = keep the current one if its type matches, else the
     // closest of that type). UI thread. Returns how many filaments changed; the auto-sync baseline follows.
-    static int apply_slot_to_project(int port, const std::string& type, const std::string& color, const std::string& preset);
+    // `colours` (>= 2 entries, first == color) also sets filament_multi_colour / filament_colour_type; fewer entries reset them to solid.
+    static int apply_slot_to_project(int port, const std::string& type, const std::string& color, const std::string& preset,
+                                     const std::vector<std::string>& colours = {}, bool gradient = false);
     // "Sincronizar tudo agora": apply every IFS slot the printer reports to the mapped project filaments (UI thread, text = what changed).
     static std::string apply_all_to_project();
     static void rebaseline();

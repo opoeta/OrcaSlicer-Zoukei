@@ -41,6 +41,8 @@ public:
         std::string vendor;
         int         nozzle_temp = 0;
         int         bed_temp    = 0;
+        std::vector<std::string> colors; // all colours "#RRGGBB" when dual/tri/quad/gradient (>= 2), else empty; colors[0] == color
+        bool        gradient    = false;
     };
 
     // One IFS slot as the printer reports it.
@@ -54,6 +56,8 @@ public:
         std::string vendor;
         int         nozzle_temp = 0;
         int         bed_temp = 0;
+        std::vector<std::string> colors; // lane_data multi_color_hexes, only while colors[0] == color (>= 2 entries), else empty
+        bool        gradient = false;    // lane_data color_type == "gradient"
         int         spool_id = 0;  // Spoolman spool bound in HelixScreen's lane_data (0 = none)
     };
 

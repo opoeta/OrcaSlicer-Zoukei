@@ -24,7 +24,7 @@
     }
 
     // The IFS as ZMOD reports it: ui detection follows the agent (display_off + helix / guppy).
-    function readIfs(raw) {
+    function readIfs(raw, lanes) {
         const zc = raw.zmod_color;
         const vars = (raw.save_variables && raw.save_variables.variables) || {};
         const ui = num(vars.display_off) !== 0 ? (num(vars.helix) !== 0 ? 'helix' : num(vars.guppy) !== 0 ? 'guppy' : 'original') : 'original';
@@ -32,10 +32,17 @@
         const ports = (raw.zmod_ifs && raw.zmod_ifs.Ports) || [];
         return {
             ui: ui, available: zc.ifs !== false,
-            slots: zc.slots.map((s, i) => ({
-                id: Number(s.ID) || i + 1, material: String(s.Material || ''), colorName: String(s.Color || ''),
-                color: hexOf(s.HEX), present: !!s.hasFilament || ports[i] === true
-            }))
+            slots: zc.slots.map((s, i) => {
+                const id = Number(s.ID) || i + 1, color = hexOf(s.HEX), lane = lanes && lanes['lane' + id];
+                // dual / tri / quad / gradient info of lane_data, valid only while its first colour is what the firmware reports
+                const cs = lane && Array.isArray(lane.multi_color_hexes) ? lane.multi_color_hexes.map(hexOf).filter(Boolean).slice(0, 4) : [];
+                const multi = cs.length >= 2 && cs[0] === color && hexOf(lane.color) === color;
+                return {
+                    id: id, material: String(s.Material || ''), colorName: String(s.Color || ''),
+                    color: color, present: !!s.hasFilament || ports[i] === true,
+                    colors: multi ? cs : [], gradient: multi && lane.color_type === 'gradient'
+                };
+            })
         };
     }
 
@@ -178,6 +185,7 @@
                 if (first || this._tick++ % 6 === 0) Array.prototype.push.apply(keys, this.slowKeys);
                 const r = await this.api('GET', '/printer/objects/query?' + keys.map(enc).join('&'));
                 Object.assign(this.raw, (r && r.status) || {});
+                if (keys.indexOf('zmod_color') >= 0) await this._loadLanes();
                 this._fails = 0;
                 const firstStatus = !this.hasStatus;
                 this.hasStatus = true;
@@ -250,7 +258,7 @@
             }
             const down = wh.state && wh.state !== 'ready';
             o.err = ps.state === 'error' ? { errcode: 1, value: ps.message || '' } : down ? { errcode: 2, value: wh.state_message || wh.state } : null;
-            this.ifs = readIfs(r);
+            this.ifs = readIfs(r, this._lanes);
             const lw = r['gcode_macro _IFS_VARS'];
             this.lessWaste = lw ? {
                 tools: lw.tools, startPurge: num(lw.start_purge_setting), linePurge: num(lw.line_purge) === 1, leveling: num(lw.kamp) === 1,
@@ -355,8 +363,16 @@
             const zc = this.raw.zmod_color;
             return zc && Array.isArray(zc.valid_types) ? zc.valid_types.map(String) : [];
         }
+        // lane_data (Moonraker DB): Orca stores the extra colours of a dual / tri / quad / gradient slot there.
+        async _loadLanes() {
+            try {
+                const r = await this.api('GET', '/server/database/item?namespace=lane_data');
+                this._lanes = (r && r.value && typeof r.value === 'object') ? r.value : null;
+            } catch (e) { this._lanes = null; }
+        }
         async refreshIfs() {
             try {
+                await this._loadLanes();
                 const q = await this._query(['zmod_color', 'zmod_ifs', 'save_variables'].filter(k => this._objects.indexOf(k) >= 0));
                 Object.assign(this.raw, q);
                 this._derive();

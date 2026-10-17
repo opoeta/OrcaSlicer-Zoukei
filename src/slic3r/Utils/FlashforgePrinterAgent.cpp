@@ -498,7 +498,7 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
     }
 
     json lanes = json::object(); // HelixScreen's spool database: vendor / product name / temperatures per lane
-    if (ui() == Ui::helix && http_get(base_url + "/server/database/item?namespace=lane_data", api_key, body)) {
+    if (http_get(base_url + "/server/database/item?namespace=lane_data", api_key, body)) {
         const json l = json::parse(body, nullptr, false);
         if (!l.is_discarded() && l.contains("result") && l["result"].contains("value") && l["result"]["value"].is_object())
             lanes = l["result"]["value"];
@@ -519,6 +519,20 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
             const json& lane = lanes[key];
             // Only trust the database entry while it still describes what ZMOD sees in the slot.
             if (norm_color(str(lane, "color")) == slot.color) {
+                if (lane.contains("multi_color_hexes") && lane["multi_color_hexes"].is_array()) {
+                    std::vector<std::string> cs;
+                    for (const json& c : lane["multi_color_hexes"])
+                        if (c.is_string() && norm_color(c.get<std::string>()).size() == 7)
+                            cs.push_back(norm_color(c.get<std::string>()));
+                    if (cs.size() >= 2 && cs.size() <= 4 && cs.front() == slot.color) {
+                        slot.colors   = std::move(cs);
+                        slot.gradient = str(lane, "color_type") == "gradient";
+                    }
+                }
+                if (ui() != Ui::helix) {
+                    slots.push_back(std::move(slot));
+                    continue;
+                }
                 slot.name        = !str(lane, "helix_product_name").empty() ? str(lane, "helix_product_name") : str(lane, "name");
                 slot.vendor      = !str(lane, "vendor_name").empty() ? str(lane, "vendor_name") : str(lane, "vendor");
                 slot.nozzle_temp = int(num(lane, "nozzle_temp"));
@@ -633,8 +647,11 @@ void FlashforgePrinterAgent::sync_active_spool(const std::string& base_url, cons
 void FlashforgePrinterAgent::apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots)
 {
     std::string signature;
-    for (const IfsSlot& s : slots)
-        signature += std::to_string(s.port) + (s.has_filament ? "+" : "-") + s.material + s.color + s.name + s.vendor + std::to_string(s.spool_id) + ";";
+    for (const IfsSlot& s : slots) {
+        signature += std::to_string(s.port) + (s.has_filament ? "+" : "-") + s.material + s.color + s.name + s.vendor + std::to_string(s.spool_id) + (s.gradient ? "g" : "") + ";";
+        for (const std::string& c : s.colors)
+            signature += c;
+    }
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (signature == m_slot_signature)
@@ -958,6 +975,13 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
         rec["nozzle_temp"] = w.nozzle_temp;
     if (w.bed_temp > 0)
         rec["bed_temp"] = w.bed_temp;
+    if (w.colors.size() >= 2) { // dual / tri / quad / gradient: "color" stays the first colour (what the firmware keeps)
+        rec["multi_color_hexes"] = w.colors;
+        rec["color_type"]        = w.gradient ? "gradient" : "multi";
+    } else {
+        rec.erase("multi_color_hexes");
+        rec.erase("color_type");
+    }
     if (changed_identity)
         rec["color_name"] = ""; // stale HelixScreen colour name (e.g. "Bronze") no longer matches
     if (changed_identity)
@@ -1108,6 +1132,8 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
         }
         if (ok && ui() == Ui::helix)
             write_lane_data(base_url, api_key, w, type, cur);
+        else if (ok && (w.colors.size() >= 2 || (cur != nullptr && cur->colors.size() >= 2)))
+            write_lane_data(base_url, api_key, w, type, cur); // other screens: only to store / clear the multi-colour info
         if (ok)
             add(ok_list, label + " " + (type.empty() ? w.type : type) + " " + w.color + warn);
         else

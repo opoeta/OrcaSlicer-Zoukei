@@ -369,12 +369,34 @@ void FlashforgeDevicePanel::route_ifs_write_slot(const json& j)
             if (!boost::icontains(w.name, "silk"))
                 w.name = w.name.empty() ? "Silk PLA" : "Silk " + w.name;
         }
+        // dual / tri / quad / gradient: all colours (the first is "color" / HEX, the firmware keeps only that one)
+        if (j.contains("colours") && j["colours"].is_array() && j["colours"].size() >= 2 && j["colours"].size() <= 4 && !w.color.empty()) {
+            std::vector<std::string> cs;
+            for (const json& c : j["colours"]) {
+                std::string v = c.is_string() ? c.get<std::string>() : std::string();
+                if (!v.empty() && v[0] == '#')
+                    v.erase(0, 1);
+                if (!std::regex_match(v, hex_re)) {
+                    cs.clear();
+                    break;
+                }
+                cs.push_back("#" + boost::to_upper_copy(v));
+            }
+            if (cs.size() >= 2 && cs.front() == w.color) {
+                w.colors   = cs;
+                w.gradient = json_string(j, "color_type") == "gradient";
+            }
+        }
         agent->write_slots({w});
         out["ok"] = true;
         // Printer -> project: the filaments mapped to this slot follow what was just written (no echo back).
         const std::string preset = json_string(j, "preset"), wtype = w.type, wcolor = w.color;
         const int         wport  = w.port;
-        wxGetApp().CallAfter([wport, wtype, wcolor, preset] { FlashforgeIfsAutoSync::apply_slot_to_project(wport, wtype, wcolor, preset); });
+        const auto        wcols = w.colors;
+        const bool        wgrad = w.gradient;
+        wxGetApp().CallAfter([wport, wtype, wcolor, preset, wcols, wgrad] {
+            FlashforgeIfsAutoSync::apply_slot_to_project(wport, wtype, wcolor, preset, wcols, wgrad);
+        });
     }
     post_command("ifs_write_slot", std::move(out));
 }

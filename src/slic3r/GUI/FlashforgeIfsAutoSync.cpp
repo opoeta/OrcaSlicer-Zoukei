@@ -15,6 +15,7 @@
 #include <boost/log/trivial.hpp>
 
 #include <chrono>
+#include <sstream>
 #include <memory>
 
 namespace Slic3r { namespace GUI {
@@ -61,7 +62,27 @@ std::vector<Fil> project_filaments()
             c = char(std::toupper(static_cast<unsigned char>(c)));
         if (f.write.color.size() != 7 || f.write.color.front() != '#')
             f.write.color = "#FFFFFF";
+        {   // dual / tri / quad / gradient: filament_multi_colour "c1 c2 ..." + filament_colour_type ("0" = gradient)
+            const auto* mc = bundle->project_config.option<ConfigOptionStrings>("filament_multi_colour");
+            const auto* ty = bundle->project_config.option<ConfigOptionStrings>("filament_colour_type");
+            if (mc != nullptr && i < mc->values.size()) {
+                std::istringstream is(mc->values[i]);
+                std::vector<std::string> cs;
+                for (std::string t; is >> t;) {
+                    for (char& c : t)
+                        c = char(std::toupper(static_cast<unsigned char>(c)));
+                    if (t.size() == 7 && t.front() == '#')
+                        cs.push_back(t);
+                }
+                if (cs.size() >= 2 && cs.size() <= 4 && cs.front() == f.write.color) {
+                    f.write.colors   = cs;
+                    f.write.gradient = ty != nullptr && i < ty->values.size() && ty->values[i] == "0";
+                }
+            }
+        }
         f.signature = f.write.name + "|" + f.write.type + "|" + f.write.color;
+        for (const std::string& c : f.write.colors)
+            f.signature += (f.write.gradient ? "g" : "m") + c;
         out.push_back(std::move(f));
     }
     return out;
@@ -125,7 +146,8 @@ void FlashforgeIfsAutoSync::rebaseline()
     }
 }
 
-int FlashforgeIfsAutoSync::apply_slot_to_project(int port, const std::string& type, const std::string& color, const std::string& preset)
+int FlashforgeIfsAutoSync::apply_slot_to_project(int port, const std::string& type, const std::string& color, const std::string& preset,
+                                                 const std::vector<std::string>& multi, bool gradient)
 {
     PresetBundle* bundle = wxGetApp().preset_bundle;
     if (bundle == nullptr || port < 1 || port > 4)
@@ -156,6 +178,29 @@ int FlashforgeIfsAutoSync::apply_slot_to_project(int port, const std::string& ty
             colours->values[i] = hex;
             touched            = true;
         }
+        // multi colours: only touch the lists when the project filament already has them or the slot has them
+        auto* mcol = bundle->project_config.option<ConfigOptionStrings>("filament_multi_colour");
+        auto* ctyp = bundle->project_config.option<ConfigOptionStrings>("filament_colour_type");
+        if (mcol != nullptr && ctyp != nullptr && i < mcol->values.size() && i < ctyp->values.size()) {
+            const bool is_multi = multi.size() >= 2 && multi.size() <= 4 && multi.front() == hex;
+            std::string want_c, want_t = "1";
+            if (is_multi) {
+                for (const std::string& c : multi)
+                    want_c += (want_c.empty() ? "" : " ") + c;
+                if (gradient)
+                    want_t = "0";
+            }
+            if (is_multi || !mcol->values[i].empty() || ctyp->values[i] != "1") {
+                std::string cur = mcol->values[i];
+                for (char& c : cur)
+                    c = char(std::toupper(static_cast<unsigned char>(c)));
+                if (cur != want_c || ctyp->values[i] != want_t) {
+                    mcol->values[i] = want_c;
+                    ctyp->values[i] = want_t;
+                    touched         = true;
+                }
+            }
+        }
         changed += touched ? 1 : 0;
     }
     if (changed > 0) {
@@ -178,7 +223,7 @@ std::string FlashforgeIfsAutoSync::apply_all_to_project()
     if (const auto agent = CfsUi::ifs_agent())
         for (const auto& s : agent->ifs_slots())
             if (s.has_filament)
-                if (apply_slot_to_project(s.port, s.material, s.color, "") > 0)
+                if (apply_slot_to_project(s.port, s.material, s.color, "", s.colors, s.gradient) > 0)
                     out += (out.empty() ? "" : ", ") + std::string("IFS") + std::to_string(s.port) + " " + s.material + " " + s.color;
     return out;
 }
@@ -191,6 +236,9 @@ void FlashforgeIfsAutoSync::check_printer_changes(const std::shared_ptr<Flashfor
     std::map<int, FlashforgePrinterAgent::IfsSlot> slots;
     for (const auto& s : agent->ifs_slots()) {
         now[s.port]   = s.has_filament ? boost::to_upper_copy(s.material) + "|" + boost::to_upper_copy(s.color) : std::string();
+        if (s.has_filament)
+            for (const std::string& c : s.colors)
+                now[s.port] += (s.gradient ? "g" : "m") + c;
         slots[s.port] = s;
     }
     if (now.empty())
@@ -222,12 +270,23 @@ void FlashforgeIfsAutoSync::check_printer_changes(const std::shared_ptr<Flashfor
             if (colours == nullptr || i >= colours->values.size() || !boost::iequals(colours->values[i], s.color) ||
                 !boost::iequals(type, base_material(s.material)))
                 differs = true;
+            else if (const auto* mc = bundle->project_config.option<ConfigOptionStrings>("filament_multi_colour");
+                     mc != nullptr && i < mc->values.size()) {
+                std::string want;
+                if (s.colors.size() >= 2)
+                    for (const std::string& c : s.colors)
+                        want += (want.empty() ? "" : " ") + c;
+                if (!boost::iequals(mc->values[i], want))
+                    differs = true;
+            }
         }
         if (!mapped || !differs)
             continue;
         const std::string type = s.material, color = s.color;
+        const auto        cols = s.colors;
+        const bool        grad = s.gradient;
         if (auto_apply == "true" || auto_apply == "1") {
-            apply_slot_to_project(port, type, color, "");
+            apply_slot_to_project(port, type, color, "", cols, grad);
             CrealityCfsAgent::notify("IFS " + std::to_string(port) + " mudou na impressora - projeto atualizado.");
             continue;
         }
@@ -235,8 +294,8 @@ void FlashforgeIfsAutoSync::check_printer_changes(const std::shared_ptr<Flashfor
             plater->get_notification_manager()->push_notification(
                 NotificationType::CustomNotification, NotificationManager::NotificationLevel::RegularNotificationLevel,
                 "Slot IFS " + std::to_string(port) + " mudou na impressora (" + s.material + " " + s.color + ")", "Sincronizar",
-                [port, type, color](wxEvtHandler*) {
-                    apply_slot_to_project(port, type, color, "");
+                [port, type, color, cols, grad](wxEvtHandler*) {
+                    apply_slot_to_project(port, type, color, "", cols, grad);
                     return true;
                 });
     }

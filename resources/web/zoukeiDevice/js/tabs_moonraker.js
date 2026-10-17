@@ -6,9 +6,18 @@
     const { h, icon } = Z;
     const { num } = Z.fmt;
 
-    function swatch(color, present) {
-        return h('div.spool' + (present ? '' : '.empty'), { style: present && color ? 'background:' + color : null });
+    // Solid colour, sectors (dual / tri / quad) or a smooth ring (gradient) of the slot's colours.
+    function spoolBg(color, colors, gradient) {
+        if (!colors || colors.length < 2) return color || null;
+        const n = colors.length;
+        if (gradient) return 'conic-gradient(' + colors.concat(colors[0]).join(',') + ')';
+        return 'conic-gradient(' + colors.map((c, i) => c + ' ' + (i * 100 / n) + '% ' + ((i + 1) * 100 / n) + '%').join(',') + ')';
     }
+    function swatch(color, present, colors, gradient) {
+        const bg = spoolBg(color, colors, gradient);
+        return h('div.spool' + (present ? '' : '.empty'), { style: present && bg ? 'background:' + bg : null });
+    }
+    const kindLabel = s => !s.colors || s.colors.length < 2 ? '' : s.gradient ? Z.t('ct_gradient') : [Z.t('ct_solid'), Z.t('ct_solid'), Z.t('ct_dual'), Z.t('ct_tri'), Z.t('ct_quad')][s.colors.length];
 
     // ---- IFS ------------------------------------------------------------------------------------------
 
@@ -59,13 +68,13 @@
             const active = link.lessWaste && link.lessWaste.currentTool >= 0 && link.lessWaste.tools && link.lessWaste.tools[link.lessWaste.currentTool] === s.id;
             return h('button.slot.ifs-slot' + (sel === s.id ? '.sel' : '') + (active ? '.active' : ''), {
                 type: 'button', 'aria-pressed': sel === s.id ? 'true' : 'false',
-                title: s.present ? [s.material, s.colorName].filter(Boolean).join(' · ') : Z.t('slot_empty'),
+                title: s.present ? [s.material, kindLabel(s), s.colorName].filter(Boolean).join(' · ') : Z.t('slot_empty'),
                 onclick: () => { sel = s.id; update(true); },
                 ondblclick: () => { sel = s.id; update(true); openSlotEditor(ctx, s.id); }
             },
                 h('div.lbl', 'IFS ' + s.id),
-                swatch(s.color, s.present),
-                h('div.mat', { text: s.present ? (s.material || '?') : '—' }),
+                swatch(s.color, s.present, s.colors, s.gradient),
+                h('div.mat', { text: s.present ? [s.material || '?', kindLabel(s)].filter(Boolean).join(' · ') : '—' }),
                 h('div.sub', { text: s.present ? s.colorName : Z.t('slot_empty') }),
                 h('div.pct', { text: lwTool >= 0 && lwTool < 4 && s.present ? 'T' + lwTool : '' }));
         }
@@ -151,7 +160,23 @@
             if (!fBed.value && v.bed_temp) fBed.value = v.bed_temp;
         }).catch(() => {});
 
-        const colorRow = h('div.row.gap', h('label.field.inline', h('span', { text: Z.t('color') }), color), summary);
+        // colour type (as Orca's "Filament colour" dialog): solid / dual / tri / quad / gradient, up to 4 pickers
+        const initCols = s.colors && s.colors.length >= 2 ? s.colors : [s.color || '#FFFFFF'];
+        const ctSel = h('select.input', ['solid', 'dual', 'tri', 'quad', 'gradient'].map(k => h('option', { value: k, text: Z.t('ct_' + k) })));
+        ctSel.value = s.gradient && initCols.length >= 2 ? 'gradient' : ['solid', 'solid', 'dual', 'tri', 'quad'][initCols.length];
+        const nSel = h('select.input', [2, 3, 4].map(n => h('option', { value: n, text: String(n) })));
+        nSel.value = String(Math.max(2, Math.min(4, initCols.length)));
+        const extraCols = [1, 2, 3].map(i => h('input', { type: 'color', value: initCols[i] || initCols[initCols.length - 1] || '#FFFFFF', 'aria-label': Z.t('color') + ' ' + (i + 1) }));
+        const colorCount = () => ({ solid: 1, dual: 2, tri: 3, quad: 4, gradient: Number(nSel.value) })[ctSel.value];
+        const syncColors = () => {
+            const n = colorCount();
+            nSel.hidden = ctSel.value !== 'gradient';
+            extraCols.forEach((c, i) => { c.hidden = i + 2 > n; });
+        };
+        ctSel.addEventListener('change', syncColors);
+        nSel.addEventListener('change', syncColors);
+        syncColors();
+        const colorRow = h('div.row.gap', h('label.field.inline', h('span', { text: Z.t('color') }), color), ctSel, nSel, extraCols, summary);
         const body = h('div.editor', h('div.row', seg), presetPane, customPane, colorRow);
         const dlg = Z.dialog({
             title: 'IFS ' + s.id, body: body, wide: true,
@@ -192,6 +217,9 @@
         setMode('preset');
 
         function write(payload) {
+            const n = colorCount();
+            const cols = [color.value].concat(extraCols.slice(0, n - 1).map(c => c.value)).map(c => c.toUpperCase());
+            if (payload.type !== '?') Object.assign(payload, { colours: cols, color_type: n < 2 ? 'solid' : ctSel.value === 'gradient' ? 'gradient' : 'multi' });
             if (ctx.busy() || !link.online) { Z.toast(Z.t('cfs_locked'), 'err'); return; }
             Z.Host.request('ifs_write_slot', Object.assign({ slot: s.id }, payload), 'ifs_write_slot', 15000).then(r => {
                 if (!r.ok) { Z.toast(Z.t('ifs_write_blocked', { reason: r.reason || '' }), 'err'); return; }
