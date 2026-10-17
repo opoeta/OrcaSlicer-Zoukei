@@ -111,6 +111,7 @@ struct PrinterSnapshot
     std::optional<int>                device_state;
     std::optional<int>                feed_state;
     std::optional<bool>               cfs_connected;
+    std::optional<int>                ai_first_floor;
     std::string                       print_file;
     std::optional<int>                print_progress;
     std::optional<int>                print_left_seconds;

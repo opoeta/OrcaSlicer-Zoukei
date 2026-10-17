@@ -457,6 +457,16 @@ int CrealityCfsAgent::handle_print_command(const json& cmd)
     return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED;
 }
 
+std::optional<int> CrealityCfsAgent::ai_first_floor()
+{
+    std::shared_ptr<Client> client;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        client = m_client;
+    }
+    return client ? client->snapshot().ai_first_floor : std::nullopt;
+}
+
 int CrealityCfsAgent::upload_job(const PrintParams& params, const OnUpdateStatusFn& update_fn, const WasCancelledFn& cancel_fn, bool start)
 {
     std::shared_ptr<Client> client;
@@ -484,6 +494,11 @@ int CrealityCfsAgent::upload_job(const PrintParams& params, const OnUpdateStatus
 
     // Every project filament -> the slot (CFS box/slot, or the external spool = box 0) the dialog mapped it to.
     std::map<std::string, std::string> info;
+    if (start && extra.contains("ai_first_floor") && extra["ai_first_floor"].is_number_integer()) {
+        const int want = extra["ai_first_floor"].get<int>() ? 1 : 0;
+        if (client->snapshot().ai_first_floor != std::optional<int>(want))
+            client->send("set", json{{"aiFirstFloor", want}});
+    }
     info["enableSelfTest"] = extra.value("self_test", 0) ? "1" : "0";
     if (start) {
         const json            mapping = json::parse(params.ams_mapping_info, nullptr, false);

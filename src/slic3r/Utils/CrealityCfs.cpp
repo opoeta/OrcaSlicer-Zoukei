@@ -361,6 +361,8 @@ void apply_status(PrinterSnapshot& s, const json& msg)
         s.feed_state = to_int(msg["feedState"]);
     if (msg.contains("cfsConnect"))
         s.cfs_connected = to_int(msg["cfsConnect"]) != 0;
+    if (msg.contains("aiFirstFloor"))
+        s.ai_first_floor = to_int(msg["aiFirstFloor"]);
     if (msg.contains("printFileName"))
         s.print_file = str(msg["printFileName"]);
     if (msg.contains("printProgress"))

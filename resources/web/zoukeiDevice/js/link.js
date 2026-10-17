@@ -152,6 +152,8 @@
         setNozzleTemp(v) { return this.set({ nozzleTempControl: v }, { targetNozzleTemp: v }); }
         setBedTemp(v) { return this.set({ bedTempControl: { num: 0, val: v } }, { targetBedTemp0: v }); }
         setChamberTemp(v) { return this.set({ boxTempControl: v }, { targetBoxTemp: v }); }
+        // AI / video switches: the key is the status key (aiSw, aiDetection, aiFirstFloor, aiPausePrint, materialDetect, videoElapse).
+        setAi(key, on) { const p = { [key]: on ? 1 : 0 }; return this.set(p, p); }
         setLight(on) { return this.set({ lightSw: on ? 1 : 0 }, { lightSw: on ? 1 : 0 }); }
         // key: modelFanPct | caseFanPct | auxiliaryFanPct. The K2 takes the fans as M106 (P0 model,
         // P1 case, P2 side; S 0-255); only the F022 accepts the plain percentage for the model fan.

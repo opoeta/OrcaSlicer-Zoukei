@@ -147,6 +147,19 @@
             const led = { el: h('div.card.led', h('h3', icon('bulb'), Z.t('led'), h('div.spacer'), ledSw.el), h('div.led-state', icon('bulb'))),
                 update(s) { this.el.hidden = !('lightSw' in s); ledSw.input.checked = Number(s.lightSw) === 1; this.el.classList.toggle('on', Number(s.lightSw) === 1); } };
 
+            const aiRows = [['aiSw', 'ai_master'], ['aiDetection', 'ai_detect'], ['aiFirstFloor', 'ai_first'], ['aiPausePrint', 'ai_pause'], ['materialDetect', 'ai_material'], ['videoElapse', 'ai_timelapse']].map(r => {
+                const sw = toggle(on => { if (link.online) link.setAi(r[0], on); });
+                return { key: r[0], sw: sw, el: h('div.row', h('span', Z.t(r[1])), h('div.spacer'), sw.el) };
+            });
+            const aiInfo = h('div.muted', { text: '' });
+            const ai = { el: h('div.card.ai', h('h3', icon('bulb'), Z.t('ai_title')), aiRows.map(r => r.el), aiInfo),
+                update(s) {
+                    this.el.hidden = !('aiSw' in s);
+                    const master = Number(s.aiSw) === 1;
+                    aiRows.forEach(r => { r.sw.input.checked = Number(s[r.key]) === 1; r.sw.input.disabled = r.key !== 'aiSw' && !master; });
+                    aiInfo.textContent = 'videoElapseFrame' in s ? Z.t('ai_timelapse') + ': ' + num(s.videoElapseFrame) + ' fps / ' + num(s.videoElapseInterval) + ' s' : '';
+                } };
+
             const fans = [
                 fanCard({ title: Z.t('fan_model'), key: 'modelFanPct', link: link }),
                 fanCard({ title: mr ? Z.t('fan_chamber') : Z.t('fan_case'), key: 'caseFanPct', link: link }),
@@ -191,7 +204,7 @@
             const tabCard = h('div.card.tabs', h('div.tab-bar', { role: 'tablist' }, tabButtons), panes);
 
             const right = h('main.right',
-                h('div.temps', nozzle.el, bed.el, chamber.el, led.el),
+                h('div.temps', nozzle.el, bed.el, chamber.el, led.el, ai.el),
                 h('div.fans', fans.map(f => f.el)), speed.el, tabCard);
 
             root.appendChild(h('header.topbar', back, h('div.title', name, sub), h('div.spacer'), stateBadge));
@@ -200,7 +213,7 @@
 
             // ---- patching ---------------------------------------------------------------------
             histories = history;
-            const widgets = [nozzle, bed, chamber, led, speed].concat(fans);
+            const widgets = [nozzle, bed, chamber, led, ai, speed].concat(fans);
             function update() {
                 pending = false;
                 const s = link.state;

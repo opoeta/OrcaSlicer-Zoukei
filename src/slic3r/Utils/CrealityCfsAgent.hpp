@@ -73,6 +73,9 @@ public:
     int set_on_local_message_fn(OnMessageFn fn) override;
     int set_queue_on_main_fn(QueueOnMainFn fn) override;
 
+    // First-layer inspection (aiFirstFloor) as the printer last reported it.
+    std::optional<int> ai_first_floor();
+
     FilamentSyncMode get_filament_sync_mode() const override { return FilamentSyncMode::subscription; }
     bool             fetch_filament_info(std::string dev_id, FilamentSyncMode sync_mode = FilamentSyncMode::pull) override;
 

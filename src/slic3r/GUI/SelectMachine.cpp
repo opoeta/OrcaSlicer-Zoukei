@@ -705,6 +705,8 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     // Creality: print calibration (enableSelfTest), filament source (CFS or the external spool holder), all plates.
     auto option_self_test = new PrintOption(m_options_other, _L("Print calibration"),
                                             _L("Runs the printer's self-test (calibration) before the print starts."), ops_no_auto, "self_test");
+    auto option_ai_first = new PrintOption(m_options_other, _L("First layer inspection"),
+                                           _L("AI inspection of the first layer. Sent to the printer before the print starts."), ops_no_auto, "ai_first_floor");
     auto option_filament_src = new PrintOption(m_options_other, _L("Filament source"),
                                                _L("CFS: use the CFS slots chosen below. Ext: print from the external spool holder."),
                                                std::vector<POItem>{POItem{"cfs", "CFS"}, POItem{"spool", _L("Ext")}}, "filament_src");
@@ -732,6 +734,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     m_checkbox_list_order.push_back(option_nozzle_offset_cali_cali);
     m_checkbox_list_order.push_back(option_pa_value);
     m_checkbox_list_order.push_back(option_self_test);
+    m_checkbox_list_order.push_back(option_ai_first);
     m_checkbox_list_order.push_back(option_filament_src);
     m_checkbox_list_order.push_back(option_all_plates);
 
@@ -745,6 +748,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     m_checkbox_list["nozzle_offset_cali"] = option_nozzle_offset_cali_cali;
     m_checkbox_list["pa_value"]      = option_pa_value;
     m_checkbox_list["self_test"]     = option_self_test;
+    m_checkbox_list["ai_first_floor"] = option_ai_first;
     m_checkbox_list["filament_src"]  = option_filament_src;
     m_checkbox_list["all_plates"]    = option_all_plates;
     for (auto print_opt : m_checkbox_list_order) {
@@ -767,6 +771,7 @@ SelectMachineDialog::SelectMachineDialog(Plater *plater)
     option_nozzle_offset_cali_cali->Hide();
     option_pa_value->Hide();
     option_self_test->Hide();
+    option_ai_first->Hide();
     option_filament_src->Hide();
     option_all_plates->Hide();
 
@@ -3262,7 +3267,7 @@ void SelectMachineDialog::load_option_vals(MachineObject *obj)
     for (auto item : m_checkbox_list) {
         PrintOption       *opt = item.second;
         const std::string &val = config->get(obj->printer_type, item.first);
-        if (!opt->contain_opt(val) && (item.first == "all_plates" || item.first == "self_test" || item.first == "filament_src")) {
+        if (!opt->contain_opt(val) && (item.first == "all_plates" || item.first == "self_test" || item.first == "ai_first_floor" || item.first == "filament_src")) {
             opt->setValue(item.first == "filament_src" ? "cfs" : "off"); // first use
         } else if (opt->contain_opt(val)) {
             opt->setValue(val);
@@ -7245,7 +7250,7 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
     }
     m_panel_prepare->Layout();
     if (!creality) {
-        for (const char* key : {"self_test", "filament_src", "all_plates"})
+        for (const char* key : {"self_test", "ai_first_floor", "filament_src", "all_plates"})
             m_checkbox_list[key]->Hide();
         return;
     }
@@ -7266,6 +7271,12 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
     // These printers record the timelapse on their own (set on the printer's panel), so there is nothing to choose here.
     m_checkbox_list["timelapse"]->Hide();
     m_checkbox_list["self_test"]->Show(!flashforge);
+    m_checkbox_list["ai_first_floor"]->Show(!flashforge);
+    if (!flashforge)
+        if (NetworkAgent* agent = wxGetApp().getAgent())
+            if (auto cx = std::dynamic_pointer_cast<CrealityCfsAgent>(agent->get_printer_agent()))
+                if (const std::optional<int> cur = cx->ai_first_floor())
+                    m_checkbox_list["ai_first_floor"]->setValue(*cur ? "on" : "off"); // default = the printer's setting
     m_checkbox_list["filament_src"]->Show(!flashforge);
     m_checkbox_list["all_plates"]->Show(m_plater->get_partplate_list().get_plate_count() > 1);
     Layout();
@@ -7332,7 +7343,8 @@ std::string SelectMachineDialog::build_creality_files() const
     }
     if (files.empty())
         return {};
-    return json{{"files", files}, {"self_test", m_checkbox_list.at("self_test")->getValue() == "on" ? 1 : 0}}.dump();
+    return json{{"files", files}, {"self_test", m_checkbox_list.at("self_test")->getValue() == "on" ? 1 : 0},
+                {"ai_first_floor", m_checkbox_list.at("ai_first_floor")->getValue() == "on" ? 1 : 0}}.dump();
 }
 
 PrinterInfoBox::PrinterInfoBox(wxWindow* parent, SelectMachineDialog* select_dialog)

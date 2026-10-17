@@ -36457,3 +36457,9 @@ msgstr "Cores"
 
 msgid "Meters per cycle (0 = auto)"
 msgstr "Metros por ciclo (0 = auto)"
+
+msgid "First layer inspection"
+msgstr "Inspeção da 1ª camada"
+
+msgid "AI inspection of the first layer. Sent to the printer before the print starts."
+msgstr "Inspeção da 1ª camada por IA. Enviada à impressora antes de iniciar a impressão."
