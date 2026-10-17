@@ -689,6 +689,16 @@ if (MSVC AND "${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") # 32 bit MSVC workaround
     target_compile_definitions(libslic3r_cgal PRIVATE CGAL_DO_NOT_USE_MPZF)
 endif ()
 
+# ODR: CGAL::Kd_tree (inside every CGAL::AABB_tree) changes layout with CGAL_LINKED_WITH_TBB
+# (tbb::concurrent_vector vs boost::container::deque nodes). libslic3r_cgal is compiled with it, so
+# any libslic3r source that instantiates the same AABB_tree<..Surface_mesh<Epick::Point_3>..> type must
+# agree, or the linker keeps one ~Kd_tree for both and it runs on the other layout: heap corruption /
+# fail-fast 0xc0000409 when the colour importer smooths regions (ColorUtils.cpp).
+set_source_files_properties(
+    TextureToColor/ColorUtils.cpp
+    TextureToColor/TextureToColor.cpp
+    PROPERTIES COMPILE_DEFINITIONS CGAL_LINKED_WITH_TBB)
+
 encoding_check(libslic3r)
 
 target_compile_definitions(libslic3r PUBLIC -DUSE_TBB -DTBB_USE_CAPTURED_EXCEPTION=0)

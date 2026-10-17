@@ -16014,6 +16014,9 @@ bool Plater::priv::run_textured_mesh_import_dialog(Slic3r::Model& loaded_model, 
         }
     }
 
+    // A failing colour step (CGAL, OpenCV, GL, allocation) must never take the application
+    // down: report it and import the geometry only.
+    try {
     TextureImportDialog dlg(q, *loaded_model.texture_mesh, filament_entries,
                             std::move(cancel_callback), std::move(progress_callback));
     if (dlg.ShowModal() != wxID_OK) {
@@ -16057,6 +16060,18 @@ bool Plater::priv::run_textured_mesh_import_dialog(Slic3r::Model& loaded_model, 
     result.filament_entries = dlg.get_filament_entries();
     result.existing_filament_count = dlg.get_existing_filament_count();
     result.skipped = dlg.was_skipped();
+    return true;
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "handle_textured_mesh_import: texture import threw: " << e.what()
+                                 << "; falling back to geometry-only import";
+    } catch (...) {
+        BOOST_LOG_TRIVIAL(error) << "handle_textured_mesh_import: texture import threw an unknown exception; "
+                                    "falling back to geometry-only import";
+    }
+    result = TextureImportResult();
+    result.fallback_to_geometry_only = true;
+    result.fallback_warning = fallback_warning;
+    loaded_model.texture_mesh.reset();
     return true;
 }
 

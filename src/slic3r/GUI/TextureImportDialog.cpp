@@ -2510,12 +2510,25 @@ void TextureImportDialog::start_computation(bool auto_color, bool initial)
         auto worker_settings = settings;
         bool mesh_repair_decision_required = false;
         worker_settings.mesh_repair_decision_required = &mesh_repair_decision_required;
-        bool ok;
-        if (!mesh_copy.precomputed_face_colors.empty()) {
-            ok = Slic3r::face_colors_to_painting(
-                mesh_copy, result, worker_settings, progress_cb, cancel_cb);
-        } else {
-            ok = Slic3r::texture_to_painting(mesh_copy, result, worker_settings, progress_cb, cancel_cb);
+        bool ok = false;
+        // An exception that escapes a std::thread calls std::terminate and kills the whole
+        // application (0xc0000409 on Windows). CGAL / OpenCV / allocation failures must end
+        // here as a failed computation so the import falls back to geometry only.
+        try {
+            if (!mesh_copy.precomputed_face_colors.empty()) {
+                ok = Slic3r::face_colors_to_painting(
+                    mesh_copy, result, worker_settings, progress_cb, cancel_cb);
+            } else {
+                ok = Slic3r::texture_to_painting(mesh_copy, result, worker_settings, progress_cb, cancel_cb);
+            }
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "TextureImportDialog: colour computation threw: " << e.what();
+            ok = false;
+            mesh_repair_decision_required = false;
+        } catch (...) {
+            BOOST_LOG_TRIVIAL(error) << "TextureImportDialog: colour computation threw an unknown exception";
+            ok = false;
+            mesh_repair_decision_required = false;
         }
 
         if (m_cancel_flag.load()) {

@@ -318,6 +318,13 @@ static bool smooth_region_geom_boundary(CGALMesh& mesh, std::vector<std::size_t>
         polylines.push_back(std::move(polyline));
     }
 
+    {
+        std::size_t total_pts = 0, max_pts = 0;
+        for (auto& pl : polylines) { total_pts += pl.size(); max_pts = std::max(max_pts, pl.size()); }
+        BOOST_LOG_TRIVIAL(debug) << "smooth_region_geom_boundary: faces=" << mesh.number_of_faces() << " verts=" << mesh.number_of_vertices()
+            << " segment_boundary_edges=" << segment_boundary_edges.size() << " polylines=" << polylines.size()
+            << " polyline_pts=" << total_pts << " max_polyline=" << max_pts << " feature_vertices=" << feature_vertices.size();
+    }
     // 3. smooth boundary
     Tree boundary_tree(mesh.faces().begin(), mesh.faces().end(), mesh);
     boundary_tree.accelerate_distance_queries();
