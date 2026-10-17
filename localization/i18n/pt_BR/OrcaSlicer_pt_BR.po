@@ -36657,3 +36657,9 @@ msgstr "Canal beta (pré-lançamentos)"
 
 msgid "Also offer releases marked as pre-release on GitHub. They may be less tested."
 msgstr "Oferece também as versões marcadas como pré-lançamento no GitHub. Podem ter sido menos testadas."
+
+msgid "Automatically optimize wipe tower placement"
+msgstr "Otimizar automaticamente a posição da torre de limpeza"
+
+msgid "With this option enabled, after arranging, or when the printer or plate changes, the wipe tower is placed next to the objects, on the side the printer's default tower position points to. It never overlaps an object and keeps the nozzle's trips to the tower short."
+msgstr "Com esta opção ativada, depois de organizar, ou quando a impressora ou a placa mudar, a torre de limpeza é posicionada ao lado dos objetos, no lado para onde aponta a posição padrão da torre da impressora. Nunca sobrepõe um objeto e mantém curtas as viagens do bico até a torre."

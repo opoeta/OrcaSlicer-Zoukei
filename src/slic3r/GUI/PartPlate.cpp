@@ -84,6 +84,7 @@
 
 #include "I18N.hpp"
 #include "GUI_App.hpp"
+#include "WipeTowerPlacement.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "BackgroundSlicingProcess.hpp"
@@ -5619,6 +5620,15 @@ void PartPlateList::set_default_wipe_tower_pos_for_plate(int plate_idx, bool ini
         const Vec2f move = WipeTower::move_box_inside_polygon(tower, bed, scaled<coord_t>(margin));
         x += move.x();
         y += move.y();
+    }
+
+    // Bambu Studio 2.8: when the plate already holds objects (printer or plate switch), seat the tower next to them.
+    if (!init_pos && wipe_tower_optimal_pos_enabled()) {
+        Vec2d optimal_pos;
+        if (compute_plate_optimal_wipe_tower_pos(*part_plate, plate_idx, full_config, optimal_pos)) {
+            x = float(optimal_pos.x());
+            y = float(optimal_pos.y());
+        }
     }
 
     ConfigOptionFloat wt_x_opt(x);

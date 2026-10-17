@@ -1877,6 +1877,12 @@ void PreferencesDialog::create_items()
     auto item_multi_machine    = create_item_checkbox(_L("Multi device management"), _L("With this option enabled, you can send a task to multiple devices at the same time and manage multiple devices."), "enable_multi_machine", _L("(Requires restart)"));
     g_sizer->Add(item_multi_machine);
 
+    auto item_auto_wipe_tower = create_item_checkbox(_L("Automatically optimize wipe tower placement"),
+        _L("With this option enabled, after arranging, or when the printer or plate changes, the wipe tower is placed next to the objects, "
+           "on the side the printer's default tower position points to. It never overlaps an object and keeps the nozzle's trips to the tower short."),
+        "auto_optimize_wipe_tower_placement");
+    g_sizer->Add(item_auto_wipe_tower);
+
     auto item_creality_cfs_sync = create_item_checkbox(_L("Sync project filaments to the CFS / IFS"),
         _L("For a Creality printer with a CFS (filament 1 to slot 1A, 2 to 1B, ...) or a Flashforge AD5X on ZMOD with an IFS, write the project's "
            "filaments to the slots when they change. Opening a project does not rewrite the slots, and changes wait while the printer is busy."),

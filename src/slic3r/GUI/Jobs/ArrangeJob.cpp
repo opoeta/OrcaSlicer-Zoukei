@@ -8,6 +8,7 @@
 #include "libslic3r/IMEXArrange.hpp"
 
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/WipeTowerPlacement.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
@@ -881,6 +882,10 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
     // unlock the plates we just locked
     for (int i : m_uncompatible_plates)
         plate_list.get_plate(i)->lock(false);
+
+    // Bambu Studio 2.8: seat the wipe tower next to the freshly arranged objects.
+    if (wipe_tower_optimal_pos_enabled())
+        optimize_wipe_towers(plate_list, only_on_partplate ? current_plate_index : -1);
 
     // BBS: update slice context and gcode result.
     m_plater->update_slicing_context_to_current_partplate();

@@ -13422,6 +13422,15 @@ CLITransformConfigDef::CLITransformConfigDef()
     def->cli_params = "count";
     def->set_default_value(new ConfigOptionInt(1));
 
+    // Bambu Studio 2.8 "Automatically optimize wipe tower placement" for the command line. Off by default so
+    // existing scripts keep the tower where they put it; the GUI preference of the same name defaults to on.
+    def = this->add("optimize_wipe_tower_placement", coBool);
+    def->label = L("Optimize wipe tower placement");
+    def->tooltip = L("Seat the wipe tower of every plate right next to its objects, on the side the printer's default tower position "
+                     "points to, before slicing. The tower never overlaps an object and the nozzle's trips to it stay short. "
+                     "The tower stays where it is when that spot is outside the bed or in an exclusion zone.");
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("ensure_on_bed", coBool);
     def->label = L("Ensure on bed");
     def->tooltip = L("Lift the object above the bed when it is partially below. Disabled by default.");

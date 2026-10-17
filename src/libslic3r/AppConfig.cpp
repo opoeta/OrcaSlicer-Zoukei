@@ -538,6 +538,11 @@ void AppConfig::set_defaults()
         set_bool("remember_printer_config", true);
     }
 
+    // Bambu Studio 2.8: seat the wipe tower next to the arranged objects instead of at the printer default.
+    if (get("auto_optimize_wipe_tower_placement").empty()) {
+        set_bool("auto_optimize_wipe_tower_placement", true);
+    }
+
     if (get("group_filament_presets").empty()) {
         set("group_filament_presets", "1"); // All "0" / None "1" / By Type "2" / By Vendor "3"
     }

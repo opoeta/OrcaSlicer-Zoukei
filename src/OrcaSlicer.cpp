@@ -132,6 +132,7 @@
 #include "slic3r/Utils/MeshInspect.hpp"
 #include "slic3r/Utils/PaintCLI.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/WipeTowerPlacement.hpp"
 #include "slic3r/GUI/BitmapCache.hpp"
 #include "slic3r/GUI/OpenGLManager.hpp"
 #include "slic3r/GUI/GLCanvas3D.hpp"
@@ -4953,6 +4954,8 @@ int CLI::run(int argc, char **argv)
             }
         } else if (opt_key == "ensure_on_bed") {
             // do nothing, the value is used later
+        } else if (opt_key == "optimize_wipe_tower_placement") {
+            // do nothing, the value is used when the wipe tower positions are settled
         } else if (opt_key == "rotate") {
             for (auto &model : m_models)
                 for (auto &o : model.objects)
@@ -6380,6 +6383,16 @@ int CLI::run(int argc, char **argv)
                         plate->estimate_wipe_tower_polygon(m_print_config, index, wt_pos, wt_size);
                         if (wt_size(0) < EPSILON || wt_size(1) < EPSILON)
                             continue;
+                        // Bambu Studio 2.8: seat the tower next to the objects (--optimize-wipe-tower-placement).
+                        if (m_config.opt_bool("optimize_wipe_tower_placement")) {
+                            Vec2d optimal_pos;
+                            if (Slic3r::GUI::compute_plate_optimal_wipe_tower_pos(*plate, index, m_print_config, optimal_pos)) {
+                                BOOST_LOG_TRIVIAL(info) << boost::format("plate %1%: wipe tower moved next to the objects: {%2%, %3%} -> {%4%, %5%}")
+                                    % (index + 1) % wt_pos(0) % wt_pos(1) % optimal_pos.x() % optimal_pos.y();
+                                wt_pos(0) = optimal_pos.x();
+                                wt_pos(1) = optimal_pos.y();
+                            }
+                        }
                         ConfigOptionFloat wt_x_opt((float) wt_pos(0));
                         ConfigOptionFloat wt_y_opt((float) wt_pos(1));
                         m_print_config.option<ConfigOptionFloats>("wipe_tower_x", true)->set_at(&wt_x_opt, index, 0);

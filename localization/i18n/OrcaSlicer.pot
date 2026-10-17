@@ -29530,3 +29530,9 @@ msgstr ""
 #: resources/data/hints.ini: [hint:Avoid warping]
 msgid "Avoid warping\nDid you know that when printing materials that are prone to warping such as ABS, appropriately increasing the heatbed temperature can reduce the probability of warping?"
 msgstr ""
+
+msgid "Automatically optimize wipe tower placement"
+msgstr ""
+
+msgid "With this option enabled, after arranging, or when the printer or plate changes, the wipe tower is placed next to the objects, on the side the printer's default tower position points to. It never overlaps an object and keeps the nozzle's trips to the tower short."
+msgstr ""
