@@ -81,7 +81,16 @@ bool AMSinfo::parse_ams_info(MachineObject *obj, DevAms *ams, bool remain_flag, 
     if (!ams) return false;
     this->ams_id = ams->GetAmsId();
 
-    if (ams->SupportHumidity()){
+    this->is_bmcu = false;
+    if (obj) {
+        try {
+            auto vers = obj->get_ams_version();
+            auto it = vers.find(std::stoi(this->ams_id));
+            if (it != vers.end()) this->is_bmcu = is_bmcu_sn(it->second.sn);
+        } catch (...) {}
+    }
+
+    if (ams->SupportHumidity() && !this->is_bmcu){
         this->ams_humidity = ams->GetHumidityLevel();
     }
     else{
@@ -228,6 +237,7 @@ Caninfo AMSinfo::get_caninfo(const std::string& can_id, bool& found) const
 
 int AMSinfo::get_humidity_display_idx() const
 {
+    if (is_bmcu) return 0;
     if (ams_type == AMSModel::GENERIC_AMS)
     {
         if (ams_humidity > 0 && ams_humidity < 6)
@@ -2992,6 +3002,7 @@ void AMSHumidity::UpdateInfo(AMSinfo amsinfo)
     if (m_amsinfo != amsinfo)
     {
         m_amsinfo = amsinfo;
+        Show(!m_amsinfo.is_bmcu);
         update_size();
         Refresh();
     }
@@ -3199,6 +3210,7 @@ void AmsItem::create(wxWindow *parent)
         //road_panel->SetMinSize(AMS_CAN_ROAD_SIZE);
         if (m_ams_model == AMSModel::GENERIC_AMS || m_ams_model == AMSModel::N3F_AMS || m_ams_model == AMSModel::N3S_AMS){
             m_humidity = new AMSHumidity(this, wxID_ANY, m_info);
+            if (m_info.is_bmcu) m_humidity->Hide();
             sizer_item->Add(m_humidity, 0, wxALIGN_CENTER_HORIZONTAL, 0);
         }
         else{

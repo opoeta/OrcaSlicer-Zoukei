@@ -18,6 +18,15 @@
 #include <wx/string.h>
 #include <wx/colour.h>
 
+namespace Slic3r {
+// BMCU (open-source AMS-lite clone, no humidity sensor): AMS serial starts with "0EA".
+// Rule credited to OrcaStudio (https://github.com/jarczakpawel/OrcaStudio, AGPL-3.0).
+inline bool is_bmcu_sn(const std::string& sn)
+{
+    return sn.size() >= 3 && sn[0] == '0' && (sn[1] == 'E' || sn[1] == 'e') && (sn[2] == 'A' || sn[2] == 'a');
+}
+}
+
 #define HOLD_COUNT_MAX          3
 
 namespace Slic3r

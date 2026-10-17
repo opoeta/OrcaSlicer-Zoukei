@@ -49,10 +49,7 @@ namespace GUI {
 // ---------------------------------------------------------------------------------------------
 static inline bool is_custom_sn(const wxString& sn_upper)
 {
-    return sn_upper.length() >= 3 &&
-           sn_upper[0] == '0' &&
-           sn_upper[1] == 'E' &&
-           sn_upper[2] == 'A';
+    return is_bmcu_sn(sn_upper.ToStdString());
 }
 
 static const wxString kBmcuVersionUrlBase =

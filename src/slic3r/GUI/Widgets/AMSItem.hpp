@@ -241,6 +241,7 @@ public:
     AMSAction               current_action;
     int                     curreent_filamentstep;
     int                     ams_humidity = 0;
+    bool                    is_bmcu = false;       // BMCU clone: no humidity sensor
     int                     humidity_raw = -1;     // Orca: raw humidity percent (replaces REF ams_humidity_percent)
     int                     left_dray_time = 0;
     float                   current_temperature = INVALID_AMS_TEMPERATURE;
@@ -262,6 +263,7 @@ public:
             current_action == other.current_action &&
             curreent_filamentstep == other.curreent_filamentstep &&
             ams_humidity == other.ams_humidity &&
+            is_bmcu == other.is_bmcu &&
             left_dray_time == other.left_dray_time &&
             current_temperature == other.current_temperature &&
             ams_type == other.ams_type &&
