@@ -73,6 +73,7 @@
             this._closed = false;
             this._active = true;
             this._tick = 0;
+            if (Z.Host) Z.Host.on('slots_changed', () => { if (!this._closed) this.refreshIfs(); });
             this._fails = 0;
             this._objects = [];
         }
@@ -185,7 +186,7 @@
                 if (first || this._tick++ % 6 === 0) Array.prototype.push.apply(keys, this.slowKeys);
                 const r = await this.api('GET', '/printer/objects/query?' + keys.map(enc).join('&'));
                 Object.assign(this.raw, (r && r.status) || {});
-                if (keys.indexOf('zmod_color') >= 0) await this._loadLanes();
+                if (keys.indexOf('zmod_color') >= 0 || this._tick % 3 === 0) await this._loadLanes();
                 this._fails = 0;
                 const firstStatus = !this.hasStatus;
                 this.hasStatus = true;

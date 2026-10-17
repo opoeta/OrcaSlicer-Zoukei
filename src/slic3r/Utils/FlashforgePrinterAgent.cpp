@@ -10,6 +10,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/FlashforgeDevicePanel.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -1164,6 +1165,11 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
         std::lock_guard<std::mutex> lock(m_mutex);
         m_slot_signature.clear(); // rebuild the trays on the next poll
     }
+    if (wxTheApp != nullptr)
+        wxTheApp->CallAfter([] {
+            if (auto* panel = GUI::FlashforgeDevicePanel::if_built())
+                panel->notify_slots_changed();
+        });
     if (!ok_list.empty())
         CrealityCfsAgent::notify("Flashforge IFS updated (" + ui_name() + "): " + ok_list +
                                  (ui() == Ui::original && m_display_popup ? " - the printer's screen may ask you to confirm" : std::string()));

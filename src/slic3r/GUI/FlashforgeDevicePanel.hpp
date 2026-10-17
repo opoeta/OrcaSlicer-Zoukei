@@ -33,6 +33,8 @@ public:
     static bool is_flashforge_printer(const PresetBundle& bundle);
 
     void on_sys_color_changed();
+    // The agent wrote IFS slots: the page re-reads zmod_color + lane_data.
+    void notify_slots_changed() { post_command("slots_changed", nullptr); }
     bool Show(bool show = true) override;
 
 private:

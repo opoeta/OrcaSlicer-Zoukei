@@ -83,6 +83,14 @@ std::vector<Fil> project_filaments()
         f.signature = f.write.name + "|" + f.write.type + "|" + f.write.color;
         for (const std::string& c : f.write.colors)
             f.signature += (f.write.gradient ? "g" : "m") + c;
+        {   // raw multi-colour project values: any edit of them (type, colours, gradient length) is a change
+            const auto* mc = bundle->project_config.option<ConfigOptionStrings>("filament_multi_colour");
+            const auto* ty = bundle->project_config.option<ConfigOptionStrings>("filament_colour_type");
+            const auto* gl = bundle->project_config.option<ConfigOptionFloats>("filament_gradient_length");
+            f.signature += "|" + (mc != nullptr && i < mc->values.size() ? mc->values[i] : std::string()) + "|" +
+                           (ty != nullptr && i < ty->values.size() ? ty->values[i] : std::string()) + "|" +
+                           (gl != nullptr && i < gl->values.size() ? std::to_string(gl->values[i]) : std::string());
+        }
         out.push_back(std::move(f));
     }
     return out;
