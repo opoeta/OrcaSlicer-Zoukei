@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "orcaslicer-mcp-zoukei"
+version = "0.2.0"
+description = "MCP bridge for Orca Zoukei: the stock orcaslicer-mcp tools plus colour mixing, mixed filaments, coloured-model import and more"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+dependencies = [
+    "orcaslicer-mcp==0.1.17",
+    "httpx>=0.27,<1",
+]
+
+[project.scripts]
+orcaslicer-mcp-zoukei = "orcaslicer_mcp_zoukei.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orcaslicer_mcp_zoukei"]

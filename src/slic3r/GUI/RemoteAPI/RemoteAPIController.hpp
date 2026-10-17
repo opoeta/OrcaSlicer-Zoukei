@@ -50,6 +50,10 @@ public:
     void bind_plater_events();
 
 private:
+    // Orca Zoukei: colour / filament / model endpoints (RemoteAPIColor.cpp, RemoteAPIModelOps.cpp ...).
+    // Returns false when the request is not one of theirs.
+    bool dispatch_color(const Request &req, Response &out);
+
     Response handle_status();
     Response handle_get_config(const std::string &target);
     Response handle_put_config(const std::string &body);

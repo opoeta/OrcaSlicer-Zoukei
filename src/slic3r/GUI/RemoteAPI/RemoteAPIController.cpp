@@ -2372,6 +2372,11 @@ Response Controller::dispatch(const Request &req)
             size_t n = std::char_traits<char>::length(path);
             return t.compare(0, n, path) == 0 && (t.size() == n || t[n] == '?');
         };
+        {
+            // Orca Zoukei colour / filament / model-ops endpoints (own translation units).
+            Response zr;
+            if (dispatch_color(req, zr)) return zr;
+        }
         if (is("GET", "/api/v1/status"))        return handle_status();
         if (is("GET", "/api/v1/config"))        return handle_get_config(t);
         if (is("PUT", "/api/v1/config")) {

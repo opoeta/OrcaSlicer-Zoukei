@@ -307,6 +307,11 @@ public:
     // a texture displacement bake turns each mix it painted with into a slot, which is what moves the
     // interleaving from its own paint mask to the slicer, where it happens per layer.
     int ensure_mixed_filament(const std::vector<unsigned int> &components, const std::vector<int> &ratios);
+    // Remote API: add / update a mixed filament without a dialog. `ratios` are percentages.
+    // gradient: <0 leave as is, 0 off, 1 on. Returns the 0-based slot, -1 on failure.
+    int  remote_add_mixed_filament(const std::vector<unsigned int> &components, const std::vector<int> &ratios, int gradient = 0, int gradient_direction = 0);
+    bool remote_update_mixed_filament(size_t config_index, const std::vector<unsigned int> &components, const std::vector<int> &ratios,
+                                      int gradient = -1, int gradient_direction = 0);
     void edit_mixed_filament(size_t idx);
     void delete_mixed_filament_at(size_t idx);
     // Drops every mixed filament at once, after confirming. The texture displacement gizmo can create
@@ -377,6 +382,24 @@ public:
     std::vector<size_t> mixed_filament_config_indices() const;
     // Helper: returns config indices where filament_is_mixed == false
     std::vector<size_t> physical_filament_config_indices() const;
+
+    // --- Orca Zoukei Remote API: colour import without dialogs ---------------------------------
+    struct ColorImportInfo {
+        bool        ok{false};
+        std::string error;
+        std::vector<std::array<size_t, 3>> cluster_colors; // RGB 0..255
+        std::vector<double> cluster_share;                 // surface-area share, sums to 1
+        std::vector<size_t> cluster_faces;
+        std::vector<size_t> object_indices;                // plater objects the model became
+    };
+    // Loads a model; when it carries colours (MTL / vertex colours / texture) they are clustered
+    // (max_colors, 0 = automatic; smooth 0..10) and kept as the pending import instead of opening
+    // the import dialog. The geometry is added uncoloured.
+    std::vector<size_t>     remote_load_colored_model(const boost::filesystem::path &path, int max_colors, int smooth, ColorImportInfo &info);
+    const ColorImportInfo  *remote_pending_color_import() const;
+    // cluster_slot[i] = 0-based project filament slot the cluster i is printed with.
+    bool                    remote_apply_color_import(const std::vector<int> &cluster_slot, std::string &error);
+    void                    remote_discard_color_import();
 
     int new_project(bool skip_confirm = false, bool silent = false, const wxString& project_name = wxString(), bool reload_presets = true);
     // BBS: save & backup

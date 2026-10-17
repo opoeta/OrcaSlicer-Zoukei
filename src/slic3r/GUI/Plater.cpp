@@ -5304,6 +5304,75 @@ int Sidebar::ensure_mixed_filament(const std::vector<unsigned int> &components, 
     return int(created_at);
 }
 
+int Sidebar::remote_add_mixed_filament(const std::vector<unsigned int> &components, const std::vector<int> &ratios, int gradient, int gradient_direction)
+{
+    if (components.size() < 2 || components.size() != ratios.size())
+        return -1;
+    std::vector<std::string> color_strs, names, types;
+    collect_physical_filament_info(color_strs, names, types);
+    for (unsigned int c : components)
+        if (c < 1 || c > color_strs.size())
+            return -1;
+    if (std::accumulate(ratios.begin(), ratios.end(), 0) <= 0)
+        return -1;
+    if (gradient <= 0)
+        return ensure_mixed_filament(components, ratios);
+    MixedFilamentResult result;
+    result.components         = components;
+    result.ratios             = ratios;
+    result.gradient_enabled   = components.size() == 2;
+    result.gradient_direction = gradient_direction;
+    const size_t created_at = wxGetApp().preset_bundle->filament_presets.size();
+    if (!create_mixed_filament_from_result(this, result, color_strs))
+        return -1;
+    return int(created_at);
+}
+
+bool Sidebar::remote_update_mixed_filament(size_t cfg_idx, const std::vector<unsigned int> &components, const std::vector<int> &ratios,
+                                           int gradient, int gradient_direction)
+{
+    auto& project_config = wxGetApp().preset_bundle->project_config;
+    auto* is_mixed_opt   = project_config.option<ConfigOptionBools>("filament_is_mixed");
+    auto* components_opt = project_config.option<ConfigOptionStrings>("filament_mixed_components");
+    auto* ratios_opt     = project_config.option<ConfigOptionStrings>("filament_mixed_sublayer_ratios");
+    if (!is_mixed_opt || !components_opt || !ratios_opt || cfg_idx >= is_mixed_opt->values.size() || !is_mixed_opt->values[cfg_idx])
+        return false;
+    if (components.size() < 2 || components.size() != ratios.size() || std::accumulate(ratios.begin(), ratios.end(), 0) <= 0)
+        return false;
+    std::vector<std::string> color_strs, names, types;
+    collect_physical_filament_info(color_strs, names, types);
+    for (unsigned int c : components)
+        if (c < 1 || c > color_strs.size())
+            return false;
+    while (components_opt->values.size() <= cfg_idx) components_opt->values.push_back(std::string{});
+    while (ratios_opt->values.size() <= cfg_idx) ratios_opt->values.push_back(std::string{});
+    components_opt->values[cfg_idx] = format_mixed_components(components);
+    ratios_opt->values[cfg_idx]     = format_mixed_ratios(ratios);
+    if (gradient >= 0) {
+        if (!project_config.option("filament_mixed_gradient"))
+            project_config.set_key_value("filament_mixed_gradient", new ConfigOptionBools({false}));
+        if (!project_config.option("filament_mixed_gradient_range"))
+            project_config.set_key_value("filament_mixed_gradient_range", new ConfigOptionStrings({""}));
+        auto* grad_opt  = project_config.option<ConfigOptionBools>("filament_mixed_gradient");
+        auto* range_opt = project_config.option<ConfigOptionStrings>("filament_mixed_gradient_range");
+        while (grad_opt->values.size() <= cfg_idx) grad_opt->values.push_back(false);
+        while (range_opt->values.size() <= cfg_idx) range_opt->values.push_back("");
+        const bool on = gradient > 0 && components.size() == 2;
+        grad_opt->values[cfg_idx]  = on;
+        range_opt->values[cfg_idx] = on ? (gradient_direction == 0 ? "0.9000,0.1000" : "0.1000,0.9000") : "";
+    }
+    const std::string blended = blend_mixed_color(components, ratios, color_strs);
+    if (auto* colours_opt = project_config.option<ConfigOptionStrings>("filament_colour"); colours_opt && cfg_idx < colours_opt->values.size())
+        colours_opt->values[cfg_idx] = blended;
+    if (auto* mc = project_config.option<ConfigOptionStrings>("filament_multi_colour"); mc && cfg_idx < mc->values.size())
+        mc->values[cfg_idx] = blended;
+    update_mixed_filament_list();
+    update_dynamic_filament_list();
+    wxGetApp().plater()->update_project_dirty_from_presets();
+    wxPostEvent(this, SimpleEvent(EVT_SCHEDULE_BACKGROUND_PROCESS, this));
+    return true;
+}
+
 void Sidebar::auto_mix_colors()
 {
     Plater* plater = wxGetApp().plater();
@@ -7741,6 +7810,18 @@ struct Plater::priv
         bool                                 fallback_to_geometry_only = false;
         wxString                             fallback_warning;
     };
+
+    // Remote API colour import (no dialog): see Plater::remote_load_colored_model().
+    struct RemoteColorCapture {
+        bool                     active{false};
+        bool                     captured{false};
+        int                      max_colors{0};
+        int                      smooth{5};
+        Plater::ColorImportInfo  info;
+        Slic3r::PaintedMesh      painted;
+    };
+    RemoteColorCapture remote_color;
+    void remote_capture_colors(Slic3r::Model& model);
 
     bool run_textured_mesh_import_dialog(Slic3r::Model& loaded_model, TextureImportResult& result,
                                          std::function<bool()> cancel_callback = {},
@@ -10307,7 +10388,10 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
             // Texture-to-color: a mesh that arrived with UVs and a decoded texture gets its
             // faces clustered into printable colours and matched against the filament list,
             // before the objects are handed to the plater. Inert for every other model.
-            if (model.texture_mesh && has_importable_texture(*model.texture_mesh)) {
+            if (remote_color.active && model.texture_mesh && has_importable_texture(*model.texture_mesh)) {
+                remote_capture_colors(model);
+                model.texture_mesh.reset();
+            } else if (model.texture_mesh && has_importable_texture(*model.texture_mesh)) {
                 TextureImportResult texture_import_result;
                 auto cancel_cb   = [&dlg, &dlg_cont]() { return !dlg_cont || dlg.WasCancelled(); };
                 auto progress_cb = [&dlg, &dlg_cont, &progress_percent](int percent) {
@@ -15947,6 +16031,123 @@ std::vector<size_t> Plater::physical_filament_config_indices() const
             indices.push_back(i);
     }
     return indices;
+}
+
+void Plater::priv::remote_capture_colors(Slic3r::Model& model)
+{
+    RemoteColorCapture& rc = remote_color;
+    rc.info = {};
+    rc.painted = {};
+    rc.captured = false;
+    const Slic3r::TexturedMesh& tm = *model.texture_mesh;
+    Slic3r::TexturePaintingSettings settings;
+    settings.target_colors_num = rc.max_colors > 0 ? size_t(rc.max_colors) : size_t(0);
+    settings.smooth_weight     = std::clamp(rc.smooth, 0, 10) / 10.0;
+    Slic3r::PaintedMesh painted;
+    bool ok = false;
+    try {
+        ok = !tm.precomputed_face_colors.empty() ? Slic3r::face_colors_to_painting(tm, painted, settings)
+                                                 : Slic3r::texture_to_painting(tm, painted, settings);
+    } catch (const std::exception& e) {
+        rc.info.error = e.what();
+    } catch (...) {
+        rc.info.error = "unknown error while clustering the colours";
+    }
+    if (!ok || painted.face_colors.empty() || painted.cluster_colors.empty()) {
+        if (rc.info.error.empty()) rc.info.error = "colour clustering failed";
+        BOOST_LOG_TRIVIAL(warning) << "remote colour import: " << rc.info.error;
+        return;
+    }
+    std::map<std::array<std::size_t, 3>, size_t> cluster_of;
+    for (size_t i = 0; i < painted.cluster_colors.size(); ++i)
+        cluster_of[painted.cluster_colors[i]] = i;
+    rc.info.cluster_colors = painted.cluster_colors;
+    rc.info.cluster_share.assign(painted.cluster_colors.size(), 0.0);
+    rc.info.cluster_faces.assign(painted.cluster_colors.size(), 0);
+    double total = 0.0;
+    for (size_t f = 0; f < painted.indices.size() && f < painted.face_colors.size(); ++f) {
+        auto it = cluster_of.find(painted.face_colors[f]);
+        if (it == cluster_of.end()) continue;
+        const auto& tri = painted.indices[f];
+        auto vtx = [&](int i) { return Vec3d(painted.vertices[size_t(i)][0], painted.vertices[size_t(i)][1], painted.vertices[size_t(i)][2]); };
+        const double area = 0.5 * (vtx(tri[1]) - vtx(tri[0])).cross(vtx(tri[2]) - vtx(tri[0])).norm();
+        rc.info.cluster_share[it->second] += area;
+        rc.info.cluster_faces[it->second] += 1;
+        total += area;
+    }
+    if (total > 0.0)
+        for (double& v : rc.info.cluster_share) v /= total;
+    rc.info.ok = true;
+    rc.painted = std::move(painted);
+    rc.captured = true;
+}
+
+std::vector<size_t> Plater::remote_load_colored_model(const boost::filesystem::path& path, int max_colors, int smooth, ColorImportInfo& info)
+{
+    p->remote_color = {};
+    p->remote_color.active     = true;
+    p->remote_color.max_colors = max_colors;
+    p->remote_color.smooth     = smooth;
+    std::vector<size_t> idxs;
+    try {
+        idxs = load_files(std::vector<boost::filesystem::path>{path}, LoadStrategy::LoadModel);
+    } catch (...) {
+        p->remote_color.active = false;
+        throw;
+    }
+    p->remote_color.active = false;
+    p->remote_color.info.object_indices = idxs;
+    info = p->remote_color.info;
+    if (!p->remote_color.captured)
+        p->remote_color = {};
+    return idxs;
+}
+
+const Plater::ColorImportInfo* Plater::remote_pending_color_import() const
+{
+    return p->remote_color.captured ? &p->remote_color.info : nullptr;
+}
+
+void Plater::remote_discard_color_import() { p->remote_color = {}; }
+
+bool Plater::remote_apply_color_import(const std::vector<int>& cluster_slot, std::string& error)
+{
+    auto& rc = p->remote_color;
+    if (!rc.captured) { error = "no pending colour import"; return false; }
+    if (cluster_slot.size() != rc.painted.cluster_colors.size()) {
+        error = "cluster_slot needs one filament per cluster (" + std::to_string(rc.painted.cluster_colors.size()) + ")";
+        return false;
+    }
+    PresetBundle& bundle = *wxGetApp().preset_bundle;
+    const size_t  total  = bundle.filament_presets.size();
+    for (int slot : cluster_slot)
+        if (slot < 0 || size_t(slot) >= total) { error = "filament slot out of range"; return false; }
+
+    Plater::priv::TextureImportResult res;
+    res.painted = rc.painted;
+    for (size_t i = 0; i < cluster_slot.size(); ++i) {
+        Slic3r::FilamentMatch m;
+        m.cluster_index  = int(i);
+        m.filament_index = cluster_slot[i];
+        m.cluster_color  = rc.painted.cluster_colors[i];
+        res.matches.push_back(m);
+    }
+    auto* is_mixed = bundle.project_config.option<ConfigOptionBools>("filament_is_mixed");
+    auto* colours  = bundle.project_config.option<ConfigOptionStrings>("filament_colour");
+    for (size_t i = 0; i < total; ++i) {
+        TextureFilamentEntry e;
+        const bool mixed = is_mixed && i < is_mixed->values.size() && is_mixed->values[i];
+        e.kind                 = mixed ? TextureFilamentKind::ExistingMixed : TextureFilamentKind::ExistingPhysical;
+        e.dialog_index         = int(i);
+        e.project_config_index = i;
+        e.color_hex            = colours && i < colours->values.size() ? colours->values[i] : "#808080";
+        res.filament_entries.push_back(e);
+    }
+    res.existing_filament_count = total;
+    take_snapshot(_u8L("Apply model colors"));
+    p->apply_textured_mesh_import_result(p->model, rc.info.object_indices, res, {}, true);
+    rc = {};
+    return true;
 }
 
 bool Plater::priv::run_textured_mesh_import_dialog(Slic3r::Model& loaded_model, TextureImportResult& result,
