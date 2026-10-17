@@ -1847,7 +1847,7 @@ void Choice::set_value(const boost::any& value, bool change_event)
                 selection = val;
 
             if (m_opt_id == "top_surface_pattern" || m_opt_id == "bottom_surface_pattern" ||
-                m_opt_id == "internal_solid_infill_pattern" || m_opt_id == "sparse_infill_pattern" ||
+                m_opt_id == "internal_solid_infill_pattern" || m_opt_id == "sub_top_surface_pattern" || m_opt_id == "sparse_infill_pattern" ||
                 m_opt_id == "support_base_pattern" || m_opt_id == "support_interface_pattern" ||
                 m_opt_id == "ironing_pattern" || m_opt_id == "support_ironing_pattern" ||
                 m_opt_id == "support_style" || m_opt_id == "curr_bed_type" || m_opt_id == "wipe_tower_wall_type")
@@ -1950,7 +1950,7 @@ boost::any& Choice::get_value()
                 m_value = 0;
         }
         else if (   m_opt_id == "top_surface_pattern" || m_opt_id == "bottom_surface_pattern" ||
-                    m_opt_id == "internal_solid_infill_pattern" || m_opt_id == "sparse_infill_pattern" ||
+                    m_opt_id == "internal_solid_infill_pattern" || m_opt_id == "sub_top_surface_pattern" || m_opt_id == "sparse_infill_pattern" ||
                     m_opt_id == "support_base_pattern" || m_opt_id == "support_interface_pattern" ||
                     m_opt_id == "ironing_pattern" || m_opt_id == "support_ironing_pattern" ||
                     m_opt_id == "support_style" || m_opt_id == "curr_bed_type" || m_opt_id == "wipe_tower_wall_type")

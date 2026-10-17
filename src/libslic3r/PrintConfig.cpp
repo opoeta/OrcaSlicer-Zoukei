@@ -2653,6 +2653,17 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels   = def_top_fill_pattern->enum_labels;
     def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipMonotonic));
     
+    // Bambu Studio 2.8: separate pattern for the solid layer that carries a visible top surface.
+    def                = this->add("sub_top_surface_pattern", coEnum);
+    def->label         = L("Sub-top surface pattern");
+    def->category      = L("Strength");
+    def->tooltip       = L("Line pattern of the solid layer that supports a visible top surface. Its lines can print through and mark the top, so a monotonic pattern gives the smoothest result. The whole solid area that a top surface reaches uses this pattern, not only the part directly beneath it.");
+    def->enum_keys_map = &ConfigOptionEnum<InfillPattern>::get_enum_values();
+    def->enum_values   = def_top_fill_pattern->enum_values;
+    def->enum_labels   = def_top_fill_pattern->enum_labels;
+    def->mode          = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipMonotonic));
+    
     def = this->add("outer_wall_line_width", coFloatOrPercent);
     def->label = L("Outer wall");
     def->category = L("Quality");
@@ -10383,6 +10394,7 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
                 opt_key == "top_surface_pattern"           ||
                 opt_key == "bottom_surface_pattern"        ||
                 opt_key == "internal_solid_infill_pattern" ||
+                opt_key == "sub_top_surface_pattern"       ||
                 opt_key == "ironing_pattern"               ||
                 opt_key == "support_ironing_pattern") && value == "zig-zag") {
         value = "rectilinear";
@@ -12975,6 +12987,10 @@ std::map<std::string, std::string> validate(const FullPrintConfig &cfg, bool und
     // --soild-fill-pattern
     if (!print_config_def.get("internal_solid_infill_pattern")->has_enum_value(cfg.internal_solid_infill_pattern.serialize())) {
         error_message.emplace("internal_solid_infill_pattern", _u8L("invalid value ") + cfg.internal_solid_infill_pattern.serialize());
+    }
+
+    if (!print_config_def.get("sub_top_surface_pattern")->has_enum_value(cfg.sub_top_surface_pattern.serialize())) {
+        error_message.emplace("sub_top_surface_pattern", _u8L("invalid value ") + cfg.sub_top_surface_pattern.serialize());
     }
 
     // --skirt-height

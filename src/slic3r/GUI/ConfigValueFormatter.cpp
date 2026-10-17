@@ -209,6 +209,7 @@ wxString get_string_value(const std::string& opt_key, const DynamicPrintConfig& 
             pure_key == "top_surface_pattern" ||
             pure_key == "bottom_surface_pattern" ||
             pure_key == "internal_solid_infill_pattern" ||
+            pure_key == "sub_top_surface_pattern" ||
             pure_key == "sparse_infill_pattern" ||
             pure_key == "ironing_pattern" ||
             pure_key == "support_ironing_pattern" ||
@@ -223,6 +224,7 @@ wxString get_string_value(const std::string& opt_key, const DynamicPrintConfig& 
             pure_key == "top_surface_pattern" ||
             pure_key == "bottom_surface_pattern" ||
             pure_key == "internal_solid_infill_pattern" ||
+            pure_key == "sub_top_surface_pattern" ||
             pure_key == "sparse_infill_pattern" ||
             pure_key == "ironing_pattern" ||
             pure_key == "support_ironing_pattern" ||

@@ -661,6 +661,7 @@ private:
     // wave_overhang_floor_perimeter_speed (floor layers) to those walls.
     void tag_wave_overhang_perimeters();
     void combine_infill();
+    void discover_sub_top_surfaces();
     void _generate_support_material();
     FillAdaptive::RegionOctrees prepare_adaptive_infill_data(
         const std::vector<std::pair<const Surface*, const Layer*>>& surfaces_w_layer) const;

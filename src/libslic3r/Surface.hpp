@@ -35,6 +35,9 @@ enum SurfaceType {
     stInternalVoid,
     // Inner/outer perimeters.
     stPerimeter,
+    // Bambu Studio 2.8: internal solid infill directly below a visible top surface (sub-top).
+    // Treated exactly like stInternalSolid except that it has its own fill pattern (sub_top_surface_pattern).
+    stSubTop,
     // Number of SurfaceType enums.
     stCount,
 };
@@ -116,8 +119,9 @@ public:
     bool   is_internal_bridge() const { return this->surface_type == stInternalBridge; }
 	bool   is_external() const { return this->is_top() || this->is_bottom(); }
 	bool   is_internal() const { return ! this->is_external(); }
-	bool   is_solid()    const { return this->is_external() || this->surface_type == stInternalSolid || this->surface_type == stInternalBridge; }
-	bool   is_solid_infill() const { return this->surface_type == stInternalSolid; }
+	bool   is_solid()    const { return this->is_external() || this->surface_type == stInternalSolid || this->surface_type == stSubTop || this->surface_type == stInternalBridge; }
+	bool   is_solid_infill() const { return this->surface_type == stInternalSolid || this->surface_type == stSubTop; }
+	bool   is_sub_top()  const { return this->surface_type == stSubTop; }
 };
 
 typedef std::vector<Surface> Surfaces;

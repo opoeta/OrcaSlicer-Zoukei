@@ -14215,6 +14215,12 @@ msgstr ""
 msgid "Line pattern of internal solid infill. if the detect narrow internal solid infill be enabled, the concentric pattern will be used for the small area."
 msgstr ""
 
+msgid "Sub-top surface pattern"
+msgstr ""
+
+msgid "Line pattern of the solid layer that supports a visible top surface. Its lines can print through and mark the top, so a monotonic pattern gives the smoothest result. The whole solid area that a top surface reaches uses this pattern, not only the part directly beneath it."
+msgstr ""
+
 msgid "Line width of outer wall. If expressed as a %, it will be computed over the nozzle diameter."
 msgstr ""
 

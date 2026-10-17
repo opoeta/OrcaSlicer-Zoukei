@@ -15311,6 +15311,12 @@ msgstr "Padrão de preenchimento sólido interno"
 msgid "Line pattern of internal solid infill. if the detect narrow internal solid infill be enabled, the concentric pattern will be used for the small area."
 msgstr "Padrão de linha do preenchimento sólido interno. Se a detecção de preenchimento sólido interno estreito estiver ativada, o padrão concêntrico será usado para a área pequena."
 
+msgid "Sub-top surface pattern"
+msgstr "Padrão da superfície sub-topo"
+
+msgid "Line pattern of the solid layer that supports a visible top surface. Its lines can print through and mark the top, so a monotonic pattern gives the smoothest result. The whole solid area that a top surface reaches uses this pattern, not only the part directly beneath it."
+msgstr "Padrão de linha da camada sólida que sustenta uma superfície superior visível. As linhas dela podem marcar o topo, então um padrão monotônico dá o resultado mais liso. Toda a área sólida que uma superfície superior alcança usa esse padrão, não só a parte logo abaixo dela."
+
 msgid "Line width of outer wall. If expressed as a %, it will be computed over the nozzle diameter."
 msgstr "Largura da linha da parede externa. Se expresso como porcentagem, será calculado sobre o diâmetro do bico."
 
