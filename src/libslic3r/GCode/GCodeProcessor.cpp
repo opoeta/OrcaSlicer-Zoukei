@@ -5443,9 +5443,13 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
 
     const Vec3f plate_offset = {(float) m_x_offset, (float) m_y_offset, 0.0f};
 
+    // ORCA: after PrusaSlicer 3.0 (SPE-4064) - moves between FLUSH_START and FLUSH_END keep the extrusion
+    // role of the feature before the tool change, an outer wall included; they must neither start nor
+    // close a seam, else a purge that ends where it started shows up as a seam marker.
+    const bool flushing = m_flushing || m_virtual_flushing;
     if (m_seams_detector.is_active()) {
         // check for seam starting vertex
-        if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter) {
+        if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter && !flushing) {
             //BBS: m_result.moves.back().position has plate offset, must minus plate offset before calculate the real seam position
             const Vec3f new_pos = m_result.moves.back().position - m_extruder_offsets[filament_id] - plate_offset;
             if (!m_seams_detector.has_first_vertex()) {
@@ -5459,7 +5463,7 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
             }
         }
         // check for seam ending vertex and store the resulting move
-        else if ((type != EMoveType::Extrude || (m_extrusion_role != erExternalPerimeter && m_extrusion_role != erOverhangPerimeter)) && m_seams_detector.has_first_vertex()) {
+        else if ((type != EMoveType::Extrude || (m_extrusion_role != erExternalPerimeter && m_extrusion_role != erOverhangPerimeter) || flushing) && m_seams_detector.has_first_vertex()) {
             auto set_end_position = [this](const Vec3f& pos) {
                 m_end_position[X] = pos.x(); m_end_position[Y] = pos.y(); m_end_position[Z] = pos.z();
             };
@@ -5470,7 +5474,7 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
             const std::optional<Vec3f> first_vertex = m_seams_detector.get_first_vertex();
             // the threshold value = 0.0625f == 0.25 * 0.25 is arbitrary, we may find some smarter condition later
 
-            if ((new_pos - *first_vertex).squaredNorm() < 0.0625f) {
+            if (!flushing && (new_pos - *first_vertex).squaredNorm() < 0.0625f) {
                 set_end_position(0.5f * (new_pos + *first_vertex) + m_z_offset * Vec3f::UnitZ());
                 store_move_vertex(EMoveType::Seam);
                 set_end_position(curr_pos);
@@ -5479,7 +5483,7 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
             m_seams_detector.activate(false);
         }
     }
-    else if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter) {
+    else if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter && !flushing) {
         m_seams_detector.activate(true);
         m_seams_detector.set_first_vertex(m_result.moves.back().position - m_extruder_offsets[filament_id] - plate_offset);
     }
