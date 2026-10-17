@@ -193,7 +193,7 @@ void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& f
     const bool filled = loaded && fill.IsOk();
     dc.SetPen(wxPen(edge_col()));
     dc.SetBrush(filled ? wxBrush(fill) : *wxTRANSPARENT_BRUSH);
-    dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 3.0);
+    dc.DrawRoundedRectangle(r, wxGetApp().em_unit() / 5.0);
     if (multi != nullptr && multi->IsOk() && filled) { // coextruded sectors / gradient swatch inside the outline
         dc.DrawBitmap(*multi, r.x + 1, r.y + 1);
         dc.SetBrush(*wxTRANSPARENT_BRUSH);
@@ -482,7 +482,8 @@ void Watcher::check(bool force)
 Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, wxID_ANY), m_idx(idx), m_btn(colour_btn)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(FromDIP(wxSize(96, 20)));
+    SetMinSize(FromDIP(wxSize(60, 20)));
+    SetMaxSize(FromDIP(wxSize(60, 20)));
     SetToolTip(_L("Printer slot for this filament"));
     Bind(wxEVT_PAINT, &Badge::on_paint, this);
     auto edit_colour = [this] {
@@ -493,7 +494,7 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
         m_btn->GetEventHandler()->ProcessEvent(ev); // works while the colour box is hidden
     };
     // Left part (index + colour) edits the colour, right part ("slot ⇄") opens the slot picker.
-    auto in_colour_part = [this](const wxPoint& pt) { return pt.x < FromDIP(30); };
+    auto in_colour_part = [this](const wxPoint& pt) { return pt.x < FromDIP(24); };
     Bind(wxEVT_MOTION, [this, in_colour_part](wxMouseEvent& ev) {
         const bool left = in_colour_part(ev.GetPosition());
         SetCursor(wxCursor(wxCURSOR_HAND));
@@ -578,12 +579,23 @@ void Badge::on_paint(wxPaintEvent&)
     bool gradient = false;
     const std::vector<wxColour> mc = filament_colours(m_idx, gradient);
     const wxRect rc(wxPoint(0, 0), GetClientSize());
-    wxBitmap     bmp;
-    if (mc.size() > 1) {
-        bmp = create_filament_bitmap(mc, wxSize(rc.width - 2, rc.height - 2), gradient);
+    const bool   multi = mc.size() > 1;
+    if (multi)
         col = mc[mc.size() / 2]; // text contrast
+    const wxString txt = wxString::Format(L"%d \u00B7 ", m_idx + 1) + t + wxString(L" \u21C4");
+    if (!multi) {
+        draw_chip(dc, rc, txt, col, true);
+        return;
     }
-    draw_chip(dc, rc, wxString::Format(L"%d \u00B7 ", m_idx + 1) + t + wxString(L" \u21C4"), col, true, bmp.IsOk() ? &bmp : nullptr);
+    // multi-colour: plain chip, sectors only in a small square swatch at the left
+    const int sw = rc.height - 4;
+    draw_chip(dc, wxRect(rc.x + sw + 4, rc.y, rc.width - sw - 4, rc.height), txt, col, true);
+    wxBitmap bmp = create_filament_bitmap(mc, wxSize(sw, sw), gradient);
+    if (bmp.IsOk())
+        dc.DrawBitmap(bmp, rc.x + 1, rc.y + 2);
+    dc.SetPen(wxPen(edge_col()));
+    dc.SetBrush(*wxTRANSPARENT_BRUSH);
+    dc.DrawRectangle(wxRect(rc.x + 1, rc.y + 2, sw, sw));
 }
 
 std::vector<wxColour> filament_colours(int idx, bool& gradient)
