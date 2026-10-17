@@ -327,9 +327,9 @@ std::vector<int> Recipe::percentages() const
 double stripe_opacity(const Filament &f, double thickness_mm)
 {
     if (f.td_mm > 0.0) {
-        // HueForge's TD is the thickness at which the filament hides its background; model the
-        // hiding power as 1 - exp(-3 t / TD) (95 % at t = TD).
-        return clamp01(1.0 - std::exp(-3.0 * std::max(0.0, thickness_mm) / f.td_mm));
+        // HueForge's TD: a layer TD thick still transmits 10 % of the light behind it (the same
+        // Beer-Lambert reading as OrcaFS-NeotkoCM's ColorSci), so opacity = 1 - 10^(-t / TD).
+        return clamp01(1.0 - std::pow(10.0, -std::max(0.0, thickness_mm) / f.td_mm));
     }
     return clamp01(f.opacity);
 }

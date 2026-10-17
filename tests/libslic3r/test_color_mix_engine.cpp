@@ -97,7 +97,7 @@ TEST_CASE("Prediction stays between its components and honours translucency", "[
     Filament f;
     f.td_mm = 2.0;
     CHECK(stripe_opacity(f, 0.2) < stripe_opacity(f, 0.4));
-    CHECK(stripe_opacity(f, 2.0) > 0.94);
+    CHECK(near(stripe_opacity(f, 2.0), 0.9, 1e-9));
 
     // Measured blends win over the model.
     p.measured = [](const std::vector<RGB> &, const std::vector<int> &w, RGB &out) {

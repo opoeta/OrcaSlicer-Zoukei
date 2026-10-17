@@ -83,8 +83,8 @@ Model model_from_key(const std::string &key);
 // A physical filament as seen by the colour model.
 struct Filament {
     RGB         color;
-    // HueForge-style transmission distance in mm (thickness at which the filament hides what is
-    // behind it). <= 0: unknown, use `opacity` instead.
+    // HueForge-style transmission distance in mm (a layer this thick lets 10 % of what is behind it
+    // through). <= 0: unknown, use `opacity` instead.
     double      td_mm{0.0};
     // Opacity of one stripe of the mix when td_mm is unknown, in [0, 1]. 1 = opaque.
     double      opacity{1.0};
