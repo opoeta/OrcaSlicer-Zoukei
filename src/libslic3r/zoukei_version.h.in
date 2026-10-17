@@ -1,0 +1,7 @@
+#ifndef __ZOUKEI_VERSION_H
+#define __ZOUKEI_VERSION_H
+
+// Separate from libslic3r_version.h so that a new Orca Zoukei version does not recompile the whole tree.
+#define ORCA_ZOUKEI_VERSION "@ORCA_ZOUKEI_VERSION@"
+
+#endif

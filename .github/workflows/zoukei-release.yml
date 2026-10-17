@@ -1,0 +1,90 @@
+name: Zoukei release
+
+# Orca Zoukei release (Windows): on a tag push v<YYYY.MM.DD[.N][-suffix]> it builds the app on windows-latest with the repo's own
+# build chain (the same reusable workflows as build_all.yml: dependency cache, build_win.bat), then packages the install tree with
+# tools/zoukei/make_release.py (manifest.json + full zip + delta zips against the previous releases) and publishes the GitHub release.
+# A tag with a "-" (v2026.10.20-beta.1) is published as a pre-release (the updater's beta channel).
+# The build takes the version from the tag (version.inc), so binary and release always agree.
+#
+# NOT verified end to end by the author: the first run needs the dependency cache (about 1 h on a free runner). If the build part
+# gives trouble, build locally and publish with the `gh release create` command that make_release.py prints; see docs/zoukei/updates.md.
+# The job only runs in opoeta/OrcaZoukei and never on pushes of branches.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zoukei-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows x64
+    if: github.repository == 'opoeta/OrcaZoukei'
+    uses: ./.github/workflows/build_check_cache.yml
+    with:
+      os: windows-latest
+      arch: x64
+      compiler: clang
+    secrets: inherit
+
+  publish:
+    name: Package and publish
+    needs: build
+    if: github.repository == 'opoeta/OrcaZoukei'
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout (full history for the notes)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: 'false'
+
+      - name: Download the built tree
+        uses: actions/download-artifact@v8
+        with:
+          pattern: OrcaSlicer_Windows_*_x64_portable
+          path: tree
+          merge-multiple: true
+
+      - name: Check the tree
+        shell: pwsh
+        run: |
+          if (-not (Test-Path tree/orca-slicer.exe)) { throw "tree/orca-slicer.exe not found; artifact layout changed?" }
+          if (-not (Test-Path tree/zoukei-updater.exe)) { throw "tree/zoukei-updater.exe missing from the build" }
+
+      - name: Regenerate the pt_BR translation
+        shell: pwsh
+        run: |
+          python -I tools/zoukei/po2mo.py localization/i18n/pt_BR/OrcaSlicer_pt_BR.po tree/resources/i18n/pt_BR/OrcaSlicer.mo
+
+      - name: Release notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $prev = git describe --tags --abbrev=0 --match 'v[0-9]*' "$tag^" 2>$null
+          if ($prev) { $range = "$prev..$tag" } else { $range = $tag }
+          $log = git log --no-merges --pretty=format:"- %s" $range | Select-Object -First 60
+          @("Orca Zoukei ${tag}", "", $log) | Set-Content -Encoding utf8 notes.md
+
+      - name: Package (manifest, full zip, deltas)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".Substring(1)
+          python tools/zoukei/make_release.py --tree tree --version $ver --out dist --fetch-previous 3 --notes-file notes.md --target "${{ github.sha }}" | Tee-Object make_release.log
+
+      - name: Publish the release
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = Get-ChildItem dist -File | ForEach-Object { $_.FullName }
+          $flags = @()
+          if ($tag.Contains("-")) { $flags += "--prerelease" }
+          gh release create $tag --repo "${{ github.repository }}" --title "Orca Zoukei $($tag.Substring(1))" --notes-file notes.md --verify-tag @flags @assets

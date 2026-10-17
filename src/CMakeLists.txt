@@ -228,6 +228,17 @@ if (WIN32)
         WIN32_EXECUTABLE "$<NOT:$<CONFIG:RelWithDebInfo>>"
     )
     target_link_libraries(OrcaSlicer_app_gui PRIVATE boost_headeronly)
+
+    # Orca Zoukei: applies a staged update after Orca exits (docs/zoukei/updates.md). Standalone, static CRT: it runs from the
+    # temp folder, where none of the DLLs of the install are available.
+    add_executable(ZoukeiUpdater WIN32 zoukei-updater/zoukei_updater.cpp)
+    target_compile_features(ZoukeiUpdater PRIVATE cxx_std_17)
+    target_compile_definitions(ZoukeiUpdater PRIVATE UNICODE _UNICODE)
+    if (MSVC)
+        target_compile_options(ZoukeiUpdater PRIVATE "/MT$<$<CONFIG:Debug>:d>")
+    endif ()
+    target_link_libraries(ZoukeiUpdater PRIVATE bcrypt)
+    set_target_properties(ZoukeiUpdater PROPERTIES OUTPUT_NAME "zoukei-updater")
 endif ()
 
 # Link the resources dir to where Slic3r GUI expects it
@@ -395,6 +406,7 @@ if (WIN32)
     if (MSVC)
         install(TARGETS OrcaSlicer_app_gui RUNTIME DESTINATION ".")
     endif ()
+    install(TARGETS ZoukeiUpdater RUNTIME DESTINATION ".")
     install(FILES ${output_dlls_${build_type}} DESTINATION ".")
     install(DIRECTORY "${CMAKE_PREFIX_PATH}/libpython/" DESTINATION "python")
 else ()

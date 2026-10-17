@@ -36588,3 +36588,66 @@ msgstr "Carretel Spoolman"
 
 msgid "Pick the Spoolman spool of this filament"
 msgstr "Escolher o carretel Spoolman deste filamento"
+
+msgid "Orca Zoukei update"
+msgstr "Atualização do Orca Zoukei"
+
+msgid "The update could not be applied. The previous version was restored. Log:"
+msgstr "Não foi possível aplicar a atualização. A versão anterior foi restaurada. Registro:"
+
+msgid "Version %s is available (you have %s)."
+msgstr "A versão %s está disponível (você tem a %s)."
+
+msgid "Release notes:"
+msgstr "Notas da versão:"
+
+msgid "Skip this version"
+msgstr "Ignorar esta versão"
+
+msgid "Open release page"
+msgstr "Abrir a página da versão"
+
+msgid "Restart and update"
+msgstr "Reiniciar e atualizar"
+
+msgid "Checking the installed files..."
+msgstr "Verificando os arquivos instalados..."
+
+msgid "Downloading %s of %s..."
+msgstr "Baixando %s de %s..."
+
+msgid "Extracting and verifying files..."
+msgstr "Extraindo e verificando os arquivos..."
+
+msgid "Orca Zoukei cannot write to its own folder (%s). Download the new version from the release page and replace the files manually."
+msgstr "O Orca Zoukei não consegue gravar na própria pasta (%s). Baixe a nova versão na página da versão e substitua os arquivos manualmente."
+
+msgid "Update failed: %s"
+msgstr "Falha na atualização: %s"
+
+msgid "The update is ready (%s). Orca Zoukei will close and open again with the new version."
+msgstr "A atualização está pronta (%s). O Orca Zoukei vai fechar e abrir de novo já na nova versão."
+
+msgid "The update was not installed because closing the program was cancelled. Use Help > Check for Updates to try again."
+msgstr "A atualização não foi instalada porque o fechamento do programa foi cancelado. Use Ajuda > Verificar atualizações para tentar de novo."
+
+msgid "Could not check for updates: %s"
+msgstr "Não foi possível verificar atualizações: %s"
+
+msgid "You already have the latest version (%s)."
+msgstr "Você já está com a versão mais recente (%s)."
+
+msgid "A check for updates is already running."
+msgstr "Já existe uma verificação de atualizações em andamento."
+
+msgid "Check for Orca Zoukei updates at startup"
+msgstr "Verificar atualizações do Orca Zoukei ao abrir"
+
+msgid "Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaZoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."
+msgstr "Procura uma nova versão do Orca Zoukei no GitHub (opoeta/OrcaZoukei) ao abrir o programa, no máximo uma vez por dia. Nada é baixado até você escolher Atualizar."
+
+msgid "Beta channel (pre-releases)"
+msgstr "Canal beta (pré-lançamentos)"
+
+msgid "Also offer releases marked as pre-release on GitHub. They may be less tested."
+msgstr "Oferece também as versões marcadas como pré-lançamento no GitHub. Podem ter sido menos testadas."

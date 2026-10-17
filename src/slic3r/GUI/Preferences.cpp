@@ -2292,8 +2292,16 @@ void PreferencesDialog::create_items()
     //// ONLINE > Update & sync
     g_sizer->Add(create_item_title(_L("Update & sync")), 1, wxEXPAND);
 
-    auto item_stable_updates   = create_item_checkbox(_L("Check for stable updates only"), "", "check_stable_update_only");
-    g_sizer->Add(item_stable_updates);
+    // Orca Zoukei: updates come from github.com/opoeta/OrcaZoukei (the upstream "stable only" option does not apply).
+    auto item_zoukei_update    = create_item_checkbox(_L("Check for Orca Zoukei updates at startup"),
+        _L("Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaZoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."),
+        "zoukei_update_check");
+    g_sizer->Add(item_zoukei_update);
+
+    auto item_zoukei_beta      = create_item_checkbox(_L("Beta channel (pre-releases)"),
+        _L("Also offer releases marked as pre-release on GitHub. They may be less tested."),
+        "zoukei_update_beta");
+    g_sizer->Add(item_zoukei_beta);
 
     auto item_user_sync        = create_item_checkbox(_L("Auto sync user presets (Printer/Filament/Process)"), "", "sync_user_preset");
     g_sizer->Add(item_user_sync);

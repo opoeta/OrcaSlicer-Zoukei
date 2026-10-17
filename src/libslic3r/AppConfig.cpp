@@ -491,6 +491,12 @@ void AppConfig::set_defaults()
         set_bool("check_stable_update_only", false);
     }
 
+    // Orca Zoukei updater (Utils/ZoukeiUpdate): check at start (at most once a day), pre-releases channel.
+    if (get("zoukei_update_check").empty())
+        set_bool("zoukei_update_check", true);
+    if (get("zoukei_update_beta").empty())
+        set_bool("zoukei_update_beta", false);
+
     // Orca
     if(get("show_splash_screen").empty()) {
         set_bool("show_splash_screen", true);

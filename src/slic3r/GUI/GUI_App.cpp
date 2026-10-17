@@ -236,6 +236,8 @@
 //BBS: DailyTip and UserGuide Dialog
 #include "WebGuideDialog.hpp"
 #include "ReleaseNote.hpp"
+#include "ZoukeiUpdateUi.hpp"
+#include "slic3r/Utils/ZoukeiUpdate.hpp"
 #include "PrivacyUpdateDialog.hpp"
 #include "ModelMall.hpp"
 #include "HintNotification.hpp"
@@ -1105,6 +1107,7 @@ void GUI_App::post_init()
     // Neither wxShowEvent nor wxWindowCreateEvent work reliably.
     if (this->preset_updater) { // G-Code Viewer does not initialize preset_updater.
         CallAfter([this] {
+            ZoukeiUpdateUi::run_test_hook(); // no-op outside the automated update tests
             bool cw_showed = this->config_wizard_startup();
 
             if (!app_config->get_stealth_mode()) {
@@ -3346,7 +3349,8 @@ bool GUI_App::on_init_inner()
             associate_files(L"step");
             associate_files(L"stp");
         }
-        associate_url(L"orcaslicer");
+        if (!ZoukeiUpdate::test_mode()) // the automated update tests run a copy of the app: it must not take over the orcaslicer:// handler
+            associate_url(L"orcaslicer");
 
         if (app_config->get("associate_gcode") == "true")
             associate_files(L"gcode");
@@ -6351,10 +6355,13 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
     // Orca Zoukei: a custom build (Jacob10383 + WaveOverhangs + Remote API). The official releases
-    // would replace it with a stock OrcaSlicer, so there is nothing to check for.
+    // would replace it with a stock OrcaSlicer, so the upstream check below is never reached; the update
+    // check goes only to github.com/opoeta/OrcaZoukei (Utils/ZoukeiUpdate, docs/zoukei/updates.md).
     (void) show_tips;
     if (by_user != 0)
-        this->no_new_version();
+        ZoukeiUpdateUi::check_from_menu();
+    else
+        ZoukeiUpdateUi::check_on_startup();
     return;
     AppConfig* app_config = wxGetApp().app_config;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");

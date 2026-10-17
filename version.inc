@@ -6,6 +6,22 @@ set(SLIC3R_APP_KEY "OrcaSlicer")
 # The name shown to the user. SLIC3R_APP_NAME stays "OrcaSlicer": it goes into the G-code header,
 # where Moonraker, Fluidd and printer firmware use it to recognise the slicer.
 set(ORCA_BRAND_NAME "Orca Zoukei")
+# Orca Zoukei build version (calendar version, also the release tag without the "v": v2026.10.17).
+# The updater compares it with the GitHub releases of opoeta/OrcaZoukei. -DORCA_ZOUKEI_VERSION=<x> overrides it, and a build of a
+# commit that carries a tag vYYYY.MM.DD[.N][-suffix] (the release CI) takes the version from that tag, so binary and release always agree.
+if(NOT DEFINED ORCA_ZOUKEI_VERSION)
+    set(ORCA_ZOUKEI_VERSION "2026.10.17")
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --exact-match HEAD
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+                        OUTPUT_VARIABLE _zoukei_tag RESULT_VARIABLE _zoukei_tag_rc
+                        ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(_zoukei_tag_rc EQUAL 0 AND _zoukei_tag MATCHES "^v([0-9]+(\\.[0-9]+)+(-[0-9A-Za-z.]+)?)$")
+            set(ORCA_ZOUKEI_VERSION "${CMAKE_MATCH_1}")
+        endif()
+    endif()
+endif()
 
 if(NOT DEFINED BBL_INTERNAL_TESTING)
 set(BBL_INTERNAL_TESTING "0")
