@@ -500,6 +500,12 @@ static t_config_enum_values s_keys_map_SeamPosition {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SeamPosition)
 
+static t_config_enum_values s_keys_map_SeamAlgorithm {
+    { "classic",          saClassic },
+    { "prusaslicer_2_9",  saPrusaSlicer29 }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SeamAlgorithm)
+
 // Orca
 static t_config_enum_values s_keys_map_SeamScarfType{
     { "none",           int(SeamScarfType::None) },
@@ -6972,6 +6978,22 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.push_back(L("Assemble zgap"));
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionEnum<SeamPosition>(spAligned));
+
+    def = this->add("seam_algorithm", coEnum);
+    def->label = L("Seam algorithm");
+    def->category = L("Quality");
+    def->tooltip = L("Which seam placer chooses where each wall starts, for every seam position.\n"
+                     "PrusaSlicer 2.9: the rewritten seam placer ported from PrusaSlicer 2.9. It follows the seam through the "
+                     "layers along each part's shell, prefers concave and then convex corners more consistently and "
+                     "gives smoother aligned seams.\n"
+                     "Classic: the earlier seam placer. Objects with Precise Seam modifiers always use it.");
+    def->enum_keys_map = &ConfigOptionEnum<SeamAlgorithm>::get_enum_values();
+    def->enum_values.push_back("classic");
+    def->enum_values.push_back("prusaslicer_2_9");
+    def->enum_labels.push_back(L("Classic"));
+    def->enum_labels.push_back(L("PrusaSlicer 2.9"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<SeamAlgorithm>(saPrusaSlicer29));
 
     def = this->add("staggered_inner_seams", coBool);
     def->label = L("Staggered inner seams");

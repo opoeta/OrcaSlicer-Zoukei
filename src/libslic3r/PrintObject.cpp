@@ -1809,6 +1809,7 @@ bool PrintObject::invalidate_state_by_config_options(
             steps.emplace_back(posSlice);
         } else if (
                opt_key == "seam_position"
+            || opt_key == "seam_algorithm"
             || opt_key == "seam_slope_type"
             || opt_key == "seam_slope_conditional"
             || opt_key == "scarf_angle_threshold"

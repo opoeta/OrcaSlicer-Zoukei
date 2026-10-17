@@ -1196,6 +1196,7 @@ static std::vector<std::string> s_Preset_print_options{
     "wave_overhang_corner_taper_enable", "wave_overhang_line_spacing_corner",
     "wave_overhang_corner_taper_distance", "wave_overhang_corner_angle_threshold",
     "seam_position",
+    "seam_algorithm",
     "staggered_inner_seams",
     "wall_sequence",
     "is_infill_first",

@@ -1,4 +1,5 @@
 #include "SeamPlacer.hpp"
+#include "libslic3r/GCode/Seams29/SeamPlacer29.hpp"
 
 #include "libslic3r/Point.hpp"
 #include "libslic3r/AABBTreeIndirect.hpp"
@@ -1567,16 +1568,43 @@ void SeamPlacer::align_seam_points(const PrintObject *po, const SeamPlacerImpl::
 
 }
 
+// ORCA: the objects the PrusaSlicer 2.9 seam placer takes. Precise Seam modifiers exist only in the classic one.
+static bool uses_placer29(const PrintObject *po)
+{
+  if (po->config().seam_algorithm.value != saPrusaSlicer29)
+    return false;
+  for (const ModelVolume *volume : po->model_object()->volumes)
+    if (is_precise_seam(volume->type()))
+      return false;
+  return true;
+}
+
 void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_canceled_func) {
   using namespace SeamPlacerImpl;
   m_seam_per_object.clear();
   m_precise_seam_warning.clear();
+
+  {
+    std::vector<const PrintObject*> objects29;
+    for (const PrintObject *po : print.objects())
+      if (uses_placer29(po))
+        objects29.push_back(po);
+    if (objects29.empty())
+      m_placer29.reset();
+    else {
+      if (!m_placer29)
+        m_placer29 = std::make_shared<Seams::Placer>();
+      m_placer29->init(objects29, throw_if_canceled_func);
+    }
+  }
 
   // Warning flags for Precise Seam processing — shared across all objects
   PreciseSeam::PreciseSeamWarnings precise_seam_warnings;
 
   for (const PrintObject *po : print.objects()) {
     throw_if_canceled_func();
+    if (m_placer29 && m_placer29->handles(po))
+      continue;
     SeamPosition configured_seam_preference = po->config().seam_position.value;
     SeamComparator comparator { configured_seam_preference };
 
@@ -1785,6 +1813,14 @@ void SeamPlacer::place_seam(const Layer *layer, ExtrusionLoop &loop,
   assert(layer->id() >= po->slicing_parameters().raft_layers());
   const size_t layer_index = layer->id() - po->slicing_parameters().raft_layers();
   const double unscaled_z = layer->slice_z;
+
+  if (m_placer29 && m_placer29->handles(po)) {
+    const Point seam_point = m_placer29->place_seam(layer, loop, last_pos, overhang);
+    // As below: no segments shorter than the G-code resolution.
+    if (!loop.split_at_vertex(seam_point, scaled<double>(0.0015)))
+      loop.split_at(seam_point, true);
+    return;
+  }
 
   auto get_next_loop_point = [loop](ExtrusionLoop::ClosestPathPoint current) {
     current.segment_idx += 1;

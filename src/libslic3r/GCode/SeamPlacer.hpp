@@ -28,6 +28,10 @@ namespace EdgeGrid {
 class Grid;
 }
 
+namespace Seams {
+class Placer;
+}
+
 namespace SeamPlacerImpl {
 
 
@@ -161,6 +165,9 @@ public:
   void place_seam(const Layer *layer, ExtrusionLoop &loop, const Point &last_pos, float& overhang) const;
 private:
   std::string m_precise_seam_warning;
+  // ORCA: the seam placer ported from PrusaSlicer 2.9, for the objects with seam_algorithm = prusaslicer_2_9
+  // and no Precise Seam modifier; the others keep the classic placer below.
+  std::shared_ptr<Seams::Placer> m_placer29;
 
   void gather_seam_candidates(const PrintObject *po, const SeamPlacerImpl::GlobalModelInfo &global_model_info,
                               PreciseSeam::PreciseSeamWarnings* warnings = nullptr);

@@ -408,6 +408,12 @@ enum SeamPosition {
     spNearest, spAligned, spAlignedBack, spRear, spRandom, spAssembleZgap
 };
 
+// ORCA: the seam placer behind seam_position - Orca's classic one (PrusaSlicer 2.6 based) or the
+// rewrite ported from PrusaSlicer 2.9, see GCode/Seams29.
+enum SeamAlgorithm {
+    saClassic, saPrusaSlicer29
+};
+
 // Orca
 enum class SeamScarfType {
     None,
@@ -817,6 +823,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportMaterialInterfacePattern)
 // BBS
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SeamPosition)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SeamAlgorithm)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SeamScarfType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLADisplayOrientation)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLAPillarConnectionMode)
@@ -1310,6 +1317,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,               raft_first_layer_expansion))
     ((ConfigOptionInt,                 raft_layers))
     ((ConfigOptionEnum<SeamPosition>,  seam_position))
+    ((ConfigOptionEnum<SeamAlgorithm>, seam_algorithm))
     ((ConfigOptionBool,                staggered_inner_seams))
     ((ConfigOptionFloat,               slice_closing_radius))
     ((ConfigOptionEnum<SlicingMode>,   slicing_mode))

@@ -287,6 +287,26 @@ set(lisbslic3r_sources
     GCode/PreciseSeam.cpp
     GCode/PreciseSeam.hpp
     GCode/PreciseSeamInternal.hpp
+    GCode/Seams29/ModelVisibility.cpp
+    GCode/Seams29/ModelVisibility.hpp
+    GCode/Seams29/SeamAligned.cpp
+    GCode/Seams29/SeamAligned.hpp
+    GCode/Seams29/SeamChoice.cpp
+    GCode/Seams29/SeamChoice.hpp
+    GCode/Seams29/SeamGeometry.cpp
+    GCode/Seams29/SeamGeometry.hpp
+    GCode/Seams29/SeamPainting.cpp
+    GCode/Seams29/SeamPainting.hpp
+    GCode/Seams29/SeamPerimeters.cpp
+    GCode/Seams29/SeamPerimeters.hpp
+    GCode/Seams29/SeamPlacer29.cpp
+    GCode/Seams29/SeamPlacer29.hpp
+    GCode/Seams29/SeamRandom.cpp
+    GCode/Seams29/SeamRandom.hpp
+    GCode/Seams29/SeamRear.cpp
+    GCode/Seams29/SeamRear.hpp
+    GCode/Seams29/SeamShells.cpp
+    GCode/Seams29/SeamShells.hpp
     GCode/SmallAreaInfillFlowCompensator.cpp
     GCode/SmallAreaInfillFlowCompensator.hpp
     GCode/SpiralVase.cpp
