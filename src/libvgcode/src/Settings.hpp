@@ -27,6 +27,8 @@ struct Settings
 		// ORCA: how bright those darkened layers are rendered, 1.0 = unchanged, 0.0 = black
 		float dim_previous_layers_brightness{ 0.4f };
 		bool spiral_vase_mode{ false };
+		// ORCA: realistic (PrusaSlicer 3.0 style) toolpath shading instead of the classic one
+		bool realistic_shading{ true };
 		//
 		// Required update flags
 		//

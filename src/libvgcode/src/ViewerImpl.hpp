@@ -120,6 +120,8 @@ public:
     void set_dim_previous_layers(bool value);
     float get_dim_previous_layers_brightness() const { return m_settings.dim_previous_layers_brightness; }
     void set_dim_previous_layers_brightness(float value);
+    bool is_realistic_shading() const { return m_settings.realistic_shading; }
+    void set_realistic_shading(bool value) { m_settings.realistic_shading = value; }
 
     bool is_spiral_vase_mode() const { return m_settings.spiral_vase_mode; }
 
@@ -402,6 +404,7 @@ private:
         int lit_layers{ -1 };
         int grey_below_layer{ -1 };
         int dim_brightness{ -1 };
+        int realistic{ -1 };
         int kept_vertex{ -1 };
 
         void init(unsigned int shader_id);

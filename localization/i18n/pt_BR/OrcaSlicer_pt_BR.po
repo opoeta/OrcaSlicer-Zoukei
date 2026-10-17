@@ -10257,6 +10257,18 @@ msgstr ""
 "Qualquer outro valor sempre abre esse tipo de visualização.\n"
 "Você ainda pode trocar o tipo de visualização na pré-visualização depois."
 
+msgid "Realistic preview (PrusaSlicer 3.0 style)"
+msgstr "Pré-visualização realista (estilo PrusaSlicer 3.0)"
+
+msgid "Shade the G-code preview toolpaths like PrusaSlicer 3.0: rounded extrusion beads, physically based lighting and ambient occlusion. Disable to use the classic shading."
+msgstr "Sombreia os caminhos da pré-visualização do G-code como o PrusaSlicer 3.0: filetes de extrusão arredondados, iluminação fisicamente realista e oclusão ambiente. Desative para usar o sombreamento clássico."
+
+msgid "Realistic view in Prepare"
+msgstr "Visualização realista no Preparar"
+
+msgid "Light the models in the Prepare view like PrusaSlicer 3.0 (physically based lighting) with subtle printed layer lines. Disable to use the classic look."
+msgstr "Ilumina os modelos na vista Preparar como o PrusaSlicer 3.0 (iluminação fisicamente realista) com linhas de camada sutis. Desative para usar o visual clássico."
+
 msgid "Dim lower layers"
 msgstr "Escurecer camadas inferiores"
 

@@ -173,6 +173,43 @@ float shadow_shade()
     return 1.0 - shadow_intensity * (sum / 25.0);
 }
 
+// ORCA: realistic view (after PrusaSlicer 3.0): key and fill lights, dielectric material (roughness 0.5,
+// IOR 1.5) with Cook-Torrance GGX in linear light, Reinhard tone mapped with a white point that keeps
+// colours recognisable, plus subtle printed layer lines. realistic_view < 0.5 keeps the classic look.
+uniform float realistic_view;
+uniform vec3 realistic_up_eye;
+uniform vec2 layer_lines; // x = layer height (<= 0 disables), y = z of the first layer
+const vec3 RV_FILL_DIR = vec3(0.6985074, 0.1397015, 0.6985074);
+float rv_ggx_g(float c) { float k = 2.25 / 8.0; return c / (c * (1.0 - k) + k); }
+vec3 rv_light(vec3 base, vec3 n, vec3 v, vec3 l, float intensity) {
+    float n_dot_l = max(dot(n, l), 0.0);
+    if (n_dot_l <= 0.0)
+        return vec3(0.0);
+    vec3 h = normalize(v + l);
+    float n_dot_v = max(dot(n, v), 0.0);
+    float f = 0.04 + 0.96 * pow(clamp(1.0 - dot(h, v), 0.0, 1.0), 5.0);
+    float a2 = 0.0625;
+    float d = max(dot(n, h), 0.0);
+    d = d * d * (a2 - 1.0) + 1.0;
+    float spec = (a2 / (3.14159265 * d * d)) * rv_ggx_g(n_dot_v) * rv_ggx_g(n_dot_l) * f / (4.0 * n_dot_v * n_dot_l + 1e-4);
+    return ((1.0 - f) * base / 3.14159265 + vec3(spec)) * intensity * n_dot_l;
+}
+vec3 realistic_lit(vec3 base_srgb, vec3 normal, vec3 key_dir, float world_z, float shade) {
+    vec3 n = normalize(normal);
+    vec3 base = pow(clamp(base_srgb, 0.0, 1.0), vec3(2.2));
+    float ao = 1.0;
+    if (layer_lines.x > 0.0) {
+        float up = dot(n, realistic_up_eye);
+        float wall = 1.0 - up * up;
+        float f = fract((world_z - layer_lines.y) / layer_lines.x);
+        ao = 1.0 - 0.10 * wall * smoothstep(0.35, 1.0, f);
+    }
+    vec3 v = vec3(0.0, 0.0, 1.0);
+    vec3 c = 0.5 * ao * base + ao * (shade * rv_light(base, n, v, key_dir, 9.6) + rv_light(base, n, v, RV_FILL_DIR, 3.6));
+    c = c * (1.0 + c / 16.0) / (1.0 + c);
+    return pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2));
+}
+
 void main()
 {
     if (any(lessThan(clipping_planes_dots, ZERO)))
@@ -227,7 +264,7 @@ void main()
 
     //BBS: add outline_color
     if (is_outline) {
-        color = vec4((vec3(intensity.y) + color.rgb * intensity.x) * shade, color.a);
+        color = vec4((realistic_view > 0.5 ? realistic_lit(color.rgb, eye_normal, top_light_dir(), world_pos.z, shade) : (vec3(intensity.y) + color.rgb * intensity.x) * shade), color.a);
         vec2 fragCoord = gl_FragCoord.xy;
         float s = DetectSilho(fragCoord);
         // Makes silhouettes thicker.
@@ -245,5 +282,5 @@ void main()
         gl_FragColor = vec4((0.45 * texture(environment_tex, normalize(eye_normal).xy * 0.5 + 0.5).xyz + 0.8 * color.rgb * intensity.x) * shade, color.a);
 #endif
     else
-        gl_FragColor = vec4((vec3(intensity.y) + color.rgb * intensity.x) * shade, color.a);
+        gl_FragColor = vec4((realistic_view > 0.5 ? realistic_lit(color.rgb, eye_normal, top_light_dir(), world_pos.z, shade) : (vec3(intensity.y) + color.rgb * intensity.x) * shade), color.a);
 }

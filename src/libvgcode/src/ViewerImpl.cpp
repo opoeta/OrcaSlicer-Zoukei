@@ -1345,6 +1345,7 @@ void ViewerImpl::LayerColorsUniforms::init(unsigned int shader_id)
     lit_layers       = glGetUniformLocation(shader_id, "lit_layers");
     grey_below_layer = glGetUniformLocation(shader_id, "grey_below_layer");
     dim_brightness   = glGetUniformLocation(shader_id, "dim_brightness");
+    realistic        = glGetUniformLocation(shader_id, "realistic");
     kept_vertex      = glGetUniformLocation(shader_id, "kept_vertex");
 }
 
@@ -1374,6 +1375,7 @@ void ViewerImpl::set_layer_colors(const LayerColorsUniforms& uni) const
                                        dim_previous_layers && inspecting_top_layer ? static_cast<int>(layers_range[1]) : -1));
     glsafe(glUniform1i(uni.grey_below_layer, color_top_layer_only ? static_cast<int>(top_layer_id) : 0));
     glsafe(glUniform1f(uni.dim_brightness, dim_previous_layers ? m_settings.dim_previous_layers_brightness : -1.0f));
+    glsafe(glUniform1i(uni.realistic, m_settings.realistic_shading ? 1 : 0));
     glsafe(glUniform1i(uni.kept_vertex, m_settings.spiral_vase_mode ? static_cast<int>(m_view_range.get_enabled()[0]) : -1));
 }
 

@@ -128,6 +128,9 @@ public:
     void set_dim_previous_layers(bool value);
     float get_dim_previous_layers_brightness() const;
     void set_dim_previous_layers_brightness(float value);
+    // ORCA: realistic toolpath shading (after PrusaSlicer 3.0) vs the classic one
+    bool is_realistic_shading() const;
+    void set_realistic_shading(bool value);
     //
     // Returns true if the given option is visible.
     //

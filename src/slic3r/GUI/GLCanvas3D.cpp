@@ -9711,6 +9711,22 @@ void GLCanvas3D::_render_objects(GLVolumeCollection::ERenderType type, bool with
         }
         else
             shader->set_uniform("shadow_intensity", 0.0f);
+        {
+            // ORCA: realistic view (PrusaSlicer 3.0 style) lighting and printed layer lines; off = classic look.
+            const bool rv = wxGetApp().app_config != nullptr && wxGetApp().app_config->get_bool("realistic_prepare_view");
+            shader->set_uniform("realistic_view", rv ? 1.0f : 0.0f);
+            if (rv) {
+                const Transform3d& view = wxGetApp().plater()->get_camera().get_view_matrix();
+                shader->set_uniform("realistic_up_eye", Vec3f((view.matrix().block<3, 3>(0, 0) * Vec3d::UnitZ()).cast<float>()));
+                float lh = 0.f;
+                if (wxGetApp().preset_bundle != nullptr) {
+                    const auto* lho = wxGetApp().preset_bundle->prints.get_edited_preset().config.option<ConfigOptionFloat>("layer_height");
+                    if (lho != nullptr)
+                        lh = float(lho->value);
+                }
+                shader->set_uniform("layer_lines", Vec2f(lh, 0.f));
+            }
+        }
         const std::optional<Vec3d> static_light = _static_light_dir_eye();
         shader->set_uniform("use_static_light", static_light.has_value());
         if (static_light.has_value())

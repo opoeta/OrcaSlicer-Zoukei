@@ -1100,6 +1100,23 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                 home->SendCloudProvidersInfo();
             }
         }
+        else if (param == "realistic_gcode_preview") {
+            if (Plater* plater = wxGetApp().plater()) {
+                if (GLCanvas3D* canvas = plater->get_preview_canvas3D()) {
+                    canvas->get_gcode_viewer().set_realistic_shading(app_config->get_bool(param));
+                    canvas->set_as_dirty();
+                    canvas->request_extra_frame();
+                }
+            }
+        }
+        else if (param == "realistic_prepare_view") {
+            if (Plater* plater = wxGetApp().plater()) {
+                if (GLCanvas3D* canvas = plater->get_view3D_canvas3D()) {
+                    canvas->set_as_dirty();
+                    canvas->request_extra_frame();
+                }
+            }
+        }
         // ORCA: apply the preview dimming change immediately to the currently loaded preview
         else if (param == "preview_dim_previous_layers") {
             if (m_dim_previous_layers_brightness_input)
@@ -2230,6 +2247,20 @@ void PreferencesDialog::create_items()
            "You can still switch the view type in the preview afterwards."),
         "preview_default_view_type", PreviewViewTypeLabels, PreviewViewTypeValues);
     g_sizer->Add(item_preview_view_type);
+
+    auto item_gcode_realistic = create_item_checkbox(
+        _L("Realistic preview (PrusaSlicer 3.0 style)"),
+        _L("Shade the G-code preview toolpaths like PrusaSlicer 3.0: rounded extrusion beads, physically based lighting and ambient occlusion. Disable to use the classic shading."),
+        "realistic_gcode_preview"
+    );
+    g_sizer->Add(item_gcode_realistic);
+
+    auto item_realistic_prepare = create_item_checkbox(
+        _L("Realistic view in Prepare"),
+        _L("Light the models in the Prepare view like PrusaSlicer 3.0 (physically based lighting) with subtle printed layer lines. Disable to use the classic look."),
+        "realistic_prepare_view"
+    );
+    g_sizer->Add(item_realistic_prepare);
 
     auto item_dim_previous_layers = create_item_checkbox(
         _L("Dim lower layers"),

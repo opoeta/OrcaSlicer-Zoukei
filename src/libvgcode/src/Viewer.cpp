@@ -114,6 +114,16 @@ void Viewer::set_dim_previous_layers(bool value)
     m_impl->set_dim_previous_layers(value);
 }
 
+bool Viewer::is_realistic_shading() const
+{
+    return m_impl->is_realistic_shading();
+}
+
+void Viewer::set_realistic_shading(bool value)
+{
+    m_impl->set_realistic_shading(value);
+}
+
 float Viewer::get_dim_previous_layers_brightness() const
 {
     return m_impl->get_dim_previous_layers_brightness();

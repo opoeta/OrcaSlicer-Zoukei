@@ -224,6 +224,10 @@ void AppConfig::set_defaults()
         set("seq_top_layer_only", "1");
 
     // ORCA: darken the layers the preview layer slider is not scrubbed to
+    if (get("realistic_prepare_view").empty())
+        set_bool("realistic_prepare_view", true);
+    if (get("realistic_gcode_preview").empty())
+        set_bool("realistic_gcode_preview", true);
     if (get("preview_dim_previous_layers").empty())
         set_bool("preview_dim_previous_layers", false);
 
