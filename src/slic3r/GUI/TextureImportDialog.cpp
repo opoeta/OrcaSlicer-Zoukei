@@ -11,6 +11,7 @@
 #include "MsgDialog.hpp"
 #include "ColorDecomposeDialog.hpp"
 #include "ColorDecomposeSupport.hpp"
+#include "ColorMixDialog.hpp"
 #include "Widgets/StateColor.hpp"
 #include "Widgets/StaticLine.hpp"
 #include "libslic3r/ColorDecomposeRecipe.hpp"
@@ -2298,6 +2299,29 @@ void TextureImportDialog::build_mapping_panel(wxWindow* parent, wxSizer* sizer)
     });
     header_sizer->Add(m_btn_auto_mix, 0, wxALIGN_CENTER_VERTICAL);
 
+    // Orca Zoukei: mix the model colours from the loaded filaments (ColorMixEngine + review dialog).
+    m_btn_color_mix = new Button(parent, _L("Mix colors automatically"));
+    {
+        wxFont btn_font = m_btn_color_mix->GetFont();
+        btn_font.SetPointSize(m_auto_mix_font_point_size);
+        m_btn_color_mix->SetFont(btn_font);
+    }
+    m_btn_color_mix->SetCornerRadius(FromDIP(14));
+    m_btn_color_mix->SetMinSize(wxSize(-1, FromDIP(28)));
+    {
+        StateColor btn_bg(
+            std::pair<wxColour, int>(wxColour("#F4F4F4"), StateColor::Pressed),
+            std::pair<wxColour, int>(wxColour("#F8F8F8"), StateColor::Hovered),
+            std::pair<wxColour, int>(*wxWHITE, StateColor::Normal));
+        m_btn_color_mix->SetBackgroundColor(btn_bg);
+        m_btn_color_mix->SetBorderColor(wxColour("#CECECE"));
+        m_btn_color_mix->SetTextColor(texture_import_gray9000());
+    }
+    m_btn_color_mix->SetToolTip(_L("Reproduce the model colors with mixed filaments made from your loaded filaments, "
+                                   "with a review of every recipe before applying"));
+    m_btn_color_mix->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { apply_color_mix_solver(); });
+    header_sizer->Add(m_btn_color_mix, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));
+
     sizer->Add(header_sizer, 0, wxEXPAND | wxBOTTOM, FromDIP(4));
 
     wxBoxSizer* merge_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -2392,6 +2416,8 @@ void TextureImportDialog::update_ui_for_state()
     m_btn_color_auto->Enable(!computing);
     if (m_btn_auto_mix)
         m_btn_auto_mix->Enable(!computing);
+    if (m_btn_color_mix)
+        m_btn_color_mix->Enable(ready);
     if (m_btn_mix_reset)
         m_btn_mix_reset->Enable(!computing);
     if (computing)
@@ -3310,6 +3336,100 @@ void TextureImportDialog::apply_auto_standard_mix(TextureAutoMixMode mode)
 
     if (!changed)
         return;
+
+    m_auto_mix_applied = true;
+    compact_used_virtual_filaments();
+    update_filament_color_map();
+    rebuild_mapping_rows();
+    update_drop_warning_visibility();
+    update_auto_mix_reset_visibility();
+}
+
+void TextureImportDialog::apply_color_mix_solver()
+{
+    if (m_mapping_rows.empty() || m_state != TextureImportState::Ready)
+        return;
+    dismiss_auto_mix_popup();
+
+    // Weight each colour by the faces it paints.
+    std::map<std::array<std::size_t, 3>, double> face_counts;
+    for (const auto& fc : m_painted.face_colors)
+        face_counts[fc] += 1.0;
+    std::vector<ColorMixTarget> targets;
+    for (const FilamentMappingRow& row : m_mapping_rows) {
+        ColorMixTarget t;
+        t.hex = row.source_hex;
+        auto it = face_counts.find(row.source_color);
+        t.weight = it == face_counts.end() ? 1.0 : it->second;
+        targets.push_back(t);
+    }
+
+    std::vector<ColorMixFilament> filaments;
+    std::vector<ColorMixExisting> existing;
+    for (const auto& entry : m_filament_entries) {
+        if (entry.kind == TextureFilamentKind::ExistingPhysical) {
+            ColorMixFilament f;
+            f.index = entry.dialog_index;
+            f.hex   = entry.color_hex;
+            f.name  = entry.name;
+            f.type  = entry.type;
+            filaments.push_back(f);
+        } else if (texture_entry_is_mixed(entry.kind)) {
+            ColorMixExisting e;
+            for (unsigned int c : entry.mixed_components)
+                e.components.push_back(int(c) - 1);
+            e.percentages = entry.mixed_ratios;
+            existing.push_back(e);
+        }
+    }
+    if (filaments.empty())
+        return;
+
+    const int free_slots = int(max_filament_count()) - int(m_filament_colors_rgba.size());
+    ColorMixDialog dlg(this, targets, filaments, existing, free_slots, false);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    auto find_existing_mixed = [this](const std::vector<int>& components, const std::vector<int>& ratios) -> int {
+        for (const auto& entry : m_filament_entries) {
+            if (!texture_entry_is_mixed(entry.kind) || entry.mixed_components.size() != components.size() ||
+                entry.mixed_ratios != ratios)
+                continue;
+            bool same = true;
+            for (size_t i = 0; i < components.size(); ++i)
+                same = same && entry.mixed_components[i] == (unsigned int)(components[i] + 1);
+            if (same)
+                return entry.dialog_index;
+        }
+        return -1;
+    };
+
+    m_filaments_dropped = false;
+    bool changed = false, any_mix = false;
+    const auto& choices = dlg.choices();
+    for (size_t row_index = 0; row_index < m_mapping_rows.size() && row_index < choices.size(); ++row_index) {
+        const ColorMixChoice& ch = choices[row_index];
+        int idx = ch.filament;
+        if (ch.is_mix()) {
+            idx = find_existing_mixed(ch.components, ch.percentages);
+            if (idx < 0)
+                idx = add_virtual_mixed_filament(ch.hex, ch.components, ch.percentages);
+            any_mix = any_mix || idx >= 0;
+        }
+        if (idx < 0 || idx >= (int)m_filament_colors_rgba.size())
+            continue;
+        m_mapping_rows[row_index].target_filament_idx = idx;
+        if (row_index < m_current_matches.size()) {
+            m_current_matches[row_index].filament_index = idx;
+            m_current_matches[row_index].filament_color = m_filament_colors_rgba[idx];
+            m_current_matches[row_index].delta_e = ch.delta_e;
+        }
+        changed = true;
+    }
+    if (!changed)
+        return;
+    if (any_mix)
+        ColorMixDialog::apply_method(dlg.method());
 
     m_auto_mix_applied = true;
     compact_used_virtual_filaments();

@@ -295,6 +295,9 @@ public:
 
     // Mixed-color filament sidebar section
     void add_mixed_filament();
+    // Orca Zoukei: reproduce the project filament colours that are not loaded in the printer with
+    // mixed filaments of the loaded ones (ColorMixDialog in project mode), then repaint the model.
+    void auto_mix_colors();
     // The filament slot that blends `components` (1-based physical filament indices) in `ratios`
     // (percentages) at a fixed ratio, creating it when no existing fixed mixed slot already describes
     // that blend (see find_fixed_mixed_filament()). Returns the 0-based filament index, or -1 when the

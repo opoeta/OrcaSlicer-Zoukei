@@ -36675,3 +36675,109 @@ msgstr "Otimizar automaticamente a posição da torre de limpeza"
 
 msgid "With this option enabled, after arranging, or when the printer or plate changes, the wipe tower is placed next to the objects, on the side the printer's default tower position points to. It never overlaps an object and keeps the nozzle's trips to the tower short."
 msgstr "Com esta opção ativada, depois de organizar, ou quando a impressora ou a placa mudar, a torre de limpeza é posicionada ao lado dos objetos, no lado para onde aponta a posição padrão da torre da impressora. Nunca sobrepõe um objeto e mantém curtas as viagens do bico até a torre."
+
+msgid "Mix colors automatically"
+msgstr "Misturar cores automaticamente"
+
+msgid "Tick the filaments loaded in the printer. The other project colors are reproduced with mixed filaments (alternating layers of the loaded filaments) or with the closest loaded filament."
+msgstr "Marque os filamentos carregados na impressora. As outras cores do projeto são reproduzidas com filamentos misturados (camadas alternadas dos filamentos carregados) ou com o filamento carregado mais próximo."
+
+msgid "The model colors are reproduced with mixed filaments (alternating layers of your loaded filaments) or with the closest loaded filament. Review the recipes before applying."
+msgstr "As cores do modelo são reproduzidas com filamentos misturados (camadas alternadas dos seus filamentos carregados) ou com o filamento carregado mais próximo. Revise as receitas antes de aplicar."
+
+msgid "Project filaments"
+msgstr "Filamentos do projeto"
+
+msgid "Loaded filaments"
+msgstr "Filamentos carregados"
+
+msgid "Loaded in the printer"
+msgstr "Carregado na impressora"
+
+msgid "Transmission distance (TD, mm) as measured for HueForge: a layer this thick still lets 10% of the light through. Lower is more opaque. 0 = estimate from the filament type."
+msgstr "Distância de transmissão (TD, mm) como medida para o HueForge: uma camada com essa espessura ainda deixa passar 10% da luz. Menor é mais opaco. 0 = estimar pelo tipo de filamento."
+
+msgid "Target colors"
+msgstr "Cores-alvo"
+
+msgid "The model colors are grouped (k-means in OKLab) into at most this many target colors"
+msgstr "As cores do modelo são agrupadas (k-means em OKLab) em no máximo esta quantidade de cores-alvo"
+
+msgid "Max. new mixes"
+msgstr "Máx. de misturas novas"
+
+msgid "Most mixed filaments this creates; each one uses a filament slot"
+msgstr "Máximo de filamentos misturados que isto cria; cada um ocupa um espaço de filamento"
+
+msgid "Ratio step"
+msgstr "Passo da proporção"
+
+msgid "Smallest share of one filament in a mix. Finer steps give more colors and longer layer patterns."
+msgstr "Menor fração de um filamento numa mistura. Passos menores dão mais cores e padrões de camadas mais longos."
+
+msgid "Allow 3-filament mixes"
+msgstr "Permitir misturas de 3 filamentos"
+
+msgid "Only physical filaments"
+msgstr "Somente filamentos físicos"
+
+msgid "Do not create mixed filaments; every color goes to the closest loaded filament"
+msgstr "Não criar filamentos misturados; cada cor vai para o filamento carregado mais próximo"
+
+#, c-format
+msgid "Automatic (%s)"
+msgstr "Automático (%s)"
+
+msgid "Sub-layers"
+msgstr "Sub-camadas"
+
+msgid "Alternating layers"
+msgstr "Camadas alternadas"
+
+msgid "Alternating layers: whole layers of each filament in a repeating pattern, fewest filament changes.\nSub-layers: every layer is split into thinner sub-layers, one per filament; finer mix, one change per filament on every layer. This sets the print option \"Mixed color sublayer\"."
+msgstr "Camadas alternadas: camadas inteiras de cada filamento num padrão repetido, o mínimo de trocas de filamento.\nSub-camadas: cada camada é dividida em sub-camadas mais finas, uma por filamento; mistura mais fina, uma troca por filamento em toda camada. Isto ajusta a opção de impressão \"Mixed color sublayer\"."
+
+msgid "Color model"
+msgstr "Modelo de cor"
+
+msgid "Pigment (measured blends + polynomial)"
+msgstr "Pigmento (misturas medidas + polinômio)"
+
+msgid "Optical (stripes + translucency)"
+msgstr "Óptico (listras + translucidez)"
+
+msgid "Toolchanger / multi-nozzle printer: switching between the filaments of a mix needs no purge, so mixes are cheap and sub-layers give the finest blend."
+msgstr "Impressora com troca de ferramenta / vários bicos: alternar entre os filamentos de uma mistura não exige purga, então as misturas são baratas e as sub-camadas dão a mistura mais fina."
+
+msgid "Single-nozzle printer with a filament feeder (AMS / CFS / IFS / MMU): every switch between the filaments of a mix purges filament into the prime tower. Alternating layers switch at most once per layer; sub-layers switch on every layer. Expect more waste and print time with many mixes."
+msgstr "Impressora de bico único com alimentador de filamento (AMS / CFS / IFS / MMU): cada troca entre os filamentos de uma mistura purga filamento na torre de limpeza. Camadas alternadas trocam no máximo uma vez por camada; sub-camadas trocam em toda camada. Espere mais desperdício e tempo de impressão com muitas misturas."
+
+msgid "Recipe (filament shares and layer pattern)"
+msgstr "Receita (frações dos filamentos e padrão de camadas)"
+
+msgid "Predicted"
+msgstr "Previsto"
+
+msgid "Select at least one loaded filament."
+msgstr "Selecione pelo menos um filamento carregado."
+
+msgid "Nothing to mix: every color is a loaded filament."
+msgstr "Nada para misturar: todas as cores são filamentos carregados."
+
+#, c-format
+msgid "Mean %s %.1f (closest loaded filament only: %.1f), worst %.1f, %d new mixed filaments"
+msgstr "%s médio %.1f (só o filamento carregado mais próximo: %.1f), pior %.1f, %d filamentos misturados novos"
+
+msgid "Automatic color mixing needs at least two filaments in the project."
+msgstr "A mistura automática de cores precisa de pelo menos dois filamentos no projeto."
+
+#, c-format
+msgid "The model now prints with the loaded filaments and their mixes. Filaments%s are no longer used; you can remove them from the project."
+msgstr "O modelo agora imprime com os filamentos carregados e suas misturas. Os filamentos%s não são mais usados; você pode removê-los do projeto."
+
+#, boost-format
+msgid "This model uses %1% filament colors."
+msgstr "Este modelo usa %1% cores de filamento."
+
+msgid "Reproduce the model colors with mixed filaments made from your loaded filaments, with a review of every recipe before applying"
+msgstr "Reproduzir as cores do modelo com filamentos misturados feitos dos seus filamentos carregados, revisando cada receita antes de aplicar"

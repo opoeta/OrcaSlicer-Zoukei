@@ -260,6 +260,9 @@ private:
     void dismiss_auto_mix_popup();
     void set_auto_mix_mode(TextureAutoMixMode mode);
     void apply_auto_standard_mix(TextureAutoMixMode mode);
+    // Solves every row against the loaded physical filaments with the ColorMixEngine and lets the
+    // user review the recipes (ColorMixDialog) before mapping the rows.
+    void apply_color_mix_solver();
     void reset_auto_mix();
     void update_auto_mix_reset_visibility();
     bool add_decomposed_mixed_filament(size_t row_index);
@@ -367,6 +370,7 @@ private:
 
     wxCheckBox*           m_auto_merge_cb = nullptr;
     Button*               m_btn_auto_mix  = nullptr;
+    Button*               m_btn_color_mix = nullptr;
     Button*               m_btn_mix_reset = nullptr;
     bool                  m_auto_mix_applied = false;
     AutoMixSelectPopup*   m_auto_mix_popup = nullptr;

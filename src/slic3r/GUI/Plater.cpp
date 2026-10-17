@@ -280,6 +280,7 @@
 #include "WipeTowerDialog.hpp"
 #include "MixedFilamentDialog.hpp"
 #include "TextureImportDialog.hpp"
+#include "ColorMixDialog.hpp"
 #include "libslic3r/TexturePainting.hpp"
 #include "ColorDecomposeSupport.hpp"
 #include "FilamentBitmapUtils.hpp"
@@ -949,6 +950,7 @@ struct Sidebar::priv
     wxPanel*          m_panel_mixed_title{nullptr};       // title row: "Mixed Filament" + add/del buttons
     StaticLine*       m_text_mixed_title{nullptr};
     ScalableButton*   m_btn_mixed_add{nullptr};
+    ScalableButton*   m_btn_mixed_auto{nullptr};          // Orca Zoukei: automatic colour mixing
     ScalableButton*   m_btn_mixed_del{nullptr};
     ScalableButton*   m_btn_mixed_del_all{nullptr};
     wxScrolledWindow* m_mixed_scroll_area{nullptr};       // independent scrollbar for mixed rows
@@ -3470,6 +3472,12 @@ Sidebar::Sidebar(Plater *parent)
         p->m_btn_add_mixed_filament->Bind(wxEVT_LEFT_UP, on_click);
         add_label->Bind(wxEVT_LEFT_UP, on_click);
         icon_add->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { add_mixed_filament(); });
+        // Orca Zoukei: automatic colour mixing next to the manual one.
+        auto* icon_auto = new ScalableButton(p->m_btn_add_mixed_filament, wxID_ANY, "color_palette", wxEmptyString,
+                                             wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, false, 16);
+        icon_auto->SetToolTip(_L("Mix colors automatically"));
+        icon_auto->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { auto_mix_colors(); });
+        btn_sizer->Insert(btn_sizer->GetItemCount() - 1, icon_auto, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12));
     }
     wrapper_sizer->Add(p->m_btn_add_mixed_filament, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, FromDIP(8));
 
@@ -3503,6 +3511,11 @@ Sidebar::Sidebar(Plater *parent)
         p->m_btn_mixed_add->SetToolTip(_L("Add mixed filament"));
         p->m_btn_mixed_add->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { add_mixed_filament(); });
         title_sizer->Add(p->m_btn_mixed_add, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::IconSpacing()));
+
+        p->m_btn_mixed_auto = new ScalableButton(p->m_panel_mixed_title, wxID_ANY, "color_palette");
+        p->m_btn_mixed_auto->SetToolTip(_L("Mix colors automatically"));
+        p->m_btn_mixed_auto->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { auto_mix_colors(); });
+        title_sizer->Add(p->m_btn_mixed_auto, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::IconSpacing()));
         title_sizer->AddSpacer(FromDIP(SidebarProps::TitlebarMargin()));
 
         p->m_panel_mixed_title->SetSizer(title_sizer);
@@ -5288,6 +5301,128 @@ int Sidebar::ensure_mixed_filament(const std::vector<unsigned int> &components, 
     if (!create_mixed_filament_from_result(this, result, color_strs))
         return -1;
     return int(created_at);
+}
+
+void Sidebar::auto_mix_colors()
+{
+    Plater* plater = wxGetApp().plater();
+    if (!plater)
+        return;
+    PresetBundle& bundle         = *wxGetApp().preset_bundle;
+    auto&         project_config = bundle.project_config;
+    auto*         is_mixed_opt   = project_config.option<ConfigOptionBools>("filament_is_mixed");
+    auto*         comps_opt      = project_config.option<ConfigOptionStrings>("filament_mixed_components");
+    auto*         ratios_opt     = project_config.option<ConfigOptionStrings>("filament_mixed_sublayer_ratios");
+    auto*         grad_opt       = project_config.option<ConfigOptionBools>("filament_mixed_gradient");
+    const size_t  total          = bundle.filament_presets.size();
+    auto is_mixed = [&](size_t i) { return is_mixed_opt && i < is_mixed_opt->values.size() && is_mixed_opt->values[i]; };
+
+    std::vector<std::string> color_strs, names, types;
+    std::vector<size_t>      physical_cfg;
+    collect_physical_filament_info(color_strs, names, types, &physical_cfg);
+
+    // Which filaments the model uses, to tell the user what changes.
+    std::set<int> used; // 0-based
+    for (const ModelObject* object : plater->model().objects)
+        for (const ModelVolume* volume : object->volumes)
+            for (int e : volume->get_extruders())
+                if (e >= 1)
+                    used.insert(e - 1);
+
+    // By default the first slots are the loaded ones: as many as the printer has tool heads, else 4.
+    const ColorMix::PrinterKind printer        = ColorMixDialog::current_printer();
+    const size_t                default_loaded = printer.nozzles > 1 && !printer.single_extruder_mm ? size_t(printer.nozzles) : 4;
+
+    std::vector<ColorMixFilament> filaments;
+    for (size_t k = 0; k < physical_cfg.size(); ++k) {
+        ColorMixFilament f;
+        f.index  = int(physical_cfg[k]);
+        f.hex    = k < color_strs.size() ? color_strs[k] : "#808080";
+        f.name   = k < names.size() ? names[k] : "";
+        f.type   = k < types.size() ? types[k] : "";
+        f.loaded = k < default_loaded;
+        filaments.push_back(f);
+    }
+    if (filaments.size() < 2) {
+        MessageDialog(this, _L("Automatic color mixing needs at least two filaments in the project."),
+                      _L("Mix colors automatically"), wxOK | wxICON_INFORMATION).ShowModal();
+        return;
+    }
+
+    std::vector<ColorMixExisting> existing;
+    for (size_t i = 0; i < total; ++i) {
+        if (!is_mixed(i) || (grad_opt && i < grad_opt->values.size() && grad_opt->values[i]))
+            continue;
+        ColorMixExisting e;
+        for (unsigned int c : parse_mixed_components(comps_opt && i < comps_opt->values.size() ? comps_opt->values[i] : ""))
+            e.components.push_back(int(c) - 1);
+        for (double r : parse_mixed_ratios(ratios_opt && i < ratios_opt->values.size() ? ratios_opt->values[i] : "", e.components.size()))
+            e.percentages.push_back(int(std::lround(r * 100.0)));
+        if (e.components.size() >= 2)
+            existing.push_back(e);
+    }
+
+    const int      free_slots = int(EnforcerBlockerType::ExtruderMax) - int(total);
+    ColorMixDialog dlg(this, {}, filaments, existing, free_slots, true);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    // Create the mixes first (they append slots, physical indices stay put), then repaint.
+    std::map<int, int> relocations;
+    bool               any_mix = false;
+    const auto&        choices = dlg.choices();
+    for (size_t k = 0; k < choices.size() && k < dlg.filaments().size(); ++k) {
+        const ColorMixFilament& f  = dlg.filaments()[k];
+        const ColorMixChoice&   ch = choices[k];
+        if (f.loaded)
+            continue;
+        int to = ch.filament;
+        if (ch.is_mix()) {
+            std::vector<unsigned int> comps;
+            for (int c : ch.components)
+                comps.push_back(unsigned(c + 1));
+            to      = ensure_mixed_filament(comps, ch.percentages);
+            any_mix = any_mix || to >= 0;
+        }
+        if (to >= 0 && to != f.index)
+            relocations[f.index] = to;
+    }
+    if (any_mix)
+        ColorMixDialog::apply_method(dlg.method());
+    if (relocations.empty())
+        return;
+
+    plater->take_snapshot(_u8L("Mix colors automatically"));
+    Model& model = plater->model();
+    remap_model_filament_slots(model, relocations);
+    // Layer-range modifiers carry their own extruder too.
+    for (ModelObject* object : model.objects)
+        for (auto& range : object->layer_config_ranges) {
+            ModelConfig& cfg = range.second;
+            if (cfg.has("extruder")) {
+                auto it = relocations.find(cfg.extruder() - 1);
+                if (it != relocations.end())
+                    cfg.set("extruder", it->second + 1);
+            }
+        }
+    std::vector<size_t> all(model.objects.size());
+    std::iota(all.begin(), all.end(), 0);
+    plater->changed_objects(all);
+    if (GLCanvas3D* canvas = plater->get_view3D_canvas3D())
+        canvas->reload_scene(true, true);
+    plater->update();
+
+    wxString unused;
+    for (const auto& [from, to] : relocations)
+        if (used.count(from))
+            unused += wxString::Format(" F%d", from + 1);
+    if (!unused.empty())
+        MessageDialog(this,
+                      wxString::Format(_L("The model now prints with the loaded filaments and their mixes. "
+                                          "Filaments%s are no longer used; you can remove them from the project."),
+                                       unused),
+                      _L("Mix colors automatically"), wxOK | wxICON_INFORMATION)
+            .ShowModal();
 }
 
 void Sidebar::add_mixed_filament()
@@ -18417,6 +18552,35 @@ std::vector<size_t> Plater::load_files(const std::vector<fs::path>& input_files,
     std::vector<size_t> result = p->load_files(input_files, strategy, ask_multi, published_out, &config_loaded);
     if (config_loaded && !is_loading_project())
         normalize_bed_types(false);
+    // Orca Zoukei: a coloured 3MF that uses more filaments than the printer holds can be mixed
+    // from the loaded ones. Offer it once per load, never forced.
+    if (!result.empty() && std::any_of(input_files.begin(), input_files.end(), [](const fs::path& f) {
+            return boost::algorithm::iends_with(f.string(), ".3mf");
+        })) {
+        const auto* is_mixed = wxGetApp().preset_bundle->project_config.option<ConfigOptionBools>("filament_is_mixed");
+        std::set<int> used;
+        bool          uses_mix = false;
+        for (const ModelObject* object : model().objects)
+            for (const ModelVolume* volume : object->volumes)
+                for (int e : volume->get_extruders()) {
+                    if (e < 1)
+                        continue;
+                    if (is_mixed && size_t(e - 1) < is_mixed->values.size() && is_mixed->values[size_t(e - 1)])
+                        uses_mix = true;
+                    else
+                        used.insert(e);
+                }
+        const ColorMix::PrinterKind printer = ColorMixDialog::current_printer();
+        const size_t slots = printer.nozzles > 1 && !printer.single_extruder_mm ? size_t(printer.nozzles) : 4;
+        if (!uses_mix && used.size() > slots)
+            get_notification_manager()->push_notification(
+                NotificationType::CustomNotification, NotificationManager::NotificationLevel::RegularNotificationLevel,
+                GUI::format(_u8L("This model uses %1% filament colors."), used.size()) + " ", _u8L("Mix colors automatically"),
+                [this](wxEvtHandler*) {
+                    wxGetApp().CallAfter([this]() { sidebar().auto_mix_colors(); });
+                    return true;
+                });
+    }
     return result;
 }
 
