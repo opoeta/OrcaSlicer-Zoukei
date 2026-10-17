@@ -355,8 +355,10 @@
         set() { return false; }
 
         // IFS orders go through ZMOD's macros (the printer asks for the temperature itself).
-        ifsLoad(slot) { return this._order('LOAD_MATERIAL T=' + (slot - 1)); }
-        ifsUnload() { return this._order('UNLOAD_FILAMENT'); }
+        // ZMOD IFS macros: "prutok" is the 1-based IFS port. LOAD_MATERIAL T= is the manual per-extruder
+        // load (T=1 means extruder1 and fails on the single-extruder AD5X).
+        ifsLoad(slot) { return this._order('_INSERT_PRUTOK_IFS PRUTOK=' + slot); }
+        ifsUnload() { return this._order('_IFS_REMOVE_CURRENT_PRUTOK'); }
         ifsUnlock() { return this._order('IFS_UNLOCK'); }
 
         // ZMOD's accepted materials (zmod_color.valid_types) and a fresh read of the IFS objects.
