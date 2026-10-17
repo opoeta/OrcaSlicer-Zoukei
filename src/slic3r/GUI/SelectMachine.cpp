@@ -55,6 +55,7 @@
 #include <wx/anybutton.h>
 #include "slic3r/GUI/Widgets/Button.hpp"
 #include "slic3r/GUI/CrealityCfsUi.hpp"
+#include "slic3r/GUI/SpoolmanUi.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include <memory>
@@ -2809,6 +2810,12 @@ void SelectMachineDialog::on_ok_btn(wxCommandEvent &event)
     }
 
     std::vector<ConfirmBeforeSendInfo> confirm_text;
+
+    // Orca Zoukei: Spoolman - a linked spool holds less filament than the sliced plate needs
+    if (const wxString low_spools = SpoolmanUi::low_spools_text(); !low_spools.empty()) {
+        confirm_text.push_back(ConfirmBeforeSendInfo(low_spools));
+        has_slice_warnings = true;
+    }
 
     // check more than one using in same external spool
     std::unordered_set<std::string> main_external_spool_filas;

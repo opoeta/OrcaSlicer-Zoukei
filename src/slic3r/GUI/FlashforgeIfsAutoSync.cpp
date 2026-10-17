@@ -5,6 +5,7 @@
 #include "Plater.hpp"
 #include "GUI_ObjectList.hpp"
 #include "NotificationManager.hpp"
+#include "SpoolmanUi.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -90,6 +91,19 @@ std::vector<Fil> project_filaments()
             f.signature += "|" + (mc != nullptr && i < mc->values.size() ? mc->values[i] : std::string()) + "|" +
                            (ty != nullptr && i < ty->values.size() ? ty->values[i] : std::string()) + "|" +
                            (gl != nullptr && i < gl->values.size() ? std::to_string(gl->values[i]) : std::string());
+        }
+        {   // the Spoolman spool of the filament goes to the lane together with its colour and material
+            const int spool = SpoolmanUi::project_spool_id(int(i));
+            if (spool > 0) {
+                f.write.spool_id = spool;
+                if (Spoolman::Spool s; Spoolman::cached_spool(spool, s)) {
+                    f.write.spool_filament_id = s.filament_id;
+                    f.write.spool_vendor_id   = s.vendor_id;
+                    f.write.spool_vendor      = s.vendor;
+                    f.write.spool_name        = s.name;
+                }
+            }
+            f.signature += "|spool" + std::to_string(spool);
         }
         out.push_back(std::move(f));
     }

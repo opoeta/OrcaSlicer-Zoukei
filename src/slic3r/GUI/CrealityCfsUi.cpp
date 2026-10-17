@@ -1,6 +1,7 @@
 #include "CrealityCfsUi.hpp"
 
 #include "CrealityDevicePanel.hpp"
+#include "SpoolmanUi.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
 #include "Widgets/StateColor.hpp"
@@ -10,6 +11,7 @@
 #include "slic3r/Utils/CrealityCfsClient.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
+#include "slic3r/Utils/Spoolman.hpp"
 
 #include "FilamentBitmapUtils.hpp"
 #include "DeviceManager.hpp"
@@ -59,6 +61,20 @@ PrinterSnapshot snapshot()
         return {};
     auto client = Client::get(host);
     return client ? client->snapshot() : PrinterSnapshot{};
+}
+
+// Identifier of the selected printer for the local Spoolman links: the Creality host, the Bambu dev id ("" = none / Flashforge).
+std::string creality_host()
+{
+    PresetBundle* b = wxGetApp().preset_bundle;
+    if (b == nullptr || !CrealityDevicePanel::is_creality_printer(*b))
+        return {};
+    const DynamicPrintConfig* c = nullptr;
+    if (b->physical_printers.has_selection())
+        c = b->physical_printers.get_selected_printer_config();
+    if (c == nullptr || !c->has("print_host") || c->opt_string("print_host").empty())
+        c = &b->printers.get_edited_preset().config;
+    return c->has("print_host") ? Client::strip_host(c->opt_string("print_host")) : std::string();
 }
 
 std::shared_ptr<FlashforgePrinterAgent> flashforge_agent()
@@ -151,6 +167,7 @@ struct Entry
     wxColour    colour;
     std::string type;
     bool        loaded;
+    int         spool_id = 0; // Spoolman spool bound to the slot (0 = none)
 };
 
 // Ext first, then every CFS slot.
@@ -224,6 +241,48 @@ int bambu_col(const std::vector<Entry>& es, int box)
     return rank < 2 ? rank + 1 : 3;
 }
 
+// ---- Spoolman links kept locally (Creality, Bambu): app config section "spoolman_slots", key "<printer>:<box>:<slot>" -> spool id.
+constexpr const char* SPOOL_SECTION = "spoolman_slots";
+
+std::string spool_printer_id()
+{
+    if (MachineObject* o = bambu_obj())
+        return "bbl-" + o->get_dev_id();
+    const std::string host = creality_host();
+    return host.empty() ? std::string() : "cx-" + host;
+}
+
+std::string spool_link_key(const std::string& printer, int box, int slot) { return printer + ":" + std::to_string(box) + ":" + std::to_string(slot); }
+
+int local_spool(const std::string& printer, int box, int slot)
+{
+    AppConfig* cfg = wxGetApp().app_config;
+    if (cfg == nullptr || printer.empty())
+        return 0;
+    return std::max(0, std::atoi(cfg->get(SPOOL_SECTION, spool_link_key(printer, box, slot)).c_str()));
+}
+
+// id 0 forgets the link; a spool sits in one slot of a printer only.
+void set_local_spool(const std::string& printer, int box, int slot, int id)
+{
+    AppConfig* cfg = wxGetApp().app_config;
+    if (cfg == nullptr || printer.empty())
+        return;
+    const std::string key = spool_link_key(printer, box, slot);
+    if (id > 0 && cfg->has_section(SPOOL_SECTION)) {
+        std::vector<std::string> same;
+        for (const auto& kv : cfg->get_section(SPOOL_SECTION))
+            if (kv.first != key && kv.first.rfind(printer + ":", 0) == 0 && std::atoi(kv.second.c_str()) == id)
+                same.push_back(kv.first);
+        for (const std::string& k : same)
+            cfg->erase(SPOOL_SECTION, k);
+    }
+    if (id > 0)
+        cfg->set(SPOOL_SECTION, key, std::to_string(id));
+    else
+        cfg->erase(SPOOL_SECTION, key);
+}
+
 wxString unit_name(int box, bool full)
 {
     if (box == 0)
@@ -242,12 +301,14 @@ std::vector<Entry> current_entries()
             return out;
         out.push_back({0, 0, "Ext", wxColour(), std::string(), false});
         for (const auto& s : slots)
-            out.push_back({1, s.port - 1, wxString::Format("IFS%d", s.port), s.color.empty() ? wxColour() : wxColour(s.color), s.material, s.has_filament});
+            out.push_back({1, s.port - 1, wxString::Format("IFS%d", s.port), s.color.empty() ? wxColour() : wxColour(s.color), s.material, s.has_filament, s.spool_id});
         return slots.empty() ? std::vector<Entry>() : out;
     }
-    if (MachineObject* o = bambu_obj())
-        return bambu_entries(o);
-    return entries(snapshot());
+    std::vector<Entry> out = bambu_obj() != nullptr ? bambu_entries(bambu_obj()) : entries(snapshot());
+    if (const std::string printer = spool_printer_id(); !printer.empty() && !out.empty())
+        for (Entry& e : out)
+            e.spool_id = local_spool(printer, e.box, e.slot);
+    return out;
 }
 
 wxColour bg_col() { return StateColor::darkModeColorFor(*wxWHITE); }
@@ -374,7 +435,10 @@ private:
             const bool ext = v[i]->box == 0;
             draw_chip(dc, wxRect(r.x, r.y, FromDIP(48), r.height), v[i]->label, v[i]->colour, v[i]->loaded);
             dc.SetTextForeground(v[i]->loaded || ext ? fg_col() : wxColour(150, 150, 150));
-            dc.DrawText(v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : (ext ? wxString("-") : _L("Empty") + L" \u26A0"), r.x + FromDIP(56), r.y + FromDIP(4));
+            wxString txt = v[i]->loaded ? wxString::FromUTF8(v[i]->type.c_str()) : (ext ? wxString("-") : _L("Empty") + L" \u26A0");
+            if (v[i]->spool_id > 0)
+                txt += wxString::Format("  #%d", v[i]->spool_id); // Spoolman spool bound to the slot
+            dc.DrawText(txt, r.x + FromDIP(56), r.y + FromDIP(4));
         }
         if (m_edit) {
             const wxRect r = edit_rect();
@@ -407,6 +471,8 @@ private:
                 set_slot(m_idx, v[i]->box, v[i]->slot);
                 if (m_bambu)
                     remember_colours(m_idx);
+                if (const int spool = SpoolmanUi::project_spool_id(m_idx); spool > 0)
+                    link_spool_to_slot(m_idx, spool); // the filament's Spoolman spool follows it to the new slot
                 auto done = m_done;
                 Dismiss();
                 done();
@@ -562,6 +628,73 @@ void set_mapped_tray(int idx, int tray)
         set_slot(idx, boxes[size_t(tray / 4)].id, tray % 4);
 }
 
+// ---- Spoolman ----------------------------------------------------------------------------------
+
+std::map<int, wxString> spool_slot_labels()
+{
+    std::map<int, wxString> out;
+    for (const Entry& e : current_entries())
+        if (e.spool_id > 0)
+            out[e.spool_id] = e.label;
+    return out;
+}
+
+int mapped_slot_spool(int idx)
+{
+    const Entry* e  = nullptr;
+    const auto   es = current_entries();
+    label_of(idx, es, &e);
+    return e != nullptr ? e->spool_id : 0;
+}
+
+void link_spool_to_slot(int idx, int spool_id)
+{
+    const Entry* e  = nullptr;
+    const auto   es = current_entries();
+    label_of(idx, es, &e);
+    if (e == nullptr)
+        return;
+    spool_id = std::max(0, spool_id);
+    if (auto ff = flashforge_agent()) {
+        if (e->box != 1 || ff->mode() != FlashforgePrinterAgent::Mode::zmod || (spool_id == 0 && e->spool_id == 0))
+            return;
+        PresetBundle*                     b = wxGetApp().preset_bundle;
+        FlashforgePrinterAgent::SlotWrite w;
+        w.port     = e->slot + 1;
+        w.spool_id = spool_id;
+        if (const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour"); cols != nullptr && idx < (int) cols->values.size()) {
+            const wxColour c(cols->values[idx]);
+            if (c.IsOk())
+                w.color = c.GetAsString(wxC2S_HTML_SYNTAX).Upper().ToStdString();
+        }
+        if (idx < (int) b->filament_presets.size())
+            if (const Preset* p = b->filaments.find_preset(b->filament_presets[idx]))
+                if (const auto* o = p->config.option<ConfigOptionStrings>("filament_type"); o != nullptr && !o->values.empty())
+                    w.type = o->values.front();
+        bool                        grad = false;
+        const std::vector<wxColour> mc   = filament_colours(idx, grad);
+        if (mc.size() >= 2) {
+            for (const wxColour& c : mc)
+                w.colors.push_back(c.GetAsString(wxC2S_HTML_SYNTAX).Upper().ToStdString());
+            w.gradient = grad;
+        }
+        if (Spoolman::Spool s; spool_id > 0 && Spoolman::cached_spool(spool_id, s)) {
+            w.spool_filament_id = s.filament_id;
+            w.spool_vendor_id   = s.vendor_id;
+            w.spool_vendor      = s.vendor;
+            w.spool_name        = s.name;
+        }
+        ff->link_spools({w});
+        return;
+    }
+    const std::string printer = spool_printer_id();
+    if (printer.empty() || (spool_id == 0 && e->spool_id == 0))
+        return;
+    set_local_spool(printer, e->box, e->slot, spool_id);
+    for (Badge* b : s_badges)
+        b->Refresh();
+}
+
 // ---- Watcher -----------------------------------------------------------------------------------
 
 bool grouping(int n, std::vector<int>& box_of)
@@ -635,7 +768,14 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
     Bind(wxEVT_MOTION, [this, in_colour_part](wxMouseEvent& ev) {
         const bool left = in_colour_part(ev.GetPosition());
         SetCursor(wxCursor(wxCURSOR_HAND));
-        SetToolTip(left ? _L("Edit color") : _L("Swap slot"));
+        wxString tip = left ? _L("Edit color") : _L("Swap slot");
+        if (const int id = SpoolmanUi::project_spool_id(m_idx); id > 0)
+            tip += "\n" + _L("Spool") + ": " + SpoolmanUi::spool_summary(id);
+        else if (const int sid = mapped_slot_spool(m_idx); sid > 0)
+            tip += "\n" + _L("Slot spool") + ": " + SpoolmanUi::spool_summary(sid);
+        tip += "\n" + _L("Right click: Spoolman spool");
+        if (GetToolTipText() != tip)
+            SetToolTip(tip);
         ev.Skip();
     });
     Bind(wxEVT_LEFT_DOWN, [this, edit_colour, in_colour_part](wxMouseEvent& ev) {
@@ -651,6 +791,10 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
         }, edit_colour);
         p->Position(ClientToScreen(wxPoint(0, GetSize().y)), wxSize(0, 0));
         p->Popup();
+    });
+    Bind(wxEVT_RIGHT_UP, [this](wxMouseEvent&) {
+        const int idx = m_idx;
+        wxTheApp->CallAfter([idx] { SpoolmanUi::pick_spool(wxGetApp().plater(), idx); });
     });
     s_badges.insert(this);
     Hide();

@@ -8301,6 +8301,7 @@ void GCode::append_full_config(const Print &print, std::string &str)
         "compatible_prints"sv,
         "filament_colour_type"sv,
         "filament_cfs_slot"sv,
+        "filament_spool_id"sv,
         "filament_gradient_length"sv,
         "print_host"sv,
         "print_host_webui"sv,

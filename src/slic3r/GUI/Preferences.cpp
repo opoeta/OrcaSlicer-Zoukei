@@ -68,6 +68,8 @@
 #include "Widgets/StaticLine.hpp"
 #include "Widgets/RadioGroup.hpp"
 #include "Shortcuts.hpp"
+#include "SpoolmanUi.hpp"
+#include "slic3r/Utils/Spoolman.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
 #include "NetworkPluginDialog.hpp"
@@ -1249,6 +1251,85 @@ wxBoxSizer* PreferencesDialog::create_item_button(wxString title, wxString title
     return m_sizer;
 }
 
+// Orca Zoukei: Spoolman server (read-only integration): address, test and detect-from-printer buttons.
+wxBoxSizer* PreferencesDialog::create_item_spoolman(wxString title, wxString tooltip)
+{
+    wxBoxSizer* m_sizer = create_item_label(title, tooltip);
+
+    auto input = new ::TextInput(m_parent, wxEmptyString, wxEmptyString, wxEmptyString, wxDefaultPosition, wxSize(FromDIP(220), -1), wxTE_PROCESS_ENTER);
+    input->GetTextCtrl()->SetValue(wxString::FromUTF8(app_config->get("spoolman_url")));
+    input->SetToolTip(tooltip);
+    input->GetTextCtrl()->SetHint("10.10.1.254:7912");
+
+    auto test_btn = new Button(m_parent, _L("Test"));
+    test_btn->SetStyle(ButtonStyle::Regular, ButtonType::Parameter);
+    test_btn->SetToolTip(_L("Connect to the Spoolman server and count its spools."));
+    auto detect_btn = new Button(m_parent, _L("Detect"));
+    detect_btn->SetStyle(ButtonStyle::Regular, ButtonType::Parameter);
+    detect_btn->SetToolTip(_L("Ask the connected Moonraker printer (its [spoolman] section) for the server address."));
+
+    auto status = new wxStaticText(m_parent, wxID_ANY, wxString(), wxDefaultPosition, wxSize(FromDIP(260), -1), wxST_ELLIPSIZE_END);
+    status->SetForegroundColour(DESIGN_GRAY900_COLOR);
+    status->SetFont(::Label::Body_14);
+
+    m_sizer->Add(input, 0, wxALIGN_CENTER_VERTICAL);
+    m_sizer->Add(test_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
+    m_sizer->Add(detect_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
+    m_sizer->Add(status, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(10));
+
+    auto save = [this, input]() {
+        const std::string value = boost::trim_copy(std::string(input->GetTextCtrl()->GetValue().ToUTF8().data()));
+        if (value != app_config->get("spoolman_url")) {
+            app_config->set("spoolman_url", value);
+            app_config->save();
+        }
+    };
+    input->GetTextCtrl()->Bind(wxEVT_TEXT_ENTER, [save](wxCommandEvent& e) { save(); e.Skip(); });
+    input->GetTextCtrl()->Bind(wxEVT_KILL_FOCUS, [save](wxFocusEvent& e) { save(); e.Skip(); });
+
+    wxWeakRef<wxStaticText> weak_status(status);
+    wxWeakRef<::TextInput>  weak_input(input);
+    test_btn->Bind(wxEVT_BUTTON, [save, input, weak_status](wxCommandEvent&) {
+        save();
+        weak_status->SetLabel(_L("Testing..."));
+        SpoolmanUi::test_connection_async(std::string(input->GetTextCtrl()->GetValue().ToUTF8().data()), [weak_status](bool, const wxString& msg) {
+            if (weak_status) {
+                weak_status->SetLabel(msg);
+                weak_status->SetToolTip(msg);
+            }
+        });
+    });
+    detect_btn->Bind(wxEVT_BUTTON, [save, weak_status, weak_input](wxCommandEvent&) {
+        weak_status->SetLabel(_L("Looking for a Moonraker printer with Spoolman..."));
+        SpoolmanUi::detect_url_async([weak_status, weak_input](const std::string& url) {
+            if (!weak_status)
+                return;
+            if (url.empty()) {
+                weak_status->SetLabel(_L("No connected Moonraker printer reports a Spoolman server."));
+                return;
+            }
+            if (weak_input) {
+                weak_input->GetTextCtrl()->SetValue(wxString::FromUTF8(url));
+                wxGetApp().app_config->set("spoolman_url", url);
+                wxGetApp().app_config->save();
+            }
+            weak_status->SetLabel(wxString::Format(_L("Server found: %s"), wxString::FromUTF8(url)));
+        });
+    });
+
+    // Empty field: take the address from the connected Moonraker printer (silent when there is none).
+    if (boost::trim_copy(app_config->get("spoolman_url")).empty())
+        SpoolmanUi::detect_url_async([weak_input](const std::string& url) {
+            if (url.empty() || !weak_input || !boost::trim_copy(std::string(weak_input->GetTextCtrl()->GetValue().ToUTF8().data())).empty())
+                return;
+            weak_input->GetTextCtrl()->SetValue(wxString::FromUTF8(url));
+            wxGetApp().app_config->set("spoolman_url", url);
+            wxGetApp().app_config->save();
+        });
+
+    return m_sizer;
+}
+
 wxBoxSizer* PreferencesDialog::create_item_downloads(wxString title, wxString tooltip)
 {
     wxString download_path = wxString::FromUTF8(app_config->get("download_path"));
@@ -1807,6 +1888,11 @@ void PreferencesDialog::create_items()
            "mapped to that slot instead of only offering a notification."),
         "flashforge_apply_printer_changes");
     g_sizer->Add(item_ff_apply);
+
+    auto item_spoolman = create_item_spoolman(_L("Spoolman server"),
+        _L("Address of your Spoolman server on the local network (for example 10.10.1.254:7912). It is only read, never changed. "
+           "Left empty, it is taken from a connected Moonraker printer that has [spoolman] configured."));
+    g_sizer->Add(item_spoolman);
 
     auto item_speed_dial = create_item_checkbox(_L("Open the Speed Dial from the keyboard"),
         _L("When enabled, the Speed Dial keyboard shortcut (Space by default) opens the action search from any page."),

@@ -460,6 +460,7 @@ static bool project_key_writable(const std::string &key)
         "filament_multi_colour", // one entry per filament, 1-4 hex colours, first = filament_colour[i]
         "filament_colour_type",  // one entry per filament, "0" gradient / "1" solid
         "filament_gradient_length", // one value per filament, >= 0
+        "filament_spool_id",     // one entry per filament, "" or a Spoolman spool id (positive integer)
         "curr_bed_type",         // enum; btDefault rejected
         "prime_volume_mode",     // enum, self-validating
         "wipe_tower_x",          // per-plate vector, written via set_at
@@ -633,6 +634,22 @@ static std::string project_value_error(const std::string        &key,
                 if (ty != nullptr && i < ty->values.size() && ty->values[i] == "0" && cols.size() < 2)
                     return "entry " + std::to_string(i) + ": gradient type needs at least 2 colours";
             }
+        }
+        return {};
+    }
+    if (key == "filament_spool_id") {
+        const auto *colours = staged.option<ConfigOptionStrings>("filament_colour");
+        const size_t n = colours == nullptr ? filaments_before : colours->values.size();
+        const auto *o = staged.option<ConfigOptionStrings>(key);
+        const size_t got = o == nullptr ? 0 : o->values.size();
+        if (got != n)
+            return "expected " + std::to_string(n) + " entries (one per filament, ';'-separated, empty = none), got " + std::to_string(got);
+        for (size_t i = 0; i < got; ++i) {
+            const std::string &v = o->values[i];
+            if (v.empty())
+                continue;
+            if (v.size() > 9 || !std::all_of(v.begin(), v.end(), [](char c) { return std::isdigit((unsigned char) c) != 0; }) || std::stoll(v) < 1)
+                return "entry " + std::to_string(i) + " must be empty or a positive Spoolman spool id, got \"" + v + "\"";
         }
         return {};
     }
@@ -900,7 +917,8 @@ Response Controller::handle_put_config(const std::string &body)
             const bool touched_tower = proj_keys.count("wipe_tower_x") || proj_keys.count("wipe_tower_y");
 
             if (proj_keys.count("filament_multi_colour") || proj_keys.count("filament_colour_type") ||
-                proj_keys.count("filament_gradient_length") || proj_keys.count("filament_colour")) {
+                proj_keys.count("filament_gradient_length") || proj_keys.count("filament_colour") ||
+                proj_keys.count("filament_spool_id")) {
                 // Same epilogue as the colour dialog (PlaterPresetComboBox::sync_colour_config):
                 // lists stay in lockstep, then the sidebar swatches are rebuilt.
                 bundle->normalize_filament_colour_lists();

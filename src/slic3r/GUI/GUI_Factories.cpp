@@ -7,6 +7,7 @@
 #include "GUI_ObjectList.hpp"
 #include "GUI_App.hpp"
 #include "Shortcuts.hpp"
+#include "SpoolmanUi.hpp"
 #include "I18N.hpp"
 #include "Plater.hpp"
 #include "ObjectDataViewModel.hpp"
@@ -1859,6 +1860,12 @@ void MenuFactory::create_filament_action_menu(bool init, int active_filament_men
                 plater()->sidebar().edit_filament(); }, "", nullptr,
             []() { return true; }, m_parent);
     //}
+
+    // Orca Zoukei: Spoolman spool of this filament (colour, preset and slot follow the spool)
+    append_menu_item(
+        menu, wxID_ANY, _L("Spoolman spool") + dots, _L("Pick the Spoolman spool of this filament"), [active_filament_menu_id](wxCommandEvent&) {
+            wxTheApp->CallAfter([active_filament_menu_id] { SpoolmanUi::pick_spool(plater(), active_filament_menu_id); }); }, "", nullptr,
+        [active_filament_menu_id]() { return active_filament_menu_id >= 0; }, m_parent);
 
     wxMenu* sub_menu = new wxMenu();
     std::vector<wxBitmap*> icons = get_extruder_color_icons(true);

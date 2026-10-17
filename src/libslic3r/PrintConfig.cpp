@@ -3051,6 +3051,11 @@ void PrintConfigDef::init_fff_params()
     def = this->add("filament_cfs_slot", coStrings);
     def->set_default_value(new ConfigOptionStrings{""});
 
+    // Orca Zoukei: Spoolman spool id per filament ("" = none). Project-level only: stored in the 3MF, never read
+    // by slicing nor written into the G-code.
+    def = this->add("filament_spool_id", coStrings);
+    def->set_default_value(new ConfigOptionStrings{""});
+
     // Orca Zoukei: metres of filament per full colour cycle of a gradient (rainbow) spool; 0 = automatic.
     // Project-level only: stored in the 3MF, never read by slicing nor written into the G-code.
     def = this->add("filament_gradient_length", coFloats);

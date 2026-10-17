@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <map>
 #include <memory>
 #include <vector>
 #include <optional>
@@ -58,6 +59,17 @@ void set_mapped_ams(int filament_idx, int ams, int slot);
 void remember_colours(int filament_idx);
 // ... and read it back for a tray that reports no colours of its own, if its single colour is still the stored first one.
 bool restore_colours(const std::string& dev_id, int ams, int slot, const std::string& tray_colour, std::vector<std::string>& cols, std::string& type);
+
+// ---- Spoolman spools bound to printer slots ----
+// Flashforge/ZMOD: the lane_data spool_id of the IFS lane (read back from the printer); Creality and Bambu keep the link
+// locally (app config section "spoolman_slots", key "<printer>:<box>:<slot>"). Spoolman itself is never written.
+// spool id -> label of the slot that holds it ("IFS2", "A1"), for the selected printer.
+std::map<int, wxString> spool_slot_labels();
+// The spool bound to the slot filament idx is mapped to (0 = none / unmapped).
+int mapped_slot_spool(int filament_idx);
+// Writes the spool of project filament idx to the slot it is mapped to (spool_id 0 = unbind that slot). Safe to call when the
+// filament is not mapped or the printer has no slots (nothing happens).
+void link_spool_to_slot(int filament_idx, int spool_id);
 
 // Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
 bool grouping(int n, std::vector<int>& box_of);

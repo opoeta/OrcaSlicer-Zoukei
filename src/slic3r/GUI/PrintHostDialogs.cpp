@@ -68,6 +68,7 @@
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "CrealityCfsUi.hpp"
+#include "SpoolmanUi.hpp"
 #include "MsgDialog.hpp"
 #include "I18N.hpp"
 #include "MainFrame.hpp"
@@ -611,6 +612,8 @@ void PrintHostSendDialog::init()
         btn_print->Bind(wxEVT_BUTTON, [this, validate_path](wxCommandEvent&) {
             if (m_box_mapping && !m_box_mapping->ready_to_print())
                 return;
+            if (!SpoolmanUi::confirm_spools_enough(this)) // Spoolman: the linked spool is too small for this plate
+                return;
             if (validate_path(txt_filename->GetValue())) {
                 post_upload_action = PrintHostPostUploadAction::StartPrint;
                 EndDialog(wxID_OK);
@@ -882,6 +885,8 @@ void FlashforgePrintHostSendDialog::init()
     if (m_post_actions.has(PrintHostPostUploadAction::StartPrint)) {
         auto* btn_print = add_button(wxID_YES, false, _L("Upload and Print"));
         btn_print->Bind(wxEVT_BUTTON, [this, validate_path](wxCommandEvent&) {
+            if (!SpoolmanUi::confirm_spools_enough(this)) // Spoolman: the linked spool is too small for this plate
+                return;
             if (validate_path(txt_filename->GetValue())) {
                 post_upload_action = PrintHostPostUploadAction::StartPrint;
                 EndDialog(wxID_OK);

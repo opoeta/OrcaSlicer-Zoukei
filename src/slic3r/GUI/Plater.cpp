@@ -3873,6 +3873,15 @@ void Sidebar::init_filament_combo(PlaterPresetComboBox **combo, const int filame
             combobox->switch_to_tab();
         }
     });
+    // Orca Zoukei: right click always offers the filament menu (it carries the Spoolman spool entry), also for single-material setups
+    edit_btn->Bind(wxEVT_RIGHT_UP, [this, edit_btn, filament_idx](wxMouseEvent&) {
+        auto menu = p->plater->filament_action_menu(filament_idx);
+        wxPoint pt { 0, edit_btn->GetSize().GetHeight() + FromDIP(2) };
+        pt = edit_btn->ClientToScreen(pt);
+        pt = wxGetApp().mainframe->ScreenToClient(pt);
+        p->m_menu_filament_id = filament_idx;
+        p->plater->PopupMenu(menu, (int) pt.x, pt.y);
+    });
     combobox->edit_btn = edit_btn;
 
     combo_and_btn_sizer->Add(edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2)); // ElementSpacing - 2 (from combo box))
@@ -6104,6 +6113,7 @@ void Sidebar::add_custom_filament(wxColour new_col, const std::string& preset_na
         rotate_strings("filament_multi_colour");
         rotate_strings("filament_colour_type");
         rotate_strings("filament_cfs_slot");
+        rotate_strings("filament_spool_id");
         if (auto* gl = project_config.option<ConfigOptionFloats>("filament_gradient_length"))
             if (gl->values.size() > total)
                 std::rotate(gl->values.begin() + insert_pos, gl->values.begin() + total, gl->values.end());

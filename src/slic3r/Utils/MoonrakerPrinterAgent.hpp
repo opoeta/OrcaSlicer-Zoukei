@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 #include <vector>
@@ -47,6 +48,8 @@ public:
 
     // Machine Selection
     std::string get_user_selected_machine() override;
+    // Moonraker's base url and API key of the connected printer ({"",""} when not connected / not Moonraker).
+    virtual std::pair<std::string, std::string> moonraker_endpoint() const { return {device_info.base_url, device_info.api_key}; }
     int set_user_selected_machine(std::string dev_id) override;
 
     // Print Job Operations

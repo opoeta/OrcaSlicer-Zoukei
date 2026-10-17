@@ -1,5 +1,6 @@
 #include "PresetComboBoxes.hpp"
 #include "CrealityCfsUi.hpp"
+#include "SpoolmanUi.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 
 #include <climits>
@@ -976,6 +977,11 @@ PlaterPresetComboBox::PlaterPresetComboBox(wxWindow *parent, Preset::Type preset
             wxCommandEvent *evt = new wxCommandEvent(EVT_FILAMENT_COLOR_CHANGED);
             evt->SetInt(m_filament_idx);
             wxQueueEvent(wxGetApp().plater(), evt);
+        });
+        // Orca Zoukei: right click on the colour box = Spoolman spool of this filament
+        clr_picker->Bind(wxEVT_RIGHT_UP, [this](wxMouseEvent&) {
+            const int idx = int(m_filament_idx);
+            wxTheApp->CallAfter([idx] { SpoolmanUi::pick_spool(wxGetApp().plater(), idx); });
         });
     }
     else {

@@ -4,8 +4,10 @@
 #include "CrealityCfsAgent.hpp"
 #include "CrealityPrintAgent.hpp"
 #include "Http.hpp"
+#include "Spoolman.hpp"
 #include "bambu_networking.hpp"
 
+#include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -176,6 +178,26 @@ bool http_script(const std::string& base_url, const std::string& api_key, const 
         .timeout_max(timeout)
         .on_complete([&](std::string, unsigned status) { ok = status == 200; })
         .on_error([](std::string, std::string, unsigned) {})
+        .perform_sync();
+    return ok;
+}
+
+// POST {"namespace":"lane_data","key":key,"value":rec} to Moonraker's database.
+bool post_lane_record(const std::string& base_url, const std::string& api_key, const std::string& key, const json& rec, std::string* error = nullptr)
+{
+    bool ok   = false;
+    auto http = Http::post(base_url + "/server/database/item");
+    if (!api_key.empty())
+        http.header("X-Api-Key", api_key);
+    http.header("Content-Type", "application/json")
+        .set_post_body(json{{"namespace", "lane_data"}, {"key", key}, {"value", rec}}.dump())
+        .timeout_connect(5)
+        .timeout_max(10)
+        .on_complete([&](std::string, unsigned status) { ok = status == 200; })
+        .on_error([&](std::string, std::string err, unsigned status) {
+            if (error != nullptr)
+                *error = err + " (HTTP " + std::to_string(status) + ")";
+        })
         .perform_sync();
     return ok;
 }
@@ -530,6 +552,7 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
                         slot.gradient = str(lane, "color_type") == "gradient";
                     }
                 }
+                slot.spool_id = int(num(lane, "spool_id")); // the Spoolman binding is shown whatever screen the printer has
                 if (ui() != Ui::helix) {
                     slots.push_back(std::move(slot));
                     continue;
@@ -538,7 +561,6 @@ bool FlashforgePrinterAgent::fetch_zmod_slots(const std::string& base_url, const
                 slot.vendor      = !str(lane, "vendor_name").empty() ? str(lane, "vendor_name") : str(lane, "vendor");
                 slot.nozzle_temp = int(num(lane, "nozzle_temp"));
                 slot.bed_temp    = int(num(lane, "bed_temp"));
-                slot.spool_id    = int(num(lane, "spool_id"));
             }
         }
         slots.push_back(std::move(slot));
@@ -571,6 +593,15 @@ void FlashforgePrinterAgent::zmod_loop(uint64_t generation, std::string base_url
                             break;
                         }
             }
+            // Spoolman: the printer's [spoolman] server fills the (empty) Preferences field.
+            if (const std::string spoolman = Spoolman::discover_from_moonraker(base_url, api_key); !spoolman.empty())
+                run_on_main([spoolman] {
+                    AppConfig* cfg = GUI::wxGetApp().app_config;
+                    if (cfg != nullptr && boost::trim_copy(cfg->get("spoolman_url")).empty()) {
+                        cfg->set("spoolman_url", spoolman);
+                        cfg->save();
+                    }
+                });
         }
         std::vector<IfsSlot> slots;
         if (fetch_zmod_slots(base_url, api_key, slots)) {
@@ -989,6 +1020,20 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
         for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "helix_catalog_id",
                                   "remaining_weight_g", "total_weight_g"})
             rec.erase(stale);
+    if (w.spool_id > 0) { // the project filament has a Spoolman spool: bind the lane (HelixScreen reads the rest from Spoolman)
+        rec["spool_id"] = w.spool_id;
+        if (w.spool_vendor_id > 0)
+            rec["spoolman_vendor_id"] = w.spool_vendor_id;
+        if (w.spool_filament_id > 0)
+            rec["helix_spoolman_filament_id"] = w.spool_filament_id;
+        if (!w.spool_vendor.empty())
+            rec["vendor_name"] = w.spool_vendor;
+        if (!w.spool_name.empty())
+            rec["name"] = w.spool_name;
+    } else if (w.spool_id == 0) {
+        for (const char* stale : {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "remaining_weight_g", "total_weight_g"})
+            rec.erase(stale);
+    }
     if (rec == existing)
         return true;
 
@@ -1133,8 +1178,8 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
         }
         if (ok && ui() == Ui::helix)
             write_lane_data(base_url, api_key, w, type, cur);
-        else if (ok && (w.colors.size() >= 2 || (cur != nullptr && cur->colors.size() >= 2)))
-            write_lane_data(base_url, api_key, w, type, cur); // other screens: only to store / clear the multi-colour info
+        else if (ok && (w.colors.size() >= 2 || (cur != nullptr && (cur->colors.size() >= 2 || cur->spool_id > 0)) || w.spool_id > 0))
+            write_lane_data(base_url, api_key, w, type, cur); // other screens: only to store / clear the multi-colour info and the spool binding
         if (ok)
             add(ok_list, label + " " + (type.empty() ? w.type : type) + " " + w.color + warn);
         else
@@ -1165,6 +1210,7 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
         std::lock_guard<std::mutex> lock(m_mutex);
         m_slot_signature.clear(); // rebuild the trays on the next poll
     }
+    m_spool_key.clear(); // a lane's spool binding may have changed: re-evaluate Moonraker's active spool
     if (wxTheApp != nullptr)
         wxTheApp->CallAfter([] {
             if (auto* panel = GUI::FlashforgeDevicePanel::if_built())
@@ -1175,6 +1221,129 @@ void FlashforgePrinterAgent::write_slots_worker(std::vector<SlotWrite> writes)
                                  (ui() == Ui::original && m_display_popup ? " - the printer's screen may ask you to confirm" : std::string()));
     if (!bad_list.empty())
         CrealityCfsAgent::notify("Flashforge IFS sync failed: " + bad_list, true);
+}
+
+std::pair<std::string, std::string> FlashforgePrinterAgent::moonraker_endpoint() const
+{
+    if (mode() != Mode::zmod)
+        return {};
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return {m_zmod_url, m_zmod_key};
+}
+
+// Spoolman spool <-> IFS lane: only the lane_data record is touched (spool_id and the names), never the firmware's colour / material.
+// A lane without a record gets one (lane, colour, material) so Orca and HelixScreen can read it. Read-only towards Spoolman itself.
+void FlashforgePrinterAgent::link_spools(std::vector<SlotWrite> links)
+{
+    if (links.empty() || mode() != Mode::zmod)
+        return;
+    std::weak_ptr<FlashforgePrinterAgent> weak = weak_from_this();
+    std::thread([weak, links = std::move(links)]() mutable {
+        auto self = weak.lock();
+        if (!self)
+            return;
+        for (int tries = 0; self->m_writing.exchange(true); ++tries) { // one lane_data writer at a time
+            if (tries > 100) {
+                CrealityCfsAgent::notify("Flashforge IFS: Spoolman link not written, another write is in progress.", true);
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+        self->link_spools_worker(std::move(links));
+        self->m_writing = false;
+    }).detach();
+}
+
+void FlashforgePrinterAgent::link_spools_worker(std::vector<SlotWrite> links)
+{
+    std::string base_url, api_key;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        base_url = m_zmod_url;
+        api_key  = m_zmod_key;
+    }
+    std::string ok_list, bad_list;
+    auto add = [](std::string& list, const std::string& item) { list += (list.empty() ? "" : ", ") + item; };
+    if (base_url.empty()) {
+        CrealityCfsAgent::notify("Flashforge IFS: Spoolman link not written, the printer is not connected.", true);
+        return;
+    }
+    for (const SlotWrite& w : links) {
+        const std::string label = "IFS" + std::to_string(w.port);
+        if (w.port < 1 || w.port > 4 || w.spool_id < 0)
+            continue;
+        json        lanes = json::object();
+        std::string body;
+        if (http_get(base_url + "/server/database/item?namespace=lane_data", api_key, body)) {
+            const json l = json::parse(body, nullptr, false);
+            if (!l.is_discarded() && l.contains("result") && l["result"].contains("value") && l["result"]["value"].is_object())
+                lanes = l["result"]["value"];
+        }
+        static const char* spool_keys[] = {"spool_id", "spoolman_vendor_id", "helix_spoolman_filament_id", "remaining_weight_g", "total_weight_g"};
+        const std::string  key = "lane" + std::to_string(w.port);
+        if (w.spool_id > 0) // a spool sits in one lane only
+            for (auto it = lanes.begin(); it != lanes.end(); ++it) {
+                if (it.key() == key || !it.value().is_object() || int(num(it.value(), "spool_id")) != w.spool_id)
+                    continue;
+                json other = it.value();
+                for (const char* k : spool_keys)
+                    other.erase(k);
+                post_lane_record(base_url, api_key, it.key(), other);
+            }
+        json existing = lanes.contains(key) && lanes[key].is_object() ? lanes[key] : json::object();
+        json rec      = existing;
+        if (rec.empty() && w.spool_id > 0) {
+            rec["lane"]     = std::to_string(w.port - 1);
+            rec["color"]    = w.color.empty() ? std::string("#161616") : w.color;
+            rec["material"] = base_type(w.type).empty() ? upper(w.type) : base_type(w.type);
+            if (w.colors.size() >= 2) {
+                rec["multi_color_hexes"] = w.colors;
+                rec["color_type"]        = w.gradient ? "gradient" : "multi";
+            }
+        }
+        if (w.spool_id > 0) {
+            rec["spool_id"] = w.spool_id;
+            if (w.spool_vendor_id > 0)
+                rec["spoolman_vendor_id"] = w.spool_vendor_id;
+            if (w.spool_filament_id > 0)
+                rec["helix_spoolman_filament_id"] = w.spool_filament_id;
+            if (!w.spool_vendor.empty())
+                rec["vendor_name"] = w.spool_vendor;
+            if (!w.spool_name.empty())
+                rec["name"] = w.spool_name;
+        } else
+            for (const char* k : spool_keys)
+                rec.erase(k);
+        if (rec == existing) {
+            add(ok_list, label + (w.spool_id > 0 ? " #" + std::to_string(w.spool_id) : std::string(" (no spool)")));
+            continue;
+        }
+        if (rec.empty()) { // nothing to unbind in a lane without a record
+            add(ok_list, label + " (no spool)");
+            continue;
+        }
+        std::string error;
+        if (post_lane_record(base_url, api_key, key, rec, &error))
+            add(ok_list, label + (w.spool_id > 0 ? " #" + std::to_string(w.spool_id) : std::string(" (no spool)")));
+        else {
+            BOOST_LOG_TRIVIAL(warning) << "Flashforge agent: spool link write failed for " << key << ": " << error;
+            add(bad_list, label);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_slot_signature.clear(); // the trays show the spool: rebuild them on the next poll
+    }
+    m_spool_key.clear(); // Moonraker's active spool follows the lane that is loaded: re-evaluate it
+    if (wxTheApp != nullptr)
+        wxTheApp->CallAfter([] {
+            if (auto* panel = GUI::FlashforgeDevicePanel::if_built())
+                panel->notify_slots_changed();
+        });
+    if (!ok_list.empty())
+        CrealityCfsAgent::notify("Flashforge IFS: Spoolman spool linked: " + ok_list);
+    if (!bad_list.empty())
+        CrealityCfsAgent::notify("Flashforge IFS: Spoolman link not written for " + bad_list, true);
 }
 
 // The AMS dialog of the sidebar (edit a slot's filament / colour) -> the same write.

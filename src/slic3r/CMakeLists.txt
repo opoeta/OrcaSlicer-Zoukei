@@ -69,6 +69,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/CrealityCfsAutoSync.hpp
     GUI/FlashforgeIfsAutoSync.cpp
     GUI/FlashforgeIfsAutoSync.hpp
+    GUI/SpoolmanUi.cpp
+    GUI/SpoolmanUi.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp
@@ -815,6 +817,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/SnapmakerPrinterAgent.hpp
     Utils/FlashforgePrinterAgent.cpp
     Utils/FlashforgePrinterAgent.hpp
+    Utils/Spoolman.cpp
+    Utils/Spoolman.hpp
     Utils/MoonrakerPrinterAgent.cpp
     Utils/MoonrakerPrinterAgent.hpp
     Utils/Moonraker.cpp

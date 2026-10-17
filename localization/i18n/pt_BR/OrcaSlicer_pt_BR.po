@@ -36489,3 +36489,102 @@ msgstr "Inspeção da 1ª camada por IA. Enviada à impressora antes de iniciar 
 
 msgid "Official Bambu colors..."
 msgstr "Cores oficiais Bambu…"
+
+msgid "Spoolman server"
+msgstr "Servidor Spoolman"
+
+msgid "Address of your Spoolman server on the local network (for example 10.10.1.254:7912). It is only read, never changed. Left empty, it is taken from a connected Moonraker printer that has [spoolman] configured."
+msgstr "Endereço do seu servidor Spoolman na rede local (por exemplo 10.10.1.254:7912). Ele é só lido, nunca alterado. Se ficar vazio, é obtido de uma impressora Moonraker conectada que tenha [spoolman] configurado."
+
+msgid "Connect to the Spoolman server and count its spools."
+msgstr "Conecta ao servidor Spoolman e conta os carretéis."
+
+msgid "Detect"
+msgstr "Detectar"
+
+msgid "Ask the connected Moonraker printer (its [spoolman] section) for the server address."
+msgstr "Pergunta à impressora Moonraker conectada (seção [spoolman]) o endereço do servidor."
+
+msgid "Testing..."
+msgstr "Testando..."
+
+msgid "Looking for a Moonraker printer with Spoolman..."
+msgstr "Procurando uma impressora Moonraker com Spoolman..."
+
+msgid "No connected Moonraker printer reports a Spoolman server."
+msgstr "Nenhuma impressora Moonraker conectada informa um servidor Spoolman."
+
+msgid "Server found: %s"
+msgstr "Servidor encontrado: %s"
+
+msgid "Spoolman spool for filament %d"
+msgstr "Carretel Spoolman do filamento %d"
+
+msgid "Hide empty spools"
+msgstr "Ocultar carretéis vazios"
+
+msgid "Spool"
+msgstr "Carretel"
+
+msgid "Remaining"
+msgstr "Restante"
+
+msgid "Location"
+msgstr "Local"
+
+msgid "Printer slot"
+msgstr "Slot da impressora"
+
+msgid "Unlink spool"
+msgstr "Desvincular carretel"
+
+msgid "Use this spool"
+msgstr "Usar este carretel"
+
+msgid "Detecting the Spoolman server from the printer..."
+msgstr "Detectando o servidor Spoolman pela impressora..."
+
+msgid "No Spoolman server set. Enter it in Preferences > Spoolman server."
+msgstr "Nenhum servidor Spoolman definido. Informe em Preferências > Servidor Spoolman."
+
+msgid "Loading spools from %s ..."
+msgstr "Carregando carretéis de %s ..."
+
+msgid "Could not read Spoolman at %s: %s"
+msgstr "Não foi possível ler o Spoolman em %s: %s"
+
+msgid "%d spools on %s"
+msgstr "%d carretéis em %s"
+
+msgid "No server address."
+msgstr "Sem endereço de servidor."
+
+msgid "Could not connect: %s"
+msgstr "Não foi possível conectar: %s"
+
+msgid "Connected: Spoolman %s, %d spools."
+msgstr "Conectado: Spoolman %s, %d carretéis."
+
+msgid "Spoolman %s answers but the spools could not be read: %s"
+msgstr "O Spoolman %s responde, mas os carretéis não puderam ser lidos: %s"
+
+msgid "Filament %d: spool %s has %.0f g left, the plate needs %.0f g."
+msgstr "Filamento %d: o carretel %s tem %.0f g restantes, a placa precisa de %.0f g."
+
+msgid "Print anyway?"
+msgstr "Imprimir mesmo assim?"
+
+msgid "Spoolman"
+msgstr "Spoolman"
+
+msgid "Slot spool"
+msgstr "Carretel do slot"
+
+msgid "Right click: Spoolman spool"
+msgstr "Botão direito: carretel Spoolman"
+
+msgid "Spoolman spool"
+msgstr "Carretel Spoolman"
+
+msgid "Pick the Spoolman spool of this filament"
+msgstr "Escolher o carretel Spoolman deste filamento"

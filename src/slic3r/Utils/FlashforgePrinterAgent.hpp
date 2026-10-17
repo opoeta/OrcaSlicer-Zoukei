@@ -43,6 +43,12 @@ public:
         int         bed_temp    = 0;
         std::vector<std::string> colors; // all colours "#RRGGBB" when dual/tri/quad/gradient (>= 2), else empty; colors[0] == color
         bool        gradient    = false;
+        // Spoolman spool of the filament: -1 leave the lane's spool alone, 0 unbind it, > 0 bind it (lane_data spool_id).
+        int         spool_id    = -1;
+        int         spool_filament_id = 0; // Spoolman filament / vendor ids, when known (HelixScreen reads the rest from Spoolman)
+        int         spool_vendor_id   = 0;
+        std::string spool_vendor;          // names as Spoolman has them, shown by HelixScreen / Orca instead of the preset's
+        std::string spool_name;
     };
 
     // One IFS slot as the printer reports it.
@@ -77,12 +83,18 @@ public:
     // a worker thread and reports through a plater notification.
     std::string write_block_reason() const;
     void        write_slots(std::vector<SlotWrite> writes);
+    // Binds / unbinds Spoolman spools to IFS lanes (lane_data spool_id) without touching the firmware's colour or material
+    // (the SlotWrite's spool_* fields; port, and colour / type for a lane that has no record yet). A spool is bound to one lane
+    // only. Async, plater notification. Never writes to Spoolman itself.
+    void        link_spools(std::vector<SlotWrite> links);
     // Owner-initiated: reconcile HelixScreen's lane_data with the firmware for lanes that contradict it (async, plater notification).
     void        repair_lane_data();
     // Forget the last active-spool push so the next poll re-evaluates it ("Sincronizar tudo agora").
     void        resync_active_spool() { m_spool_key.clear(); }
     // IFS channel (1..4) the printer reports as loaded / active, 0 when unknown.
     int         current_channel() const { return m_channel.load(); }
+
+    std::pair<std::string, std::string> moonraker_endpoint() const override;
 
     // The vendor model_id of the selected printer ("Flashforge-AD5X"), UI thread.
     static std::string current_model_id();
@@ -146,6 +158,7 @@ private:
     bool           write_lane_data(const std::string& base_url, const std::string& api_key, const SlotWrite& w, const std::string& zmod_type, const IfsSlot* before);
     void           sync_active_spool(const std::string& base_url, const std::string& api_key, const std::vector<IfsSlot>& slots);
     void           write_slots_worker(std::vector<SlotWrite> writes);
+    void           link_spools_worker(std::vector<SlotWrite> links);
     int            handle_ams_setting(const nlohmann::json& cmd);
     void           apply_zmod_slots(uint64_t generation, std::vector<IfsSlot> slots);
     void           send_zmod_mapping(const PrintParams& params);

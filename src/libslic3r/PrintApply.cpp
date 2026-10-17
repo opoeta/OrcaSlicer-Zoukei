@@ -343,7 +343,7 @@ static t_config_option_keys full_print_config_diffs(const DynamicPrintConfig &cu
     t_config_option_keys full_config_diff;
     for (const t_config_option_key &opt_key : new_full_config.keys()) {
         // Creality CFS slot choices are project metadata only (saved in the 3MF); they must not invalidate G-code.
-        if (opt_key == "filament_cfs_slot" || opt_key == "filament_gradient_length")
+        if (opt_key == "filament_cfs_slot" || opt_key == "filament_gradient_length" || opt_key == "filament_spool_id")
             continue;
         const ConfigOption *opt_old = current_full_config.option(opt_key);
         const ConfigOption *opt_new = new_full_config.option(opt_key);
