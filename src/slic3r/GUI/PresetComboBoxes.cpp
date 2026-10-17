@@ -926,7 +926,8 @@ PlaterPresetComboBox::PlaterPresetComboBox(wxWindow *parent, Preset::Type preset
             // Check if it's an official filament
             auto fila_type = Preset::remove_suffix_modified(GetValue().ToUTF8().data());
             bool is_official = boost::algorithm::starts_with(fila_type, "Bambu");
-            if (is_official) {
+            // Orca Zoukei: our editor (solid/dual/tri/quad/gradient) first; official presets get a button inside it for the Bambu picker
+            auto official_picker = [this, fila_type]() {
                 // Get filament_id from filament_presets. FilamentPickerDialog looks up
                 // filaments_color_codes.json, which is downloaded from Bambu and keyed by the
                 // printer's own ids, so translate our OF id (the "GFA00" fallback is already one).
@@ -967,9 +968,11 @@ PlaterPresetComboBox::PlaterPresetComboBox(wxWindow *parent, Preset::Type preset
                         }
                     }
                 }
-            } else {
-                show_default_color_picker();
-            }
+            };
+            std::vector<std::string> colors;
+            bool                     gradient = false;
+            if (CfsUi::edit_filament_colour(this, int(m_filament_idx), colors, gradient, is_official ? std::function<void()>(official_picker) : std::function<void()>()) && !colors.empty())
+                sync_colour_config(colors, gradient);
             wxCommandEvent *evt = new wxCommandEvent(EVT_FILAMENT_COLOR_CHANGED);
             evt->SetInt(m_filament_idx);
             wxQueueEvent(wxGetApp().plater(), evt);
@@ -1674,6 +1677,7 @@ void PlaterPresetComboBox::sync_colour_config(const std::vector<std::string> &cl
     wxGetApp().plater()->update_project_dirty_from_presets();
 
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    CfsUi::remember_colours(int(m_filament_idx)); // Bambu AMS: keep the multi-colour setup of the mapped slot
     update();  // refresh the preset combobox with new config
 
     wxGetApp().plater()->on_config_change(cfg_new);

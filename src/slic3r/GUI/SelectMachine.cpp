@@ -1350,7 +1350,7 @@ bool SelectMachineDialog::do_ams_mapping(MachineObject *obj_,bool use_ams)
         //auto_supply_with_ext(obj_->vt_slot);
     }
 
-    if (filament_result == 0 && is_creality_dialog())
+    if (filament_result == 0 && (is_creality_dialog() || (m_print_type == PrintFromType::FROM_NORMAL && CfsUi::bambu_active())))
         apply_creality_mapping(obj_); // the project's filament_cfs_slot choices win over the colour match
 
     if (filament_result == 0) {
@@ -4137,6 +4137,8 @@ void SelectMachineDialog::on_set_finish_mapping(wxCommandEvent &evt)
                 m_ams_mapping_result[i].ams_id = selection_data_arr[6].ToStdString();
                 m_ams_mapping_result[i].slot_id = selection_data_arr[7].ToStdString();
 
+                if (!is_creality_dialog() && CfsUi::bambu_active()) // Bambu AMS: the badge mapping follows the dialog's choice
+                    CfsUi::set_mapped_ams(m_ams_mapping_result[i].id, wxAtoi(selection_data_arr[6]), wxAtoi(selection_data_arr[7]));
                 if (is_creality_dialog()) { // remember the choice in the project (filament_cfs_slot)
                     const int ams = wxAtoi(selection_data_arr[6]);
                     CfsUi::set_mapped_tray(m_ams_mapping_result[i].id, ams >= 254 ? 255 : ams * 4 + wxAtoi(selection_data_arr[7]));
@@ -7286,6 +7288,33 @@ void SelectMachineDialog::apply_creality_options(MachineObject* obj)
 // chosen source), keeping the automatic colour match for filaments without a choice.
 void SelectMachineDialog::apply_creality_mapping(MachineObject* obj)
 {
+    if (obj != nullptr && !is_creality_dialog() && m_print_type == PrintFromType::FROM_NORMAL && CfsUi::bambu_active()) {
+        // Bambu AMS: the sidebar badges' slot per filament (explicit choice, else colour match) is the default mapping
+        for (FilamentInfo& f : m_ams_mapping_result) {
+            const auto m = CfsUi::mapped_ams(f.id);
+            if (!m)
+                continue;
+            const int   ams = m->first, slot = m->second;
+            DevAmsTray  t("0");
+            std::string ams_id = std::to_string(ams), slot_id = std::to_string(slot);
+            if (ams >= 254) {
+                auto it = std::find_if(obj->vt_slot.begin(), obj->vt_slot.end(), [ams](const DevAmsTray& v) { return atoi(v.id.c_str()) == ams; });
+                if (it == obj->vt_slot.end())
+                    continue;
+                t = *it;
+                slot_id    = "0";
+                f.tray_id  = ams;
+            } else {
+                if (!obj->contains_tray(ams_id, slot_id))
+                    continue;
+                t = obj->get_tray(ams_id, slot_id);
+                f.tray_id = ams >= 128 ? ams + slot : ams * 4 + slot;
+            }
+            f.ams_id = ams_id; f.slot_id = slot_id; f.color = t.color; f.type = t.get_filament_type();
+            f.filament_id = t.setting_id; f.ctype = t.ctype; f.colors = t.cols; f.distance = 0;
+        }
+        return;
+    }
     if (obj == nullptr || !is_creality_dialog())
         return;
     const bool spool = m_checkbox_list["filament_src"]->getValue() == "spool";

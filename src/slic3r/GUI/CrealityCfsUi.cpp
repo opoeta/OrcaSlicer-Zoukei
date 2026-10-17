@@ -12,6 +12,9 @@
 #include "slic3r/Utils/NetworkAgent.hpp"
 
 #include "FilamentBitmapUtils.hpp"
+#include "DeviceManager.hpp"
+#include "DeviceCore/DevFilaSystem.h"
+#include "DeviceCore/DevManager.h"
 
 #include <wx/choice.h>
 #include <wx/clrpicker.h>
@@ -22,6 +25,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/popupwin.h>
+#include <wx/button.h>
 
 #include <algorithm>
 #include <functional>
@@ -166,6 +170,68 @@ std::vector<Entry> entries(const PrinterSnapshot& snap)
     return out;
 }
 
+// ---- Bambu AMS: box = ams id + 1 (0 = external spool, slot = vt id - 254), label A1..D4 / HT-A / Ext.
+MachineObject* bambu_obj()
+{
+    PresetBundle* b = wxGetApp().preset_bundle;
+    if (b == nullptr || !b->is_bbl_vendor() || wxGetApp().plater() == nullptr || wxGetApp().getDeviceManager() == nullptr)
+        return nullptr;
+    MachineObject* o = wxGetApp().getDeviceManager()->get_selected_machine();
+    if (o == nullptr || o->GetFilaSystem() == nullptr || o->GetFilaSystem()->GetAmsList().empty())
+        return nullptr;
+    return wxGetApp().plater()->is_same_printer_for_connected_and_selected(false) ? o : nullptr;
+}
+
+wxString ams_name(int ams, int slot)
+{
+    if (ams >= 0 && ams < 26)
+        return wxString::Format("%c%d", 'A' + ams, slot + 1);
+    if (ams >= 128 && ams < 154)
+        return wxString::Format("HT-%c", 'A' + ams - 128);
+    return wxString::Format("N%d", ams);
+}
+
+std::string tray_key(int ams, int slot) { return std::to_string(ams >= 254 ? ams : ams * 4 + slot); }
+
+std::vector<Entry> bambu_entries(MachineObject* o)
+{
+    std::vector<Entry> out;
+    auto col = [](const DevAmsTray& t) { return t.color.empty() ? wxColour() : wxColour("#" + t.color); };
+    if (o->ams_support_virtual_tray)
+        for (const DevAmsTray& t : o->vt_slot)
+            out.push_back({0, std::max(0, atoi(t.id.c_str()) - 254), "Ext", col(t), t.m_fila_type, t.is_exists || !t.m_fila_type.empty()});
+    for (const auto& a : o->GetFilaSystem()->GetAmsList()) {
+        const int ams = atoi(a.first.c_str());
+        for (const auto& t : a.second->GetTrays()) {
+            const int slot = atoi(t.first.c_str());
+            out.push_back({ams + 1, slot, ams_name(ams, slot), col(*t.second), t.second->m_fila_type, t.second->is_exists});
+        }
+    }
+    std::stable_sort(out.begin(), out.end(), [](const Entry& x, const Entry& y) { return x.box != y.box ? (x.box == 0 ? true : (y.box == 0 ? false : x.box < y.box)) : x.slot < y.slot; });
+    return out;
+}
+
+// Column of a unit in the sidebar: 1, 2 for the first two AMS units, 3 (below, with the external spool) for the rest.
+int bambu_col(const std::vector<Entry>& es, int box)
+{
+    if (box == 0)
+        return 0;
+    std::set<int> u;
+    for (const Entry& e : es)
+        if (e.box > 0)
+            u.insert(e.box);
+    const int rank = (int) std::distance(u.begin(), u.find(box));
+    return rank < 2 ? rank + 1 : 3;
+}
+
+wxString unit_name(int box, bool full)
+{
+    if (box == 0)
+        return "EXT";
+    const wxString n = ams_name(box - 1, 0);
+    return n.StartsWith("HT") ? n : (full ? "AMS " : "") + n.Left(1);
+}
+
 // The slots to choose from: the IFS of a Flashforge printer (box 1 = IFS1..IFS4, box 0 = external spool), else the CFS.
 std::vector<Entry> current_entries()
 {
@@ -179,6 +245,8 @@ std::vector<Entry> current_entries()
             out.push_back({1, s.port - 1, wxString::Format("IFS%d", s.port), s.color.empty() ? wxColour() : wxColour(s.color), s.material, s.has_filament});
         return slots.empty() ? std::vector<Entry>() : out;
     }
+    if (MachineObject* o = bambu_obj())
+        return bambu_entries(o);
     return entries(snapshot());
 }
 
@@ -296,7 +364,7 @@ private:
             dc.SetBrush(wxBrush(m_tabs[i] == m_tab ? wxColour(0, 150, 136) : StateColor::darkModeColorFor(wxColour("#EBEBEB"))));
             dc.DrawRectangle(r);
             dc.SetTextForeground(m_tabs[i] == m_tab ? *wxWHITE : fg_col());
-            const wxString t  = m_tabs[i] == 0 ? wxString("EXT") : flashforge_agent() ? wxString("IFS") : wxString::Format("CFS%d", m_tabs[i]);
+            const wxString t  = m_bambu ? unit_name(m_tabs[i], false) : m_tabs[i] == 0 ? wxString("EXT") : flashforge_agent() ? wxString("IFS") : wxString::Format("CFS%d", m_tabs[i]);
             const wxSize   ts = dc.GetTextExtent(t);
             dc.DrawText(t, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
         }
@@ -337,6 +405,8 @@ private:
         for (size_t i = 0; i < v.size(); ++i)
             if (row_rect(i).Contains(e.GetPosition())) {
                 set_slot(m_idx, v[i]->box, v[i]->slot);
+                if (m_bambu)
+                    remember_colours(m_idx);
                 auto done = m_done;
                 Dismiss();
                 done();
@@ -344,6 +414,7 @@ private:
             }
     }
     int                   m_idx;
+    bool                  m_bambu{bambu_obj() != nullptr};
     std::vector<Entry>    m_es;
     std::function<void()> m_done, m_edit;
     std::vector<int>      m_tabs;
@@ -392,12 +463,77 @@ std::optional<int> mapped_tray(int idx)
     return std::nullopt;
 }
 
+bool bambu_active() { return bambu_obj() != nullptr; }
+
+std::optional<std::pair<int, int>> mapped_ams(int idx)
+{
+    if (bambu_obj() == nullptr || mapped_slot_empty(idx))
+        return std::nullopt;
+    const auto m = mapped_slot(idx);
+    if (!m)
+        return std::nullopt;
+    return m->first == 0 ? std::make_pair(254 + m->second, 0) : std::make_pair(m->first - 1, m->second);
+}
+
+void set_mapped_ams(int idx, int ams, int slot)
+{
+    if (bambu_obj() == nullptr)
+        return;
+    set_slot(idx, ams >= 254 ? 0 : ams + 1, ams >= 254 ? ams - 254 : slot);
+    remember_colours(idx);
+}
+
+// Local memory of the multi-colour setup of a slot (the printer's ams_filament_setting only takes one colour):
+// app config section "ams_multicolour", key "<dev_id>:<tray>", value "<type> <c1> <c2> ..." (type "0" gradient, "1" side by side).
+void remember_colours(int idx)
+{
+    MachineObject* o   = bambu_obj();
+    AppConfig*     cfg = wxGetApp().app_config;
+    const auto     m   = o != nullptr ? mapped_ams(idx) : std::nullopt;
+    if (cfg == nullptr || !m)
+        return;
+    const std::string key = o->get_dev_id() + ":" + tray_key(m->first, m->second);
+    bool grad = false;
+    const auto cols = filament_colours(idx, grad);
+    if (cols.size() < 2) {
+        cfg->erase("ams_multicolour", key);
+        return;
+    }
+    std::string v = grad ? "0" : "1";
+    for (const wxColour& c : cols)
+        v += " " + c.GetAsString(wxC2S_HTML_SYNTAX).ToStdString();
+    cfg->set("ams_multicolour", key, v);
+}
+
+bool restore_colours(const std::string& dev_id, int ams, int slot, const std::string& tray_colour, std::vector<std::string>& cols, std::string& type)
+{
+    AppConfig* cfg = wxGetApp().app_config;
+    if (cfg == nullptr || tray_colour.size() < 6)
+        return false;
+    std::istringstream is(cfg->get("ams_multicolour", dev_id + ":" + tray_key(ams, slot)));
+    is >> type;
+    cols.clear();
+    for (std::string t; is >> t;)
+        cols.push_back(t);
+    const wxColour first(cols.empty() ? "" : cols[0]), cur("#" + tray_colour.substr(0, 6));
+    if (cols.size() < 2 || !first.IsOk() || !cur.IsOk() || first.GetRGB() != cur.GetRGB())
+        return false;
+    return true;
+}
+
 std::shared_ptr<FlashforgePrinterAgent> ifs_agent() { return flashforge_agent(); }
 
 bool ifs_active() { return flashforge_agent() != nullptr && !current_entries().empty(); }
 
 wxString unit_title(int box)
 {
+    if (bambu_obj() != nullptr) {
+        const auto es = current_entries();
+        for (const Entry& e : es)
+            if (e.box > 0 && bambu_col(es, e.box) == box)
+                return unit_name(e.box, true);
+        return wxString();
+    }
     if (flashforge_agent())
         return box == 1 ? wxString("IFS") : wxString();
     return wxString::Format("CFS %d", box);
@@ -433,12 +569,13 @@ bool grouping(int n, std::vector<int>& box_of)
     const auto es = current_entries();
     if (es.empty())
         return false;
+    const bool bambu = bambu_obj() != nullptr;
     box_of.assign(size_t(std::max(n, 0)), -1);
     for (int i = 0; i < n; ++i) {
         const Entry* e = nullptr;
         label_of(i, es, &e);
         if (e != nullptr)
-            box_of[i] = (flashforge_agent() && e->box == 1) ? (e->slot >= 2 ? 2 : 1) : e->box; // IFS: slots 1-2 left, 3-4 right
+            box_of[i] = bambu ? bambu_col(es, e->box) : (flashforge_agent() && e->box == 1) ? (e->slot >= 2 ? 2 : 1) : e->box; // IFS: slots 1-2 left, 3-4 right
     }
     return true;
 }
@@ -618,7 +755,7 @@ std::vector<wxColour> filament_colours(int idx, bool& gradient)
     return out;
 }
 
-bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient)
+bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient, const std::function<void()>& official)
 {
     auto&                 pc   = wxGetApp().preset_bundle->project_config;
     bool                  grad = false;
@@ -660,6 +797,11 @@ bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& c
     root->Add(row1, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
     root->Add(row2, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
     root->Add(row3, 0, wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
+    if (official) {
+        auto* ob = new wxButton(&dlg, wxID_ANY, _L("Official Bambu colors..."));
+        ob->Bind(wxEVT_BUTTON, [&dlg](wxCommandEvent&) { dlg.EndModal(wxID_APPLY); });
+        root->Add(ob, 0, wxLEFT | wxRIGHT | wxBOTTOM, dlg.FromDIP(10));
+    }
     root->Add(dlg.CreateStdDialogButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, dlg.FromDIP(10));
     auto count = [&] { return type->GetSelection() == 4 ? ncol->GetValue() : type->GetSelection() + 1; };
     auto upd   = [&] {
@@ -676,7 +818,12 @@ bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& c
     dlg.SetSizer(root);
     upd();
     dlg.CenterOnParent();
-    if (dlg.ShowModal() != wxID_OK)
+    const int rc = dlg.ShowModal();
+    if (rc == wxID_APPLY && official) {
+        official();
+        return false;
+    }
+    if (rc != wxID_OK)
         return false;
     gradient = type->GetSelection() == 4;
     colours.clear();

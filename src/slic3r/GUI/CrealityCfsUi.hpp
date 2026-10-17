@@ -46,7 +46,18 @@ wxString unit_title(int box);
 std::vector<wxColour> filament_colours(int idx, bool& gradient);
 // Modal editor: type (solid / dual / tricolor / quadricolor / gradient), colours and metres per gradient cycle.
 // On OK writes filament_gradient_length and returns the colours (first = main colour); false when cancelled.
-bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient);
+// `official` (Bambu official filament presets): adds a button that closes the dialog and runs it instead.
+bool edit_filament_colour(wxWindow* parent, int idx, std::vector<std::string>& colours, bool& gradient, const std::function<void()>& official = nullptr);
+
+// Bambu printer with AMS data connected: the badges use its slots (box = ams id + 1, 0 = external spool, labels A1..D4 / HT-A / Ext).
+bool bambu_active();
+// Mapped slot as {ams id, slot id} (ams id 254/255 = external spool); empty when unmapped or the slot holds no filament.
+std::optional<std::pair<int, int>> mapped_ams(int filament_idx);
+void set_mapped_ams(int filament_idx, int ams, int slot);
+// Local multi-colour memory per printer tray: call after the colours of a filament mapped to a slot changed ...
+void remember_colours(int filament_idx);
+// ... and read it back for a tray that reports no colours of its own, if its single colour is still the stored first one.
+bool restore_colours(const std::string& dev_id, int ams, int slot, const std::string& tray_colour, std::vector<std::string>& cols, std::string& type);
 
 // Box id per filament (0 = external spool, -1 = unmapped) for the first n filaments; false when there is no CFS data.
 bool grouping(int n, std::vector<int>& box_of);

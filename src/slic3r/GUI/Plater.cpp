@@ -6231,7 +6231,8 @@ std::map<int, DynamicPrintConfig> Sidebar::build_filament_ams_list(MachineObject
         }
     }
 
-    auto build_tray_config = [](DevAmsTray const &tray, std::string const &name, std::string ams_id, std::string slot_id) {
+    const std::string dev_id = obj->get_dev_id();
+    auto build_tray_config = [&dev_id](DevAmsTray const &tray, std::string const &name, std::string ams_id, std::string slot_id) {
         BOOST_LOG_TRIVIAL(info) << boost::format("build_filament_ams_list: name %1% setting_id %2% type %3% color %4%")
                     % name % tray.setting_id % tray.m_fila_type % tray.color;
         DynamicPrintConfig tray_config;
@@ -6258,6 +6259,14 @@ std::map<int, DynamicPrintConfig> Sidebar::build_filament_ams_list(MachineObject
         tray_config.set_key_value("filament_is_support", new ConfigOptionBools{ info.has_value() ? info->is_support : false});
         for (int i = 0; i < tray.cols.size(); ++i) {
             tray_config.opt<ConfigOptionStrings>("filament_multi_colour")->values.push_back(into_u8(wxColour("#" + tray.cols[i]).GetAsString(wxC2S_HTML_SYNTAX)));
+        }
+        if (tray.cols.empty() && !ams_id.empty() && !slot_id.empty()) { // local multi-colour memory; the tray's own colours (RFID) win
+            std::vector<std::string> mc;
+            std::string              ty;
+            if (CfsUi::restore_colours(dev_id, atoi(ams_id.c_str()), atoi(slot_id.c_str()), tray.color, mc, ty)) {
+                tray_config.opt<ConfigOptionStrings>("filament_multi_colour")->values = mc;
+                tray_config.set_key_value("filament_colour_type", new ConfigOptionStrings{ty});
+            }
         }
         return tray_config;
     };
