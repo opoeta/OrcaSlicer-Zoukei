@@ -9,6 +9,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/PresetComboBoxes.hpp"
 #include "libslic3r/Model.hpp"    // M4b: ModelObject/ModelInstance for GET /objects
 #include "slic3r/GUI/NotificationManager.hpp" // in-app change notifications
 #include "libslic3r/AppConfig.hpp"             // remote_api_notify toggle
@@ -456,6 +457,9 @@ static bool project_key_writable(const std::string &key)
         "flush_multiplier",      // one per nozzle
         "flush_multiplier_fast", // one per nozzle
         "filament_colour",       // its length IS the filament count - kept fixed
+        "filament_multi_colour", // one entry per filament, 1-4 hex colours, first = filament_colour[i]
+        "filament_colour_type",  // one entry per filament, "0" gradient / "1" solid
+        "filament_gradient_length", // one value per filament, >= 0
         "curr_bed_type",         // enum; btDefault rejected
         "prime_volume_mode",     // enum, self-validating
         "wipe_tower_x",          // per-plate vector, written via set_at
@@ -470,8 +474,6 @@ static const char *project_key_block_reason(const std::string &key)
 {
     if (key == "flush_volumes_vector")
         return "derived_from_flush_volumes_matrix";
-    if (key == "filament_colour_type" || key == "filament_multi_colour")
-        return "indexed_unchecked_by_the_colour_picker";
     if (key == "filament_map" || key == "filament_volume_map" || key == "filament_nozzle_map")
         return "values_are_unchecked_extruder_indices";
     if (key == "filament_map_mode" || key == "nozzle_volume_type")
@@ -537,6 +539,12 @@ static std::string colour_list_error(const std::string &s)
 // the FINAL staged config, after every key in the batch is written, so a request
 // that changes filament_colour and flush_volumes_matrix together is judged
 // against the new filament count regardless of key order. Returns "" when valid.
+static bool colours_differ(const std::string &a, const std::string &b)
+{
+    return a.size() != b.size() ||
+           !std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) { return std::tolower((unsigned char) x) == std::tolower((unsigned char) y); });
+}
+
 static std::string project_value_error(const std::string        &key,
                                        const DynamicPrintConfig &staged,
                                        int                       nozzles,
@@ -582,6 +590,50 @@ static std::string project_value_error(const std::string        &key,
         if (n != filaments_before)
             return "filament count is fixed here: expected " + std::to_string(filaments_before) +
                    " colours (';'-separated), got " + std::to_string(n);
+        return {};
+    }
+    if (key == "filament_multi_colour" || key == "filament_colour_type" || key == "filament_gradient_length") {
+        const auto *colours = staged.option<ConfigOptionStrings>("filament_colour");
+        const size_t n = colours == nullptr ? filaments_before : colours->values.size();
+        auto bad_count = [&](size_t got) {
+            return "expected " + std::to_string(n) + " entries (one per filament), got " + std::to_string(got);
+        };
+        if (key == "filament_gradient_length") {
+            const std::vector<double> v = floats_of(key);
+            if (v.size() != n) return bad_count(v.size());
+            for (double d : v)
+                if (!std::isfinite(d) || d < 0.)
+                    return "each value must be a finite number >= 0";
+            return {};
+        }
+        const auto *o = staged.option<ConfigOptionStrings>(key);
+        const size_t got = o == nullptr ? 0 : o->values.size();
+        if (got != n) return bad_count(got);
+        const auto *mc = staged.option<ConfigOptionStrings>("filament_multi_colour");
+        const auto *ty = staged.option<ConfigOptionStrings>("filament_colour_type");
+        for (size_t i = 0; i < n; ++i) {
+            if (key == "filament_colour_type") {
+                const std::string &t = o->values[i];
+                if (t != "0" && t != "1")
+                    return "type must be \"0\" (gradient) or \"1\" (solid), got \"" + t + "\" at index " + std::to_string(i);
+                if (t == "0" && mc != nullptr && i < mc->values.size() && mc->values[i].find(' ') == std::string::npos)
+                    return "gradient type at index " + std::to_string(i) + " needs at least 2 colours in filament_multi_colour";
+            } else {
+                std::istringstream is(o->values[i]);
+                std::vector<std::string> cols;
+                for (std::string c; is >> c;) cols.push_back(c);
+                if (cols.empty() || cols.size() > 4)
+                    return "entry " + std::to_string(i) + " needs 1 to 4 space-separated colours";
+                for (const std::string &c : cols) {
+                    std::string e = colour_list_error(c);
+                    if (!e.empty()) return "entry " + std::to_string(i) + ": " + e;
+                }
+                if (colours != nullptr && i < colours->values.size() && colours_differ(cols.front(), colours->values[i]))
+                    return "entry " + std::to_string(i) + ": first colour must equal filament_colour[" + std::to_string(i) + "]";
+                if (ty != nullptr && i < ty->values.size() && ty->values[i] == "0" && cols.size() < 2)
+                    return "entry " + std::to_string(i) + ": gradient type needs at least 2 colours";
+            }
+        }
         return {};
     }
     if (key == "curr_bed_type") {
@@ -846,6 +898,15 @@ Response Controller::handle_put_config(const std::string &body)
                                        proj_keys.count("flush_multiplier") ||
                                        proj_keys.count("flush_multiplier_fast");
             const bool touched_tower = proj_keys.count("wipe_tower_x") || proj_keys.count("wipe_tower_y");
+
+            if (proj_keys.count("filament_multi_colour") || proj_keys.count("filament_colour_type") ||
+                proj_keys.count("filament_gradient_length") || proj_keys.count("filament_colour")) {
+                // Same epilogue as the colour dialog (PlaterPresetComboBox::sync_colour_config):
+                // lists stay in lockstep, then the sidebar swatches are rebuilt.
+                bundle->normalize_filament_colour_lists();
+                for (PlaterPresetComboBox *cb : wxGetApp().sidebar().combos_filament())
+                    if (cb != nullptr) cb->update();
+            }
 
             if (proj_keys.count("curr_bed_type")) {
                 // The bed type is cached in AppConfig as well, globally and per

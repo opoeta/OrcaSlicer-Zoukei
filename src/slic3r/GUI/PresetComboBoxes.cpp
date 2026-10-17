@@ -300,6 +300,16 @@ int PresetComboBox::update_ams_color()
         ctype = iter->second.opt_string("filament_colour_type", 0u);
         colors = iter->second.opt<ConfigOptionStrings>("filament_multi_colour")->values;
     }
+    // Orca Zoukei: a preset / tray without multi-colour info is a solid colour (never inherit stale entries).
+    if (ctype != "0" && ctype != "1") ctype = "1";
+    {
+        size_t n_cols = 0;
+        for (const auto &c : colors) if (!c.empty()) ++n_cols;
+        if (n_cols < 2) {
+            colors.clear();
+            ctype = "1";
+        }
+    }
     DynamicPrintConfig *cfg        = &wxGetApp().preset_bundle->project_config;
     auto color_head = static_cast<ConfigOptionStrings*>(cfg->option("filament_colour")->clone()); // single color (the first color if multi-color filament)
     auto color_pack = static_cast<ConfigOptionStrings *>(cfg->option("filament_multi_colour")->clone()); // multi color (all colors in all kinds of filament)
@@ -327,6 +337,7 @@ int PresetComboBox::update_ams_color()
     new_cfg.set_key_value("filament_colour_type", color_type);
     new_cfg.set_key_value("filament_multi_colour", color_pack);
     cfg->apply(new_cfg);
+    wxGetApp().preset_bundle->normalize_filament_colour_lists();
     wxGetApp().plater()->on_config_change(new_cfg);
     //trigger the filament color changed
     wxCommandEvent *evt = new wxCommandEvent(EVT_FILAMENT_COLOR_CHANGED);

@@ -1415,7 +1415,7 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
                 std::istringstream is(mc->values[i]);
                 for (std::string c; is >> c && t.colors.size() < 4;)
                     t.colors.emplace_back(libvgcode::convert(c));
-                t.gradient = ty != nullptr && i < ty->values.size() && ty->values[i] == "0";
+                t.gradient = ty != nullptr && i < ty->values.size() && ty->values[i] == "0" && t.colors.size() >= 2; // type "1"/empty or a single colour is solid
                 t.cycle_m  = gl != nullptr && i < gl->values.size() ? float(gl->values[i]) : 0.0f;
                 multi.emplace_back(std::move(t));
             }

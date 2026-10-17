@@ -12,6 +12,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <cassert>
 #include <cctype>
 #include <chrono>
@@ -3996,6 +3997,46 @@ void PresetBundle::export_selections(AppConfig &config)
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": printer %1%, print %2%, filaments[0] %3% ")%printers.get_selected_preset_name() % prints.get_selected_preset_name() %filament_presets[0];
 }
 
+// Orca Zoukei: keep filament_multi_colour / filament_colour_type / filament_gradient_length /
+// filament_cfs_slot in lockstep with the filament count and with filament_colour. A stale entry
+// (first colour differs from the single colour) or an empty/invalid type falls back to a solid colour.
+void PresetBundle::normalize_filament_colour_lists()
+{
+    auto *colour = project_config.option<ConfigOptionStrings>("filament_colour");
+    if (colour == nullptr)
+        return;
+    const size_t n = colour->values.size();
+    auto *multi = project_config.option<ConfigOptionStrings>("filament_multi_colour");
+    auto *type  = project_config.option<ConfigOptionStrings>("filament_colour_type");
+    if (multi != nullptr && type != nullptr) {
+        multi->values.resize(n);
+        type->values.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            std::string &m = multi->values[i];
+            std::string &t = type->values[i];
+            std::vector<std::string> cols;
+            {
+                std::istringstream is(m);
+                for (std::string c; is >> c;)
+                    cols.push_back(c);
+            }
+            if (cols.empty() || !boost::iequals(cols.front(), colour->values[i])) {
+                m = colour->values[i];
+                cols.assign(1, m);
+                t = "1";
+            }
+            if (t != "0" && t != "1")
+                t = "1";
+            if (t == "0" && cols.size() < 2)
+                t = "1";
+        }
+    }
+    if (auto *cfs_slot = project_config.option<ConfigOptionStrings>("filament_cfs_slot"))
+        cfs_slot->values.resize(n);
+    if (auto *gl = project_config.option<ConfigOptionFloats>("filament_gradient_length"))
+        gl->values.resize(n, 0.);
+}
+
 void PresetBundle::set_num_filaments(unsigned int n, std::string new_color)
 {
     unsigned old_filament_count = this->filament_presets.size();
@@ -4018,10 +4059,10 @@ void PresetBundle::set_num_filaments(unsigned int n, std::string new_color)
 
     filament_color->resize(n);
     // Sync filament multi colour
+    // Orca Zoukei: keep the multi-colour info of the slots that already existed.
     filament_multi_color->values.resize(n);
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = old_slot_count; i < n; i++)
         filament_multi_color->values[i] = filament_color->values[i];
-    }
     filament_color_type->resize(n);
     if (auto *cfs_slot = project_config.option<ConfigOptionStrings>("filament_cfs_slot"))
         cfs_slot->values.resize(n);
@@ -4043,6 +4084,7 @@ void PresetBundle::set_num_filaments(unsigned int n, std::string new_color)
         }
     }
 
+    normalize_filament_colour_lists();
     update_multi_material_filament_presets();
 }
 
@@ -6014,6 +6056,7 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
         // Older projects inherit one-element mixed defaults, regardless of their filament count.
         if (!is_published)
             resize_mixed_filament_metadata(this->project_config, num_filaments, num_filaments);
+        this->normalize_filament_colour_lists();
 
         break;
     }
@@ -8081,6 +8124,7 @@ void PresetBundle::update_multi_material_filament_presets(size_t to_delete_filam
             }
         this->project_config.option<ConfigOptionFloats>("flush_volumes_matrix")->values = new_matrix;
     }
+    normalize_filament_colour_lists();
 }
 
 // Rewrite a preset-name-list field (compatible_printers / compatible_prints) so references to a
