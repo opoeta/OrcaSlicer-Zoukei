@@ -42,6 +42,8 @@ protected:
     };
     bool fill_surface_by_multilines(const Surface *surface, FillParams params, const std::initializer_list<SweepParams> &sweep_params, Polylines &polylines_out);
     bool fill_surface_trapezoidal(const Surface *surface, FillParams params, Polylines &polylines_out, int Pattern_type);
+    // Bambu Studio 2.8.4: Fill::fill_surface_extrusion() with the gap fill woven into the monotonic sweep.
+    void fill_surface_extrusion_monotonic(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out);
 };
 
 class FillAlignedRectilinear : public FillRectilinear
@@ -61,6 +63,7 @@ public:
     Fill* clone() const override { return new FillMonotonic(*this); }
     ~FillMonotonic() override = default;
     Polylines fill_surface(const Surface *surface, const FillParams &params) override;
+    void fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out) override { this->fill_surface_extrusion_monotonic(surface, params, out); }
 	bool no_sort() const override { return true; }
 };
 
@@ -179,6 +182,7 @@ public:
     Fill* clone() const override { return new FillMonotonicLines(*this); }
     ~FillMonotonicLines() override = default;
     Polylines fill_surface(const Surface *surface, const FillParams &params) override;
+    void fill_surface_extrusion(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out) override { this->fill_surface_extrusion_monotonic(surface, params, out); }
     bool no_sort() const override { return true; }
 };
 

@@ -224,14 +224,24 @@ void Fill::fill_surface_extrusion(const Surface* surface, const FillParams& para
 // Orca: Dedicated function to calculate gap fill lines for the provided surface, according to the print object parameters
 // and append them to the out ExtrusionEntityCollection.
 void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, ExtrusionEntityCollection* out){
+    ThickPolylines polylines = this->_find_gap_fill_polylines(surface, params, out);
+    if (!polylines.empty())
+        variable_width(polylines, erGapFill, params.flow, out->entities);
+}
+
+// Gap fill centre lines for the part of the surface that the extrusions in `out` leave uncovered.
+// Empty when gap fill is disabled for this surface or there is nothing to fill.
+ThickPolylines Fill::_find_gap_fill_polylines(const Surface* surface, const FillParams& params, const ExtrusionEntityCollection* out) const
+{
+    ThickPolylines polylines;
 
     //Orca: just to be safe, check against null pointer for the print object config and if NULL return.
-    if (this->print_object_config == nullptr) return;
+    if (this->print_object_config == nullptr) return polylines;
 
     // Orca: Enable gap fill as per the user preference. Return early if gap fill is to not be applied.
     if ((this->print_object_config->gap_fill_target.value == gftNowhere) ||
-        (surface->surface_type == stInternalSolid && this->print_object_config->gap_fill_target.value != gftEverywhere))
-        return;
+        (surface->is_solid_infill() && this->print_object_config->gap_fill_target.value != gftEverywhere))
+        return polylines;
 
     Flow new_flow = params.flow;
     ExPolygons unextruded_areas;
@@ -257,7 +267,6 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
         for (size_t i : order2)
             gaps_ex_sorted.emplace_back(std::move(gaps_ex[i]));
 
-        ThickPolylines polylines;
         for (ExPolygon& ex : gaps_ex_sorted) {
             //BBS: Use DP simplify to avoid duplicated points and accelerate medial-axis calculation as well.
             ex.douglas_peucker(SCALED_RESOLUTION * 0.1);
@@ -269,10 +278,11 @@ void Fill::_create_gap_fill(const Surface* surface, const FillParams& params, Ex
                                            [&](const ThickPolyline& p) {
                 return p.length() < scale_(params.config->filter_out_gap_fill.value);
             }), polylines.end());
-
-            variable_width(polylines, erGapFill, params.flow, out->entities);
+        } else {
+            polylines.clear();
         }
     }
+    return polylines;
 }
 
 // Calculate a new spacing to fill width with possibly integer number of lines,

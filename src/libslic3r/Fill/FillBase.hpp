@@ -245,6 +245,7 @@ protected:
     // Orca: Dedicated function to calculate gap fill lines for the provided surface, according to the print object parameters
     // and append them to the out ExtrusionEntityCollection.
     void _create_gap_fill(const Surface* surface, const FillParams& params, ExtrusionEntityCollection* out);
+    ThickPolylines _find_gap_fill_polylines(const Surface* surface, const FillParams& params, const ExtrusionEntityCollection* out) const;
 
 public:
     static void connect_infill(Polylines &&infill_ordered, const ExPolygon &boundary, Polylines &polylines_out, const double spacing, const FillParams &params);

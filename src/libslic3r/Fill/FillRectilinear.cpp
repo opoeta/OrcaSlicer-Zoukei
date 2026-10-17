@@ -37,6 +37,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Flow.hpp"
 #include "FillRectilinear.hpp"
+#include "libslic3r/VariableWidth.hpp"
 
 // #define SLIC3R_DEBUG
 // #define INFILL_DEBUG_OUTPUT
@@ -3771,6 +3772,443 @@ Points sample_grid_pattern(const ExPolygons& expolygons, coord_t spacing, const 
 Points sample_grid_pattern(const Polygons& polygons, coord_t spacing, const BoundingBox& global_bounding_box)
 {
     return sample_grid_pattern(union_ex(polygons), spacing, global_bounding_box);
+}
+
+// Bambu Studio 2.8.4: "Optimized top surface monotonic line infill path to reduce travel moves".
+// Gap fill used to be appended after the whole monotonic sweep, so the nozzle crossed the surface once to
+// reach the gaps and again to get back to the next island. The gap fill polylines are instead woven into the
+// sweep: each one is attached next to the monotonic line whose end point is the closest, in the direction
+// that avoids a fold-back. The monotonic lines keep their order, only the gaps move.
+struct MonotonicRoute
+{
+    // gaps_at[i]: gap fills (indices into the gap array) printed between line i-1 and line i.
+    std::vector<std::vector<size_t>> gaps_at;
+    // Gap fills that could not be attached to any line (there is no line at all).
+    std::vector<size_t>              leftover;
+};
+
+// Decides where every gap fill goes in the (unchanged) sequence of monotonic lines, in which order the gaps
+// sharing one slot are printed and in which direction each open gap is walked. A gap may be reversed in place.
+static MonotonicRoute plan_monotonic_route(const Polylines &lines, ThickPolylines &gaps, double link_max, float scan_angle,
+                                           const std::vector<size_t> &island_end)
+{
+    const size_t n_lines = lines.size();
+    MonotonicRoute route;
+    route.gaps_at.resize(n_lines + 1);
+    if (gaps.empty())
+        return route;
+
+    // 1. Distance, fold-back test and scan-frame conversion helpers.
+    auto link = [](const Point *from, const Point &to) {
+        return from ? (to - *from).cast<double>().norm() : 0.;
+    };
+    // The nozzle turns around at "at" (obtuse angle), pressing back over what it just printed.
+    auto folds_back = [](const Point *from, const Point &at, const Point *to) {
+        return from && to && (at - *from).cast<double>().dot((*to - at).cast<double>()) < 0.;
+    };
+
+    // fill_surface_by_lines() rotates the polygon by -scan_angle and sweeps it with vertical lines, so in that frame
+    // every monotonic line sits on a column of constant x. Converting back to it lets x order lines and gaps.
+    const double scan_cos = std::cos(- double(scan_angle));
+    const double scan_sin = std::sin(- double(scan_angle));
+    auto to_scan = [scan_cos, scan_sin](const Point &p) { return p.rotated(scan_cos, scan_sin); };
+
+    // 2. Index the line end points and choose the slot of each gap.
+    struct LineEndpoint {
+        Point  scan_pos;   // end point in the scan frame
+        size_t line_idx;   // line it belongs to
+        size_t island_idx; // fill island it belongs to
+        bool   is_start;   // start or end of the line
+    };
+
+    struct ColumnSpan { coord_t min_x, max_x; }; // column range of one island
+    std::vector<ColumnSpan> island_spans(
+        std::max<size_t>(island_end.size(), 1),
+        { std::numeric_limits<coord_t>::max(), std::numeric_limits<coord_t>::lowest() });
+    std::vector<LineEndpoint> endpoints;
+    endpoints.reserve(2 * n_lines);
+    size_t isl = 0;
+    for (size_t i = 0; i < n_lines; ++ i) {
+        while (isl + 1 < island_end.size() && i >= island_end[isl])
+            ++ isl;
+        const Point first = to_scan(lines[i].first_point());
+        const Point last  = to_scan(lines[i].last_point());
+        endpoints.push_back({ first, i, isl, true  });
+        endpoints.push_back({ last,  i, isl, false });
+        island_spans[isl].min_x = std::min({ island_spans[isl].min_x, first.x(), last.x() });
+        island_spans[isl].max_x = std::max({ island_spans[isl].max_x, first.x(), last.x() });
+    }
+
+    std::sort(endpoints.begin(), endpoints.end(),
+        [](const LineEndpoint &a, const LineEndpoint &b) { return a.scan_pos.x() < b.scan_pos.x(); });
+
+    // Closest line end point (2D distance) to q, searched outwards from q.x in the x-sorted end points.
+    auto nearest_endpoint = [&endpoints](const Point &q, size_t &out, double &out_d2) {
+        size_t hi = std::lower_bound(endpoints.begin(), endpoints.end(), q.x(),
+            [](const LineEndpoint &p, coord_t x) { return p.scan_pos.x() < x; }) - endpoints.begin();
+        size_t lo = hi;
+        out    = endpoints.size();
+        out_d2 = std::numeric_limits<double>::max();
+        const double qx = double(q.x()), inf = std::numeric_limits<double>::infinity();
+        while (lo > 0 || hi < endpoints.size()) {
+            const double dl = lo > 0                ? qx - double(endpoints[lo - 1].scan_pos.x()) : inf;
+            const double dr = hi < endpoints.size() ? double(endpoints[hi].scan_pos.x()) - qx     : inf;
+            const double dx = std::min(dl, dr);
+            if (! (dx * dx < out_d2))
+                break;
+            const size_t i  = dl <= dr ? -- lo : hi ++;
+            const double d2 = (endpoints[i].scan_pos - q).cast<double>().squaredNorm();
+            if (d2 < out_d2) {
+                out_d2 = d2;
+                out    = i;
+            }
+        }
+    };
+
+    struct GapAttach
+    {
+        bool   at_line_start;
+        double distance_squared;
+    };
+
+    std::vector<GapAttach> attachments(gaps.size());
+
+    for (size_t igap = 0; igap < gaps.size(); ++ igap) {
+        if (gaps[igap].points.size() < 2) // invalid gap
+            continue;
+        if (n_lines == 0) {
+            route.leftover.push_back(igap); // gaps only, no monotonic line to attach to
+            continue;
+        }
+
+        const ThickPolyline &gap_line = gaps[igap];
+
+        // Probe points: both ends of an open gap, every distinct vertex of a closed one.
+        auto for_each_probe = [&gap_line](auto &&fn) {
+            if (gap_line.is_closed()) {
+                for (size_t v = 0; v + 1 < gap_line.points.size(); ++ v)
+                    fn(gap_line.points[v]);
+            } else {
+                fn(gap_line.first_point());
+                fn(gap_line.last_point());
+            }
+        };
+        size_t  nearest_endpoint_idx     = endpoints.size();
+        double  nearest_distance_squared = std::numeric_limits<double>::max();
+        coord_t gap_min_x                = std::numeric_limits<coord_t>::max();
+        coord_t gap_max_x                = std::numeric_limits<coord_t>::lowest();
+        for_each_probe([&](const Point &probe_point) {
+            const Point probe_scan_pos = to_scan(probe_point);
+            gap_min_x = std::min(gap_min_x, probe_scan_pos.x());
+            gap_max_x = std::max(gap_max_x, probe_scan_pos.x());
+            size_t endpoint_idx;
+            double distance_squared;
+            nearest_endpoint(probe_scan_pos, endpoint_idx, distance_squared);
+            if (endpoint_idx < endpoints.size() && distance_squared < nearest_distance_squared) {
+                nearest_distance_squared = distance_squared;
+                nearest_endpoint_idx     = endpoint_idx;
+            }
+        });
+        if (nearest_endpoint_idx >= endpoints.size()) {
+            route.leftover.push_back(igap);
+            continue;
+        }
+
+        const LineEndpoint &endpoint             = endpoints[nearest_endpoint_idx];
+        const size_t        line_idx             = endpoint.line_idx;
+        bool                attach_at_line_start = endpoint.is_start;
+        const ColumnSpan   &island_span          = island_spans[endpoint.island_idx];
+        const coord_t       endpoint_x           = endpoint.scan_pos.x();
+        const bool gap_center_is_right_of_endpoint =
+            coord_t((int64_t(gap_min_x) + int64_t(gap_max_x)) / 2) > endpoint_x;
+
+        // A boundary gap and an inner gap often hit the same end point, but the right slot is the opposite one:
+        // the boundary gap goes outside the turn-around, the inner gap stays inside it.
+        const bool is_boundary_gap = gap_center_is_right_of_endpoint
+            ? island_span.max_x <= gap_max_x
+            : island_span.min_x >= gap_min_x; // no column further out in this island
+
+        if (is_boundary_gap) {
+            auto position_has_line_link = [&](size_t insertion_idx) {
+                return insertion_idx > 0 && insertion_idx < n_lines &&
+                       (lines[insertion_idx].first_point() - lines[insertion_idx - 1].last_point())
+                           .cast<double>().norm() <= link_max;
+            };
+
+            const size_t current_insertion_idx   = attach_at_line_start ? line_idx : line_idx + 1;
+            const size_t alternate_insertion_idx = attach_at_line_start ? line_idx + 1 : line_idx;
+
+            // Do not split an existing line-to-line link when the other side is free.
+            if (position_has_line_link(current_insertion_idx) &&
+                ! position_has_line_link(alternate_insertion_idx)) {
+                attach_at_line_start = ! attach_at_line_start;
+                const Point &new_endpoint = attach_at_line_start ?
+                    lines[line_idx].first_point() : lines[line_idx].last_point();
+                nearest_distance_squared = std::numeric_limits<double>::max();
+                for_each_probe([&](const Point &probe) {
+                    nearest_distance_squared = std::min(
+                        nearest_distance_squared, (probe - new_endpoint).cast<double>().squaredNorm());
+                });
+            }
+        }
+
+        const size_t insertion_idx = attach_at_line_start ? line_idx : line_idx + 1;
+        attachments[igap] = { attach_at_line_start, nearest_distance_squared };
+        route.gaps_at[insertion_idx].push_back(igap);
+    }
+
+    // 3. Order of the gaps that share one slot.
+    for (size_t ii = 0; ii <= n_lines; ++ ii) {
+        std::vector<size_t> &placed = route.gaps_at[ii];
+        if (placed.size() < 2)
+            continue;
+        std::stable_sort(placed.begin(), placed.end(), [&attachments](size_t a, size_t b) {
+            const GapAttach &attach_a = attachments[a];
+            const GapAttach &attach_b = attachments[b];
+
+            // Gaps hanging off the end of the previous line go before those hanging off the start of the next one.
+            if (attach_a.at_line_start != attach_b.at_line_start)
+                return ! attach_a.at_line_start;
+
+            // Next line's start side: far to near.
+            if (attach_a.at_line_start)
+                return attach_a.distance_squared > attach_b.distance_squared;
+            // Previous line's end side: near to far.
+            return attach_a.distance_squared < attach_b.distance_squared;
+        });
+    }
+
+    // 4. Without any monotonic line, chain the leftover gaps nearest-neighbour.
+    if (! route.leftover.empty()) {
+        Point route_end_point;
+        bool  has_route_end = false;
+
+        std::vector<size_t> remaining_gap_indices = std::move(route.leftover);
+        route.leftover.clear();
+        while (! remaining_gap_indices.empty()) {
+            size_t nearest_pool_pos = 0;
+            bool   should_reverse   = false;
+            double nearest_distance = std::numeric_limits<double>::max();
+
+            for (size_t pool_pos = 0; pool_pos < remaining_gap_indices.size(); ++ pool_pos) {
+                const ThickPolyline &candidate_gap = gaps[remaining_gap_indices[pool_pos]];
+                for (int reverse = 0; reverse < 2; ++ reverse) {
+                    const Point &entry_point = reverse ? candidate_gap.last_point() : candidate_gap.first_point();
+                    const double distance = has_route_end ?
+                        (entry_point - route_end_point).cast<double>().norm() : 0.;
+                    if (distance < nearest_distance) {
+                        nearest_distance = distance;
+                        nearest_pool_pos = pool_pos;
+                        should_reverse   = reverse != 0;
+                    }
+                }
+            }
+
+            const size_t selected_gap_idx = remaining_gap_indices[nearest_pool_pos];
+            remaining_gap_indices.erase(remaining_gap_indices.begin() + nearest_pool_pos);
+            ThickPolyline &selected_gap = gaps[selected_gap_idx];
+            if (should_reverse && ! selected_gap.is_closed())
+                selected_gap.reverse();
+            route_end_point = selected_gap.last_point();
+            has_route_end   = true;
+            route.leftover.push_back(selected_gap_idx);
+        }
+    }
+
+    // 5. Expand the route into one sequence and pick the direction of every gap (seam of a closed one).
+    struct RouteItem { size_t geometry_idx; bool is_gap_fill; }; // false: index into lines, true: index into gaps
+    std::vector<RouteItem> route_items;
+    route_items.reserve(lines.size() + gaps.size());
+    for (size_t insertion_idx = 0; insertion_idx <= n_lines; ++ insertion_idx) {
+        for (size_t gap_idx : route.gaps_at[insertion_idx])
+            route_items.push_back({ gap_idx, true });
+        if (insertion_idx < n_lines)
+            route_items.push_back({ insertion_idx, false });
+    }
+    for (size_t gap_idx : route.leftover)
+        route_items.push_back({ gap_idx, true });
+
+    // Direction score: fewer fold-backs first, then shorter links.
+    struct OrientationScore
+    {
+        int    fold_count;
+        double total_link_length;
+        bool operator<(const OrientationScore &other) const
+        {
+            if (fold_count != other.fold_count)
+                return fold_count < other.fold_count;
+            return total_link_length < other.total_link_length;
+        }
+    };
+
+    // Coordinates are copied so that reversing a gap cannot invalidate the pointers.
+    Point        previous_exit_point, next_entry_point;
+    const Point *previous_exit = nullptr, *next_entry = nullptr;
+    bool         can_link_from_previous = false, can_link_to_next = false;
+
+    auto score_orientation = [&](
+        const Point &entry_point,
+        const Point &point_after_entry,
+        const Point &point_before_exit,
+        const Point &exit_point) {
+        const double entry_link_length = link(previous_exit, entry_point);
+        const double exit_link_length  = link(next_entry, exit_point);
+        const int entry_folds_back = can_link_from_previous && entry_link_length <= link_max ?
+            int(folds_back(previous_exit, entry_point, &point_after_entry)) : 0;
+        const int exit_folds_back = can_link_to_next && exit_link_length <= link_max ?
+            int(folds_back(&point_before_exit, exit_point, next_entry)) : 0;
+        return OrientationScore {
+            entry_folds_back + exit_folds_back,
+            entry_link_length + exit_link_length
+        };
+    };
+
+    for (size_t item_pos = 0; item_pos < route_items.size(); ++ item_pos) {
+        const RouteItem &item = route_items[item_pos];
+        if (! item.is_gap_fill) {
+            previous_exit_point    = lines[item.geometry_idx].last_point();
+            previous_exit          = &previous_exit_point;
+            can_link_from_previous = true;
+            continue;
+        }
+        ThickPolyline &gap_line = gaps[item.geometry_idx];
+
+        next_entry       = nullptr;
+        can_link_to_next = false;
+        if (item_pos + 1 < route_items.size()) {
+            const RouteItem &next_item = route_items[item_pos + 1];
+            if (! next_item.is_gap_fill)
+                next_entry_point = lines[next_item.geometry_idx].first_point();
+            else {
+                // The next gap is not oriented yet: assume the end closer to this one is its entry.
+                const ThickPolyline &next_gap_line = gaps[next_item.geometry_idx];
+                auto distance_to_current_gap = [&gap_line](const Point &point) {
+                    return std::min((point - gap_line.first_point()).cast<double>().squaredNorm(),
+                                    (point - gap_line.last_point()).cast<double>().squaredNorm());
+                };
+                next_entry_point = distance_to_current_gap(next_gap_line.first_point()) <=
+                                   distance_to_current_gap(next_gap_line.last_point()) ?
+                                   next_gap_line.first_point() : next_gap_line.last_point();
+            }
+            next_entry = &next_entry_point;
+            can_link_to_next = ! (next_item.is_gap_fill && gaps[next_item.geometry_idx].is_closed());
+        }
+
+        Point resolved_exit_point;
+        if (gap_line.is_closed()) {
+            const Point *seam_reference = previous_exit ? previous_exit : next_entry;
+            resolved_exit_point = seam_reference ?
+                foot_pt(gap_line.points, *seam_reference).second : gap_line.last_point();
+        } else {
+            const size_t point_count = gap_line.points.size();
+            const OrientationScore forward_score = score_orientation(
+                gap_line.points[0], gap_line.points[1],
+                gap_line.points[point_count - 2], gap_line.points[point_count - 1]);
+            const OrientationScore reverse_score = score_orientation(
+                gap_line.points[point_count - 1], gap_line.points[point_count - 2],
+                gap_line.points[1], gap_line.points[0]);
+            if (reverse_score < forward_score)
+                gap_line.reverse();
+            resolved_exit_point = gap_line.last_point();
+        }
+        previous_exit_point    = resolved_exit_point;
+        previous_exit          = &previous_exit_point;
+        can_link_from_previous = ! gap_line.is_closed();
+    }
+
+    return route;
+}
+
+// Fills "fills" in the order given by plan_monotonic_route(): every gap right where it was attached.
+static void append_monotonic_route(
+    ExtrusionEntitiesPtr &dst, const MonotonicRoute &route,
+    Polylines &lines, ThickPolylines &gaps,
+    ExtrusionRole line_role, double line_mm3_per_mm, float line_width, float line_height,
+    const Flow &gap_flow, bool keep_fill_order)
+{
+    Polylines pending_lines;
+    dst.reserve(dst.size() + lines.size() + gaps.size());
+
+    auto flush_lines = [&]() {
+        if (pending_lines.empty())
+            return;
+        const size_t idx = dst.size();
+        extrusion_entities_append_paths(dst, std::move(pending_lines), line_role, line_mm3_per_mm, line_width, line_height);
+        if (keep_fill_order)
+            for (size_t i = idx; i < dst.size(); ++ i)
+                dst[i]->set_reverse();
+        pending_lines.clear();
+    };
+    auto add_gap = [&](size_t igap) {
+        // Gaps are emitted one by one, between the lines they were attached to.
+        flush_lines();
+        ThickPolylines one;
+        one.emplace_back(std::move(gaps[igap]));
+        variable_width(one, erGapFill, gap_flow, dst);
+    };
+
+    for (size_t i = 0; i < lines.size(); ++ i) {
+        for (size_t igap : route.gaps_at[i])
+            add_gap(igap);
+        if (lines[i].is_valid())
+            pending_lines.emplace_back(std::move(lines[i]));
+    }
+    for (size_t igap : route.gaps_at.back())
+        add_gap(igap);
+    for (size_t igap : route.leftover)
+        add_gap(igap);
+    flush_lines();
+    dst.shrink_to_fit();
+}
+
+// Shared by the monotonic patterns: the base Fill::fill_surface_extrusion() with the gap fill woven into the
+// sweep (see plan_monotonic_route()) instead of appended after it.
+void FillRectilinear::fill_surface_extrusion_monotonic(const Surface *surface, const FillParams &params, ExtrusionEntitiesPtr &out)
+{
+    Polylines polylines;
+    try {
+        polylines = this->fill_surface(surface, params);
+    }
+    catch (InfillFailedException&) {}
+    if (polylines.empty())
+        return;
+
+    double flow_mm3_per_mm = params.flow.mm3_per_mm();
+    double flow_width      = params.flow.width();
+    if (! params.using_internal_flow) {
+        const Flow new_flow = params.flow.with_spacing(this->spacing);
+        flow_mm3_per_mm = new_flow.mm3_per_mm();
+        flow_width      = new_flow.width();
+    }
+
+    ExtrusionEntityCollection *eec = new ExtrusionEntityCollection();
+    out.push_back(eec);
+    eec->no_sort = true;
+    // A forced surface fill order must survive the G-code path planner (same rule as Fill::fill_surface_extrusion()).
+    const bool keep_fill_order = params.fill_order != SurfaceFillOrder::Default;
+
+    // The lines alone first: the gap fill is the part of the surface they leave uncovered.
+    {
+        Polylines lines_copy(polylines);
+        const size_t idx = eec->entities.size();
+        extrusion_entities_append_paths(eec->entities, std::move(lines_copy), params.extrusion_role,
+                                        flow_mm3_per_mm, float(flow_width), params.flow.height());
+        if (! params.can_reverse || keep_fill_order)
+            for (size_t i = idx; i < eec->entities.size(); ++ i)
+                eec->entities[i]->set_reverse();
+    }
+    ThickPolylines gap_polylines = this->_find_gap_fill_polylines(surface, params, eec);
+    if (gap_polylines.empty())
+        return;
+
+    // Redo the assembly with the gaps in the sweep. One call fills one island, hence a single island entry.
+    eec->clear();
+    const double link_max   = 3. * scale_(flow_width);
+    const float  scan_angle = this->_infill_direction(surface).first;
+    const MonotonicRoute route = plan_monotonic_route(polylines, gap_polylines, link_max, scan_angle, { polylines.size() });
+    append_monotonic_route(eec->entities, route, polylines, gap_polylines,
+        params.extrusion_role, flow_mm3_per_mm, float(flow_width), params.flow.height(), params.flow,
+        ! params.can_reverse || keep_fill_order);
 }
 
 // Orca: Introduced FillMonotonicLines from Prusa slicer, inhereting from FillRectilinear
