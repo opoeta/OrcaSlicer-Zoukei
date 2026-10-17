@@ -192,6 +192,7 @@
 #include "GUI.hpp"
 #include "BoxPrintMappingDialog.hpp"
 #include "GUI_App.hpp"
+#include "PostProcessor.hpp"
 #include "CrealityCfsUi.hpp"
 #include "Shortcuts.hpp"
 #include "GUI_ObjectList.hpp"
@@ -21390,8 +21391,31 @@ int Plater::send_gcode(int plate_idx, Export3mfProgressFn proFn)
         strategy = SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode;
 #endif
 
+    // Orca Zoukei: non-BBL printers get their G-code post-processed here (BBL printers already had it done in
+    // place while slicing), so the 3MF embeds the processed G-code, not the raw temp one.
+    SendGCodeCopy post_processed;
+    PartPlate*    overridden = nullptr;
+    try {
+        PartPlateList& plates = get_partplate_list();
+        PartPlate*     plate  = (plate_idx == PLATE_ALL_IDX || plate_idx == PLATE_CURRENT_IDX) ? plates.get_curr_plate() : plates.get_plate(plate_idx);
+        if (plate != nullptr && plate->fff_print() != nullptr && !plate->fff_print()->is_BBL_printer() && plate->is_valid_gcode_file()) {
+            const std::string src = plate->get_tmp_gcode_path();
+            post_processed = post_process_gcode_for_send(src, "3MF", src, plate->fff_print()->full_print_config());
+            if (post_processed.processed) {
+                plate->set_gcode_send_override(post_processed.path);
+                overridden = plate;
+            }
+        }
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "send_gcode: G-code post-processing failed: " << e.what();
+        show_error(this, from_u8(e.what()), false);
+        return -1;
+    }
+
     result = export_3mf(p->m_print_job_data._3mf_path, strategy, plate_idx, proFn);
 
+    if (overridden != nullptr)
+        overridden->set_gcode_send_override(std::string());
     return result;
 }
 

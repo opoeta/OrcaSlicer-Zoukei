@@ -22,6 +22,9 @@
 #include <nlohmann/json.hpp>
 #include <wx/string.h>
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/PostProcessor.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include <memory>
 #include <exception>
@@ -66,6 +69,41 @@ static auto sending_over_cloud_str      = _u8L("Sending print job through cloud 
 static wxString wait_sending_finish         = _L("Print task sending times out.");
 //static wxString desc_wait_sending_finish    = _L("The printer timed out while receiving a print job. Please check if the network is functioning properly and send the print again.");
 //static wxString desc_wait_sending_finish    = _L("The printer timed out while receiving a print job. Please check if the network is functioning properly.");
+
+// Orca Zoukei: the Creality / Flashforge agents upload the plates' temp G-code directly, so the post-processing
+// scripts and slicing-pipeline plugins (Step.psGCodePostProcess) have to run here, on private copies, or they
+// are skipped on this path. Returns the {"files":[...]} JSON with the processed paths / names.
+static std::string post_process_agent_files(const std::string& files_json, const std::string& host, Plater* plater,
+                                            std::vector<SendGCodeCopy>& copies)
+{
+    json j = json::parse(files_json, nullptr, false);
+    if (!j.is_object() || !j.contains("files") || !j["files"].is_array())
+        return files_json;
+    PartPlateList& plates = plater->get_partplate_list();
+    for (json& f : j["files"]) {
+        const std::string path = f.value("path", std::string());
+        const std::string name = f.value("name", std::string());
+        if (path.empty())
+            continue;
+        const DynamicPrintConfig cfg = [&]() -> DynamicPrintConfig {
+            for (int i = 0; i < plates.get_plate_count(); ++i) {
+                PartPlate* plate = plates.get_plate(i);
+                if (plate != nullptr && plate->fff_print() != nullptr && plate->get_tmp_gcode_path() == path)
+                    return plate->fff_print()->full_print_config();
+            }
+            return plates.get_current_fff_print().full_print_config();
+        }();
+        copies.push_back(post_process_gcode_for_send(path, host, name, cfg));
+        const SendGCodeCopy& c = copies.back();
+        if (c.processed) {
+            f["path"] = c.path;
+            const std::string new_name = fs::path(c.output_name).filename().string();
+            if (!new_name.empty())
+                f["name"] = new_name;
+        }
+    }
+    return j.dump();
+}
 
 PrintJob::PrintJob(std::string dev_id)
 : m_plater{wxGetApp().plater()},
@@ -595,8 +633,25 @@ void PrintJob::process(Ctl &ctl)
             return true;
     };
 
+    // Declared before the send so the processed copies live until the upload is over.
+    std::vector<SendGCodeCopy> post_processed_files;
     if (m_creality) {
-        params.extra_options = m_creality_files;
+        std::string files_json = m_creality_files;
+        try {
+            std::string host = "Creality";
+            if (DeviceManager* dev = wxGetApp().getDeviceManager()) {
+                const std::string agent_id = dev->get_current_printer_agent_id();
+                host = agent_id == FLASHFORGE_PRINTER_AGENT_ID ? "Flashforge" : agent_id == CREALITY_CFS_PRINTER_AGENT_ID ? "Creality" : agent_id;
+            }
+            files_json = post_process_agent_files(m_creality_files, host, m_plater, post_processed_files);
+        } catch (const std::exception& e) {
+            BOOST_LOG_TRIVIAL(error) << "print_job: G-code post-processing failed: " << e.what();
+            ctl.update_status(curr_percent, e.what());
+            ctl.show_error_info(e.what(), 0, "", "");
+            m_job_finished = true;
+            return;
+        }
+        params.extra_options = files_json;
         ctl.update_status(curr_percent, _u8L("Sending print job over LAN"));
         mark_lifecycle_started();
         result = m_creality_send_only ? m_agent->start_send_gcode_to_sdcard(params, update_fn, cancel_fn, nullptr) :

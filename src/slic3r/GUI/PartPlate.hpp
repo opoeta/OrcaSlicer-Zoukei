@@ -133,6 +133,7 @@ private:
 
     std::string m_tmp_gcode_path;       //use a temp path to store the gcode
     std::string m_temp_config_3mf_path; //use a temp path to store the config 3mf
+    std::string m_gcode_send_override;
     std::string m_gcode_path_from_3mf;  //use a path to store the gcode loaded from 3mf
 
     friend class PartPlateList;
@@ -657,6 +658,9 @@ public:
     GCodeProcessorResult* get_slice_result() { return m_gcode_result; }
 
     std::string           get_tmp_gcode_path();
+    // Orca Zoukei: while a 3MF is exported for a send path, the G-code to embed instead of the plate's own temp
+    // G-code (the post-processed working copy). Empty = embed the plate's G-code as before.
+    void                  set_gcode_send_override(const std::string& path) { m_gcode_send_override = path; }
     std::string           get_temp_config_3mf_path();
     //this API should only be used for command line usage
     void set_tmp_gcode_path(std::string new_path)

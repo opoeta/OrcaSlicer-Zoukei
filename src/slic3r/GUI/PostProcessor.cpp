@@ -514,4 +514,50 @@ bool run_post_process_scripts(
     return true;
 }
 
+SendGCodeCopy& SendGCodeCopy::operator=(SendGCodeCopy&& o) noexcept
+{
+    if (this != &o) {
+        release();
+        path        = std::move(o.path);
+        output_name = std::move(o.output_name);
+        processed   = o.processed;
+        o.processed = false;
+        o.path.clear();
+    }
+    return *this;
+}
+
+SendGCodeCopy::~SendGCodeCopy() { release(); }
+
+void SendGCodeCopy::release()
+{
+    if (!processed || path.empty())
+        return;
+    try {
+        if (boost::filesystem::exists(path))
+            boost::filesystem::remove(path);
+    } catch (const std::exception& err) {
+        BOOST_LOG_TRIVIAL(error) << "Failed deleting the post-processed G-code copy " << path << ": " << err.what();
+    }
+    processed = false;
+}
+
+SendGCodeCopy post_process_gcode_for_send(const std::string& src_gcode, const std::string& host,
+                                          const std::string& output_name, const DynamicPrintConfig& config)
+{
+    SendGCodeCopy out;
+    out.path        = src_gcode;
+    out.output_name = output_name;
+    // make_copy = true: a ".pp" working copy next to the source, so the G-code the viewer maps stays untouched.
+    std::string work = src_gcode;
+    std::string name = output_name;
+    if (run_post_process_scripts(work, true, host, name, config)) {
+        out.path        = std::move(work);
+        out.output_name = std::move(name);
+        out.processed   = true;
+        BOOST_LOG_TRIVIAL(info) << "Post-processed G-code for the " << host << " send path: " << out.path;
+    }
+    return out;
+}
+
 } // namespace Slic3r

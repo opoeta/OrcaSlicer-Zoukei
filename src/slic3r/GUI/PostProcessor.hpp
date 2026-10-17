@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 
 namespace Slic3r { class DynamicPrintConfig; }
 
@@ -32,6 +33,29 @@ inline bool run_post_process_scripts(std::string& src_path, const DynamicPrintCo
     std::string src_path_name = src_path;
     return run_post_process_scripts(src_path, false, "File", src_path_name, config);
 }
+
+// Orca Zoukei: the printer-agent send paths (Creality, Flashforge, Moonraker ... ) upload a plate's temp
+// G-code themselves, outside BackgroundSlicingProcess, so they must run the post-processing scripts and the
+// slicing-pipeline plugins (Step.psGCodePostProcess) on a private working copy first.
+// `path` is the file to upload: the original when no script / plugin is configured, else the processed copy,
+// which is deleted when this object goes away. `output_name` follows what the scripts / plugins changed.
+// Throws Slic3r::RuntimeError like run_post_process_scripts().
+struct SendGCodeCopy
+{
+    std::string path;
+    std::string output_name;
+    bool        processed{false};
+
+    SendGCodeCopy() = default;
+    SendGCodeCopy(const SendGCodeCopy&) = delete;
+    SendGCodeCopy& operator=(const SendGCodeCopy&) = delete;
+    SendGCodeCopy(SendGCodeCopy&& o) noexcept { *this = std::move(o); }
+    SendGCodeCopy& operator=(SendGCodeCopy&& o) noexcept;
+    ~SendGCodeCopy();
+    void release(); // delete the working copy now
+};
+SendGCodeCopy post_process_gcode_for_send(const std::string& src_gcode, const std::string& host,
+                                          const std::string& output_name, const DynamicPrintConfig& config);
 
 // BBS
 extern void gcode_add_line_number(const std::string& path, const DynamicPrintConfig& config);
