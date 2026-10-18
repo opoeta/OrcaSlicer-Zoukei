@@ -204,6 +204,16 @@ void Viewer::set_tool_multi_colors(const std::vector<ToolMultiColor>& multi)
     m_impl->set_tool_multi_colors(multi);
 }
 
+void Viewer::set_realcolor(const RealColorParams& params)
+{
+    m_impl->set_realcolor(params);
+}
+
+const RealColorParams& Viewer::get_realcolor() const
+{
+    return m_impl->get_realcolor();
+}
+
 size_t Viewer::get_color_print_colors_count() const
 {
     return m_impl->get_color_print_colors_count();

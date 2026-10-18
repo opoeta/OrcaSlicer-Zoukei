@@ -408,6 +408,48 @@ static t_config_enum_values s_keys_map_TpmsAdaptiveGradient{
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(TpmsAdaptiveGradient)
 
+// Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko)
+static t_config_enum_values s_keys_map_SandwichPassKind{
+    { "none",        int(SandwichPassKind::None) },
+    { "solid",       int(SandwichPassKind::Solid) },
+    { "colorstitch", int(SandwichPassKind::ColorStitch) },
+    { "pathblend",   int(SandwichPassKind::PathBlend) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SandwichPassKind)
+
+static t_config_enum_values s_keys_map_ColorStitchPatternMode{
+    { "pattern", int(ColorStitchPatternMode::Pattern) },
+    { "blend2",  int(ColorStitchPatternMode::Blend2) },
+    { "blend3",  int(ColorStitchPatternMode::Blend3) },
+    { "stripes", int(ColorStitchPatternMode::StripesMM) },
+    { "weave",   int(ColorStitchPatternMode::Weave) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ColorStitchPatternMode)
+
+static t_config_enum_values s_keys_map_ColorStitchEasing{
+    { "linear",    int(ColorStitchEasing::Linear) },
+    { "ease_in",   int(ColorStitchEasing::EaseIn) },
+    { "ease_out",  int(ColorStitchEasing::EaseOut) },
+    { "s_curve",   int(ColorStitchEasing::SCurve) },
+    { "gamma",     int(ColorStitchEasing::Gamma) },
+    { "hard_step", int(ColorStitchEasing::HardStep) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ColorStitchEasing)
+
+static t_config_enum_values s_keys_map_ColorStitchWeaveType{
+    { "plain",   int(ColorStitchWeaveType::Plain) },
+    { "twill22", int(ColorStitchWeaveType::Twill22) },
+    { "twill31", int(ColorStitchWeaveType::Twill31) },
+    { "satin5",  int(ColorStitchWeaveType::Satin5) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ColorStitchWeaveType)
+
+static t_config_enum_values s_keys_map_PathBlendMode{
+    { "half", int(PathBlendMode::Half) },
+    { "full", int(PathBlendMode::Full) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(PathBlendMode)
+
 //BBS
 static t_config_enum_values s_keys_map_PrintSequence {
     { "by layer",     int(PrintSequence::ByLayer) },
@@ -4525,6 +4567,369 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("neotko_hae_fuzzy_persistence", coString);
     def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    // Ported from OrcaFS-NeotkoCM (Neotko): the Sandwich (top surface passes), ColorStitch and PathBlend.
+    // Per object; everything off by default (no output change). Filaments are 1-based, 0 = the object's
+    // own top surface filament (or "off" for ColorStitch C/D).
+    def = this->add("neotko_surface_passes_top", coString);
+    def->label = L("Sandwich pass stack (JSON)");
+    def->category = L("Quality");
+    def->tooltip = L("Advanced: a complete Sandwich stack as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the Sandwich, ColorStitch and PathBlend settings.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("multipass_enabled", coBool);
+    def->label = L("Sandwich (top surface passes)");
+    def->category = L("Quality");
+    def->tooltip = L("Prints the top surface as a stack of up to 3 thin passes, each with its own filament, angle and share of the layer height. "
+                     "The passes print after the rest of the layer, one filament at a time, so every pass adds tool changes. "
+                     "Not applied on the first layer of the object.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("multipass_num_passes", coInt);
+    def->label = L("Number of passes");
+    def->category = L("Quality");
+    def->tooltip = L("How many passes the top surface is split into (1 to 3).");
+    def->min = 1;
+    def->max = 3;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(2));
+
+    {
+        const char *kind_keys[3]  = { "multipass_kind_1", "multipass_kind_2", "multipass_kind_3" };
+        const char *fil_keys[3]   = { "multipass_filament_1", "multipass_filament_2", "multipass_filament_3" };
+        const char *h_keys[3]     = { "multipass_height_1", "multipass_height_2", "multipass_height_3" };
+        const char *ang_keys[3]   = { "multipass_angle_1", "multipass_angle_2", "multipass_angle_3" };
+        const char *kind_lbl[3]   = { L("Pass 1 type"), L("Pass 2 type"), L("Pass 3 type") };
+        const char *fil_lbl[3]    = { L("Pass 1 filament"), L("Pass 2 filament"), L("Pass 3 filament") };
+        const char *h_lbl[3]      = { L("Pass 1 height"), L("Pass 2 height"), L("Pass 3 height") };
+        const char *ang_lbl[3]    = { L("Pass 1 angle"), L("Pass 2 angle"), L("Pass 3 angle") };
+        const int   fil_def[3]    = { 1, 2, 3 };
+        const int   h_def[3]      = { 50, 50, 34 };
+        for (int i = 0; i < 3; ++i) {
+            def = this->add(kind_keys[i], coEnum);
+            def->label = kind_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = L("Solid: one filament. ColorStitch: the filament changes line by line (ColorStitch settings). "
+                             "PathBlend: a gradient built as a Z ramp (PathBlend settings); a PathBlend pass takes the whole layer. "
+                             "Object filament: a plain band in the object's own filament.");
+            def->enum_keys_map = &ConfigOptionEnum<SandwichPassKind>::get_enum_values();
+            def->enum_values.push_back("none");
+            def->enum_values.push_back("solid");
+            def->enum_values.push_back("colorstitch");
+            def->enum_values.push_back("pathblend");
+            def->enum_labels.push_back(L("Object filament"));
+            def->enum_labels.push_back(L("Solid"));
+            def->enum_labels.push_back("ColorStitch");
+            def->enum_labels.push_back("PathBlend");
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionEnum<SandwichPassKind>(SandwichPassKind::Solid));
+
+            def = this->add(fil_keys[i], coInt);
+            def->label = fil_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = L("Filament of a Solid pass (1 = first filament). 0 uses the object's top surface filament.");
+            def->min = 0;
+            def->max = 64;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionInt(fil_def[i]));
+
+            def = this->add(h_keys[i], coPercent);
+            def->label = h_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = L("Share of the layer height printed by this pass. The shares are scaled to fill the whole layer; "
+                             "a pass thinner than 0.04 mm is dropped and its height goes to the others.");
+            def->sidetext = "%";
+            def->min = 1;
+            def->max = 100;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionPercent(h_def[i]));
+
+            def = this->add(ang_keys[i], coInt);
+            def->label = ang_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = L("Fill angle of the pass in degrees, kept on every layer. -1 = automatic: the layer angle, rotated 90 degrees on every other pass.");
+            def->sidetext = u8"°";
+            def->min = -1;
+            def->max = 359;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionInt(-1));
+        }
+    }
+
+    def = this->add("interlayer_colormix_enabled", coBool);
+    def->label = L("ColorStitch on top surface");
+    def->category = L("Quality");
+    def->tooltip = L("Prints the top surface as one ColorStitch pass: the filament is chosen for every fill line (smooth blends, stripes, weaves or a custom pattern). "
+                     "Used when the Sandwich is off; with the Sandwich on, set a pass to ColorStitch instead.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("interlayer_colormix_mode", coEnum);
+    def->label = L("ColorStitch style");
+    def->category = L("Quality");
+    def->tooltip = L("Where the line colours come from. Custom pattern: one digit per line (1 = filament 1), repeated. "
+                     "Smooth blend: filaments A and B (or A, B and C) dithered across the surface. "
+                     "Stripes: bands of a set width in millimetres. Textile weave: a weave of filaments A and B.");
+    def->enum_keys_map = &ConfigOptionEnum<ColorStitchPatternMode>::get_enum_values();
+    def->enum_values.push_back("pattern");
+    def->enum_values.push_back("blend2");
+    def->enum_values.push_back("blend3");
+    def->enum_values.push_back("stripes");
+    def->enum_values.push_back("weave");
+    def->enum_labels.push_back(L("Custom pattern"));
+    def->enum_labels.push_back(L("Smooth blend - 2 colours"));
+    def->enum_labels.push_back(L("Smooth blend - 3 colours"));
+    def->enum_labels.push_back(L("Stripes (mm)"));
+    def->enum_labels.push_back(L("Textile weave"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<ColorStitchPatternMode>(ColorStitchPatternMode::Blend2));
+
+    def = this->add("interlayer_colormix_pattern_top", coString);
+    def->label = L("Custom pattern");
+    def->category = L("Quality");
+    def->tooltip = L("Digits 1 to 9 = filament 1 to 9, one digit per fill line, repeated across the surface. Example: 1122 prints two lines of filament 1, then two of filament 2.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString("12"));
+
+    def = this->add("interlayer_colormix_weave", coEnum);
+    def->label = L("Weave");
+    def->category = L("Quality");
+    def->tooltip = L("Plain: 1:1 alternation. Twill 2/2 and 3/1: shifted by one line every layer, which draws a diagonal. Satin: filament A covers about four fifths of the surface.");
+    def->enum_keys_map = &ConfigOptionEnum<ColorStitchWeaveType>::get_enum_values();
+    def->enum_values.push_back("plain");
+    def->enum_values.push_back("twill22");
+    def->enum_values.push_back("twill31");
+    def->enum_values.push_back("satin5");
+    def->enum_labels.push_back(L("Plain weave"));
+    def->enum_labels.push_back(L("Twill 2/2"));
+    def->enum_labels.push_back(L("Twill 3/1"));
+    def->enum_labels.push_back(L("Satin 5"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<ColorStitchWeaveType>(ColorStitchWeaveType::Plain));
+
+    {
+        const char *keys[4] = { "interlayer_colormix_filament_a", "interlayer_colormix_filament_b", "interlayer_colormix_filament_c", "interlayer_colormix_filament_d" };
+        const char *lbls[4] = { L("Filament A"), L("Filament B"), L("Filament C"), L("Filament D") };
+        const int   defs[4] = { 1, 2, 0, 0 };
+        for (int i = 0; i < 4; ++i) {
+            def = this->add(keys[i], coInt);
+            def->label = lbls[i];
+            def->category = L("Quality");
+            def->tooltip = L("Filament used by the ColorStitch blend, stripes and weave (1 = first filament). 0 = off.");
+            def->min = 0;
+            def->max = 64;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionInt(defs[i]));
+        }
+    }
+
+    def = this->add("interlayer_colormix_pct_a", coInt);
+    def->label = L("Share of filament A");
+    def->category = L("Quality");
+    def->tooltip = L("Percentage of the lines printed with filament A in a smooth blend.");
+    def->sidetext = "%";
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(50));
+
+    def = this->add("interlayer_colormix_pct_b", coInt);
+    def->label = L("Share of filament B");
+    def->category = L("Quality");
+    def->tooltip = L("Percentage of the lines printed with filament B in a 3 colour blend; filament C takes the rest.");
+    def->sidetext = "%";
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(33));
+
+    def = this->add("interlayer_colormix_easing", coEnum);
+    def->label = L("Transition shape");
+    def->category = L("Quality");
+    def->tooltip = L("Where along the surface the blend changes colour. The overall share of each filament does not change.");
+    def->enum_keys_map = &ConfigOptionEnum<ColorStitchEasing>::get_enum_values();
+    def->enum_values.push_back("linear");
+    def->enum_values.push_back("ease_in");
+    def->enum_values.push_back("ease_out");
+    def->enum_values.push_back("s_curve");
+    def->enum_values.push_back("gamma");
+    def->enum_values.push_back("hard_step");
+    def->enum_labels.push_back(L("Even (linear)"));
+    def->enum_labels.push_back(L("Slow start"));
+    def->enum_labels.push_back(L("Slow end"));
+    def->enum_labels.push_back(L("S-curve"));
+    def->enum_labels.push_back(L("Custom (gamma)"));
+    def->enum_labels.push_back(L("Hard step"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<ColorStitchEasing>(ColorStitchEasing::Linear));
+
+    def = this->add("interlayer_colormix_gamma", coFloat);
+    def->label = L("Transition gamma");
+    def->category = L("Quality");
+    def->tooltip = L("Exponent of the Custom (gamma) transition shape. 1 = even.");
+    def->min = 0.1;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
+    def = this->add("interlayer_colormix_overlap", coFloat);
+    def->label = L("Colour overlap");
+    def->category = L("Quality");
+    def->tooltip = L("How much the colours of a 3 colour blend bleed into each other. 0 = hard zones, 1 = strong overlap.");
+    def->min = 0;
+    def->max = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.6));
+
+    def = this->add("interlayer_colormix_invert", coBool);
+    def->label = L("Invert direction");
+    def->category = L("Quality");
+    def->tooltip = L("Reverses the blend, the stripes or the pattern across the surface.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    {
+        const char  *keys[4] = { "interlayer_colormix_band_mm_a", "interlayer_colormix_band_mm_b", "interlayer_colormix_band_mm_c", "interlayer_colormix_band_mm_d" };
+        const char  *lbls[4] = { L("Stripe width A"), L("Stripe width B"), L("Stripe width C"), L("Stripe width D") };
+        const double defs[4] = { 8.0, 8.0, 0.0, 0.0 };
+        for (int i = 0; i < 4; ++i) {
+            def = this->add(keys[i], coFloat);
+            def->label = lbls[i];
+            def->category = L("Quality");
+            def->tooltip = L("Width of this filament's stripe, measured across the fill lines. The stripes repeat A, B, C, D; 0 skips one. "
+                             "A stripe ends between two lines, so it lands within one line of the width set here.");
+            def->sidetext = L("mm");
+            def->min = 0;
+            def->max = 1000;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionFloat(defs[i]));
+        }
+    }
+
+    def = this->add("interlayer_colormix_gradient_span_mm", coFloat);
+    def->label = L("Blend repeats every");
+    def->category = L("Quality");
+    def->tooltip = L("0 = the blend runs once across each surface (fit to surface). A value in millimetres repeats the blend at that size, the same on every object.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("interlayer_colormix_repetitions", coInt);
+    def->label = L("Blend repetitions");
+    def->category = L("Quality");
+    def->tooltip = L("With the blend fitted to the surface, how many times it repeats across it.");
+    def->min = 1;
+    def->max = 50;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(1));
+
+    def = this->add("interlayer_colormix_angle", coInt);
+    def->label = L("ColorStitch angle");
+    def->category = L("Quality");
+    def->tooltip = L("Fill angle of a ColorStitch pass in degrees, kept on every layer so the stripes line up. -1 = automatic (follows the layer rotation).");
+    def->sidetext = u8"°";
+    def->min = -1;
+    def->max = 359;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(45));
+
+    def = this->add("interlayer_colormix_min_length", coFloat);
+    def->label = L("ColorStitch minimum line length");
+    def->category = L("Quality");
+    def->tooltip = L("Fill lines shorter than this keep filament A instead of joining the pattern, to avoid tool changes for tiny segments. 0 = off.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 50;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.5));
+
+    def = this->add("interlayer_colormix_min_surface_lines", coInt);
+    def->label = L("ColorStitch minimum lines");
+    def->category = L("Quality");
+    def->tooltip = L("Surfaces with fewer fill lines than this print with filament A only. 0 = off.");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(3));
+
+    def = this->add("multipass_path_gradient", coBool);
+    def->label = L("PathBlend on top surface");
+    def->category = L("Quality");
+    def->tooltip = L("Prints the top surface as a gradient made of geometry: the ramp filament climbs as a real Z ramp inside the layer, one height per fill line, "
+                     "and in Full mode the cap filament fills the rest. Used when the Sandwich is off.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("pathblend_mode", coEnum);
+    def->label = L("PathBlend mode");
+    def->category = L("Quality");
+    def->tooltip = L("Full: ramp plus a cap in a second filament, the layer is filled. Half: ramp only, the space above it stays empty.");
+    def->enum_keys_map = &ConfigOptionEnum<PathBlendMode>::get_enum_values();
+    def->enum_values.push_back("half");
+    def->enum_values.push_back("full");
+    def->enum_labels.push_back(L("Half (ramp only)"));
+    def->enum_labels.push_back(L("Full (ramp + cap)"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<PathBlendMode>(PathBlendMode::Full));
+
+    def = this->add("pathblend_filament_ramp", coInt);
+    def->label = L("Ramp filament");
+    def->category = L("Quality");
+    def->tooltip = L("Filament of the PathBlend ramp (1 = first filament). 0 uses the object's top surface filament.");
+    def->min = 0;
+    def->max = 64;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(1));
+
+    def = this->add("pathblend_filament_cap", coInt);
+    def->label = L("Cap filament");
+    def->category = L("Quality");
+    def->tooltip = L("Filament of the PathBlend cap in Full mode (1 = first filament). 0 = no cap.");
+    def->min = 0;
+    def->max = 64;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(2));
+
+    def = this->add("pathblend_floor_mm", coFloat);
+    def->label = L("Ramp floor");
+    def->category = L("Quality");
+    def->tooltip = L("Height of the ramp at its low end. Never below 0.035 mm (the thinnest bead that still prints cleanly).");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.01));
+
+    def = this->add("pathblend_ramp_end_mm", coFloat);
+    def->label = L("Ramp end");
+    def->category = L("Quality");
+    def->tooltip = L("Height of the ramp at its high end. -1 = automatic: the tallest ramp that leaves a printable cap.");
+    def->sidetext = L("mm");
+    def->min = -1;
+    def->max = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(-1.0));
+
+    def = this->add("pathblend_fill_angle", coInt);
+    def->label = L("PathBlend angle");
+    def->category = L("Quality");
+    def->tooltip = L("Fill angle of the PathBlend pass in degrees. The gradient runs across the fill lines, so this angle also sets its direction. -1 = automatic.");
+    def->sidetext = u8"°";
+    def->min = -1;
+    def->max = 359;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(45));
+
+    def = this->add("pathblend_top", coString);
+    def->label = L("PathBlend settings (JSON)");
+    def->category = L("Quality");
+    def->tooltip = L("Advanced: PathBlend settings as JSON, in the format of OrcaFS-NeotkoCM (start and end zones, period). When set it replaces the PathBlend settings.");
     def->mode = comDevelop;
     def->set_default_value(new ConfigOptionString(""));
 
@@ -8921,6 +9326,17 @@ void PrintConfigDef::init_fff_params()
     def->min = 1.0;
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionFloat(45.));
+
+    // NeoTower (ported from OrcaFS-NeotkoCM, Neotko): only read when Sandwich sub-layers exist.
+    def = this->add("multipass_prime_volume", coFloat);
+    def->label = L("Sandwich wipe reserve");
+    def->tooltip = L("Minimum volume purged on the prime tower for each tool change inside a Sandwich (top surface passes). "
+                     "The flush volume of the filament pair is used when it is larger. 0 = only the flush volume.");
+    def->sidetext = u8"mm³";
+    def->min = 0;
+    def->max = 200;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10.));
 
     // Dual-extruder purge control: Default reproduces current behaviour
     // (per-extruder flush_multiplier + filament_prime_volume); Saving reduces the prime volume,

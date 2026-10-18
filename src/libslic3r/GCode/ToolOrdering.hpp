@@ -32,6 +32,7 @@ namespace Slic3r {
 class Print;
 class PrintObject;
 class LayerTools;
+class Layer;
 namespace CustomGCode { struct Item; }
 class PrintRegion;
 
@@ -238,6 +239,16 @@ public:
     };
     std::vector<MixedSubLayerGroup> mixed_sub_layer_groups;
 
+    // Sandwich sub-layers of this print_z (ported from OrcaFS-NeotkoCM, Neotko), in emission order
+    // (MultiPassScheduler). They print after `extruders`; their tool changes count for the wipe
+    // tower partitions and the tower plans them (NeoTower). Empty unless an object uses the Sandwich.
+    struct SandwichSublayer {
+        const Layer *layer = nullptr; // owner of the record: layer->sandwich_sublayers[index]
+        size_t       index = 0;
+        unsigned int tool  = 0;       // 0-based physical filament
+    };
+    std::vector<SandwichSublayer> sandwich_sublayers;
+
     const MixedSubLayerGroup* mixed_group_by_slot(unsigned int slot_id) const {
         for (const auto &g : mixed_sub_layer_groups)
             if (g.mixed_slot_0based == slot_id)
@@ -381,6 +392,9 @@ private:
     void                reorder_extruders_for_minimum_flush_volume(bool reorder_first_layer);
     void                resolve_mixed_filaments(const PrintConfig &config);
     void                enforce_mixed_component_order();
+    // Sandwich (ported from OrcaFS-NeotkoCM, Neotko): fills LayerTools::sandwich_sublayers from the
+    // layers of `objects`. Returns false (and touches nothing) when no layer has sub-layers.
+    bool                plan_sandwich_sublayers(const std::vector<const PrintObject*> &objects);
 
     // BBS
     std::vector<unsigned int> generate_first_layer_tool_order(const Print& print);

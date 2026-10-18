@@ -9,13 +9,15 @@ from __future__ import annotations
 from orcaslicer_mcp.server import main as _stock_main
 from orcaslicer_mcp.server import mcp
 
-from . import tools_color, tools_layers, tools_paint, tools_project, tools_support
+from . import tools_calib, tools_color, tools_devices, tools_layers, tools_paint, tools_project, tools_support
 
 tools_color.register(mcp)
 tools_support.register(mcp)   # G1
 tools_project.register(mcp)   # G2
 tools_paint.register(mcp)     # G3
 tools_layers.register(mcp)    # G4
+tools_devices.register(mcp)   # G5 (control tools need the Preferences switch + confirm)
+tools_calib.register(mcp)     # G6
 
 try:  # later groups (supports, project ops, painting, per-layer, devices, calibration)
     from . import tools_more

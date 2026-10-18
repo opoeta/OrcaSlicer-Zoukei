@@ -370,6 +370,8 @@ mutable bool m_no_render_path { false };
     float m_belt_angle_deg = 0.f;
 
     libvgcode::Viewer m_viewer;
+    // Orca Zoukei: filament colours of the loaded G-code, for the RealColor view (ported from OrcaFS-NeotkoCM)
+    std::vector<std::string> m_zk_tool_colors;
     // ORCA: section view, as the viewer has it. What it cuts away casts no shadow.
     std::array<float, 4> m_clipping_plane{ 0.0f, 0.0f, 0.0f, 1.0f };
     bool m_loaded_as_preview{ false };
@@ -496,6 +498,9 @@ public:
     }
 
     libvgcode::EViewType get_view_type() const { return m_viewer.get_view_type(); }
+
+    // Orca Zoukei: hand the viewer the RealColor parameters again (check box, TD, sliders)
+    void refresh_realcolor();
 
     // ORCA: darken the layers not scrubbed to while using the preview layer slider
     void set_realistic_shading(bool value) { m_viewer.set_realistic_shading(value); }

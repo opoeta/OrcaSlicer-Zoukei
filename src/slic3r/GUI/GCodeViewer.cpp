@@ -104,6 +104,8 @@
 #include "libslic3r/ObjectID.hpp"
 #include "slic3r/GUI/Gizmos/GizmoObjectManipulation.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/Zoukei/RealColorView.hpp"
+#include "slic3r/GUI/Zoukei/PhotoMode.hpp"
 
 using namespace std::string_view_literals;
 
@@ -1423,6 +1425,9 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     }
 
     m_viewer.set_realistic_shading(get_app_config()->get_bool("realistic_gcode_preview"));
+    // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM, Neotko)
+    m_zk_tool_colors = str_tool_colors;
+    refresh_realcolor();
     // ORCA: darken the layers the preview layer slider is not scrubbed to
     m_viewer.set_dim_previous_layers(get_app_config()->get_bool("preview_dim_previous_layers"));
     m_viewer.set_dim_previous_layers_brightness(0.01f * std::stoi(get_app_config()->get("preview_dim_previous_layers_brightness")));
@@ -2534,6 +2539,11 @@ void GCodeViewer::set_clipping_plane(const ClippingPlane& plane)
     m_viewer.set_clipping_plane(m_clipping_plane);
 }
 
+void GCodeViewer::refresh_realcolor()
+{
+    m_viewer.set_realcolor(Zoukei::build_realcolor_params(m_zk_tool_colors));
+}
+
 void GCodeViewer::render_overlay(int canvas_width, int canvas_height, int right_margin)
 {
     if (m_viewer.get_extrusion_roles().empty())
@@ -2541,6 +2551,12 @@ void GCodeViewer::render_overlay(int canvas_width, int canvas_height, int right_
 
     float legend_height = 0.0f;
     render_legend(legend_height, canvas_width, canvas_height, right_margin);
+
+    // Orca Zoukei: Photo Mode window (ported from OrcaFS-NeotkoCM, Neotko)
+    if (Zoukei::photo_panel_open()) {
+        if (GLCanvas3D* photo_canvas = wxGetApp().plater()->get_preview_canvas3D())
+            Zoukei::render_photo_panel(*wxGetApp().imgui(), *photo_canvas, canvas_width, canvas_height, m_scale);
+    }
 
     if (m_user_mode != wxGetApp().get_mode()) {
         update_by_mode(wxGetApp().get_mode());
@@ -5654,6 +5670,17 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
     if (m_nozzle_nums > 1 && (m_viewer.get_view_type() == libvgcode::EViewType::Summary || m_viewer.get_view_type() == libvgcode::EViewType::ColorPrint)) // ORCA show only on summary and filament tab
         render_legend_color_arr_recommen(window_padding);
 
+    // Orca Zoukei: RealColor check box and Photo mode button (ported from OrcaFS-NeotkoCM, Neotko)
+    {
+        const libvgcode::EViewType realcolor_view = m_viewer.get_view_type();
+        const bool realcolor_applicable = realcolor_view == libvgcode::EViewType::Tool || realcolor_view == libvgcode::EViewType::ColorPrint ||
+                                          realcolor_view == libvgcode::EViewType::Summary;
+        if (Zoukei::render_legend_extras(imgui, m_scale, realcolor_applicable)) {
+            refresh_realcolor();
+            wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
+            wxGetApp().plater()->get_current_canvas3D()->request_extra_frame();
+        }
+    }
 
     legend_height = ImGui::GetCurrentWindow()->Size.y;
     imgui.end();

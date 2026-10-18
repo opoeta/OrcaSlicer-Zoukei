@@ -75,6 +75,27 @@ struct ToolMultiColor
 };
 
 //
+// Orca Zoukei: RealColor view, ported from OrcaFS-NeotkoCM (Neotko). Instead of the raw colour of each
+// extrusion, the colour the eye resolves on the printed part: beads stack over the ones below them (a bead
+// lets 10 % of the light behind it through at its filament's TD, in mm) and neighbouring beads blend.
+//
+struct RealColorParams
+{
+    bool enabled{ false };
+    // Transmission distance in mm per extruder id, <= 0 or missing = opaque.
+    std::vector<float> td_mm;
+    // Radius in mm over which neighbouring lines blend (what the eye cannot resolve), 0 = none.
+    float blur_mm{ 0.8f };
+    // How much of the stack seen from the side shows on walls, 0..1.
+    float wall_blend{ 0.8f };
+
+    bool operator==(const RealColorParams& o) const {
+        return enabled == o.enabled && td_mm == o.td_mm && blur_mm == o.blur_mm && wall_blend == o.wall_blend;
+    }
+    bool operator!=(const RealColorParams& o) const { return !(*this == o); }
+};
+
+//
 // Axis aligned box in 3 dimensions
 // [0] -> { min_x, min_y, min_z }
 // [1] -> { max_x, max_y, max_z }

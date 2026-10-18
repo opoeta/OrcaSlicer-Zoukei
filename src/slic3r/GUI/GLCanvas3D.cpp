@@ -8701,6 +8701,8 @@ bool GLCanvas3D::_is_fxaa_enabled() const
 
 bool GLCanvas3D::_is_realistic_view_enabled() const
 {
+    if (m_photo_active)
+        return true;
     const AppConfig* cfg = wxGetApp().app_config;
     if (cfg == nullptr || !cfg->get_bool(SETTING_OPENGL_REALISTIC_MODE))
         return false;
@@ -8747,11 +8749,13 @@ std::optional<Vec3d> GLCanvas3D::_static_light_dir_eye() const
     if (!_is_realistic_view_enabled() || _shadow_mode() != EShadowMode::Static)
         return std::nullopt;
     const Matrix3d view_rot = wxGetApp().plater()->get_camera().get_view_matrix().matrix().block<3, 3>(0, 0);
-    return Vec3d((view_rot * STATIC_LIGHT_DIR).normalized());
+    return Vec3d((view_rot * (m_photo_active ? m_photo_light_dir : STATIC_LIGHT_DIR)).normalized());
 }
 
 GLCanvas3D::EShadowMode GLCanvas3D::_shadow_mode() const
 {
+    if (m_photo_active)
+        return m_photo_shadows ? EShadowMode::Static : EShadowMode::Off;
     const std::string mode = wxGetApp().app_config != nullptr ? wxGetApp().app_config->get(SETTING_OPENGL_REALISTIC_SHADOWS) : std::string();
     return mode == "static" ? EShadowMode::Static : mode == "orbit" ? EShadowMode::Orbit : EShadowMode::Off;
 }
@@ -9270,7 +9274,7 @@ void GLCanvas3D::_render_shadows(const Transform3d& view_matrix, const Transform
         // Orbit: the light used for shading, fixed to the camera. Static: a world light, also used for shading.
         const Vec3d light_dir_eye = Vec3d(-0.4574957, 0.4574957, 0.7624929).normalized();
         const Matrix3d view_rot = view_matrix.matrix().block<3, 3>(0, 0);
-        const Vec3d dir_to_light = mode == EShadowMode::Static ? STATIC_LIGHT_DIR :
+        const Vec3d dir_to_light = mode == EShadowMode::Static ? (m_photo_active ? m_photo_light_dir : STATIC_LIGHT_DIR) :
                                                                  Vec3d((view_rot.transpose() * light_dir_eye).normalized());
 
         // Bounding box of the printable objects (the shadow casters).

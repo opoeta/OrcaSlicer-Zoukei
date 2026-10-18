@@ -19,6 +19,9 @@
 #include "format.hpp"
 #include "I18N.hpp"
 #include "../BeltBrim.hpp"
+#include "../MultiPassScheduler.hpp"
+#include "../MultiPassSubLayer.hpp"
+#include "../PathBlendRuntime.hpp"
 
 #include <boost/log/trivial.hpp>
 #include <vector>
@@ -440,6 +443,88 @@ bool ToolOrdering::insert_wipe_tower_extruder()
     return changed;
 }
 
+// Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko). The canonical emission order of each
+// print_z is decided HERE, once, by MultiPassScheduler, and stored in LayerTools::sandwich_sublayers:
+// the wipe tower plans exactly this tool sequence and GCode::process_layer emits exactly it, so the
+// plan and the G-code cannot drift apart (NeotkoCM's "plan == emission" invariant).
+bool ToolOrdering::plan_sandwich_sublayers(const std::vector<const PrintObject*> &objects)
+{
+    bool any = false;
+    for (const PrintObject *object : objects)
+        if (object != nullptr)
+            for (const Layer *layer : object->layers())
+                if (!layer->sandwich_sublayers.empty()) {
+                    any = true;
+                    break;
+                }
+    if (!any)
+        return false;
+
+    for (LayerTools &lt : m_layer_tools)
+        lt.sandwich_sublayers.clear();
+
+    const std::vector<unsigned char> &is_mixed   = m_print_config_ptr ? m_print_config_ptr->filament_is_mixed.values : std::vector<unsigned char>();
+    const std::vector<std::string>   &comp_strs  = m_print_config_ptr ? m_print_config_ptr->filament_mixed_components.values : std::vector<std::string>();
+
+    // Records per LayerTools. Layers shared between identical objects are the same Layer objects:
+    // each one is visited once and the G-code prints it for every instance that uses it.
+    std::map<size_t, std::vector<LayerTools::SandwichSublayer>> per_lt;
+    std::set<const Layer*> seen;
+    for (const PrintObject *object : objects) {
+        if (object == nullptr)
+            continue;
+        for (const Layer *layer : object->layers()) {
+            if (layer->sandwich_sublayers.empty() || !seen.insert(layer).second)
+                continue;
+            auto it = std::lower_bound(m_layer_tools.begin(), m_layer_tools.end(), LayerTools(layer->print_z - EPSILON));
+            if (it == m_layer_tools.end() || std::abs(it->print_z - layer->print_z) > EPSILON)
+                continue;
+            const size_t lt_idx = size_t(it - m_layer_tools.begin());
+            for (size_t i = 0; i < layer->sandwich_sublayers.size(); ++i) {
+                unsigned int tool = (unsigned int)std::max(0, layer->sandwich_sublayers[i].tool_id);
+                // A mixed (virtual) filament prints with its component for this layer (FilamentMixer).
+                if (tool < is_mixed.size() && is_mixed[tool]) {
+                    tool = it->resolve_mixed(tool);
+                    if (tool < is_mixed.size() && is_mixed[tool]) {
+                        const std::vector<unsigned int> comps = parse_mixed_components(tool < comp_strs.size() ? comp_strs[tool] : "");
+                        tool = comps.empty() ? 0u : comps.front() - 1;
+                    }
+                }
+                per_lt[lt_idx].push_back({ layer, i, tool });
+            }
+        }
+    }
+
+    // Emission order, layer by layer, chaining the running tool across layers.
+    int running_tool = -1;
+    for (size_t li = 0; li < m_layer_tools.size(); ++li) {
+        LayerTools &lt = m_layer_tools[li];
+        if (!lt.extruders.empty())
+            running_tool = int(lt.extruders.back());
+        auto it = per_lt.find(li);
+        if (it == per_lt.end())
+            continue;
+        const std::vector<LayerTools::SandwichSublayer> &recs = it->second;
+        std::vector<MultiPassScheduler::SublayerKey> keys;
+        keys.reserve(recs.size());
+        for (const LayerTools::SandwichSublayer &r : recs) {
+            const MultiPassSubLayer &sub = r.layer->sandwich_sublayers[r.index];
+            MultiPassScheduler::SublayerKey k;
+            k.chain_key    = MultiPassScheduler::make_chain_key(r.layer, int(r.layer->id()), sub.island_key);
+            k.pass_idx     = sub.pass_idx;
+            k.tool_id      = int(r.tool);
+            k.z_actual     = sub.print_z;
+            k.atomic_chain = PathBlendSchedulerRuntime::get().chain_atomic && sub.effect == SurfacePassKind::PathBlend;
+            keys.push_back(k);
+        }
+        for (size_t oi : MultiPassScheduler::order_sublayers_by_tool(keys, running_tool))
+            lt.sandwich_sublayers.push_back(recs[oi]);
+        if (!lt.sandwich_sublayers.empty())
+            running_tool = int(lt.sandwich_sublayers.back().tool);
+    }
+    return true;
+}
+
 void ToolOrdering::sort_and_build_data(const Print& print, unsigned int first_extruder, bool prime_multi_material)
 {
     // if first extruder is -1, we can decide the first layer tool order before doing reorder function
@@ -449,6 +534,9 @@ void ToolOrdering::sort_and_build_data(const Print& print, unsigned int first_ex
     reorder_extruders_for_minimum_flush_volume(reorder_first_layer);
     this->enforce_mixed_component_order();
     m_sorted = true;
+    // Sandwich sub-layers (NeotkoCM): planned after the final extruder order of each layer.
+    const std::vector<const PrintObject*> sandwich_objects = print.objects().vector();
+    this->plan_sandwich_sublayers(sandwich_objects);
 
     double max_layer_height = 0.;
     double object_bottom_z = 0.;
@@ -470,6 +558,7 @@ void ToolOrdering::sort_and_build_data(const Print& print, unsigned int first_ex
         // Orca reorders a second time here (BBS has no such path); re-enforce so the
         // mixed sub-layer component order survives the extra pass.
         this->enforce_mixed_component_order();
+        this->plan_sandwich_sublayers(sandwich_objects);
         this->fill_wipe_tower_partitions(print.config(), object_bottom_z, max_layer_height);
     }
 
@@ -485,6 +574,9 @@ void ToolOrdering::sort_and_build_data(const PrintObject& object , unsigned int 
     reorder_extruders_for_minimum_flush_volume(reorder_first_layer);
     this->enforce_mixed_component_order();
     m_sorted = true;
+    // Sandwich sub-layers (NeotkoCM): planned after the final extruder order of each layer.
+    const std::vector<const PrintObject*> sandwich_objects { &object };
+    this->plan_sandwich_sublayers(sandwich_objects);
 
     double max_layer_height = calc_max_layer_height(object.print()->config(), object.config().layer_height);
 
@@ -494,6 +586,7 @@ void ToolOrdering::sort_and_build_data(const PrintObject& object , unsigned int 
         // Orca reorders a second time here (BBS has no such path); re-enforce so the
         // mixed sub-layer component order survives the extra pass.
         this->enforce_mixed_component_order();
+        this->plan_sandwich_sublayers(sandwich_objects);
         this->fill_wipe_tower_partitions(object.print()->config(), object.layers().front()->print_z - object.layers().front()->height, max_layer_height);
     }
 
@@ -1070,6 +1163,13 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
                 -- lt.wipe_tower_partitions;
             last_extruder = lt.extruders.back();
         }
+        // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko): every tool change of the tail
+        // needs its own room on the tower. No-op when the layer has none.
+        for (const LayerTools::SandwichSublayer &ss : lt.sandwich_sublayers) {
+            if (last_extruder != size_t(-1) && last_extruder != size_t(ss.tool))
+                ++ lt.wipe_tower_partitions;
+            last_extruder = ss.tool;
+        }
     }
 
     // Propagate the wipe tower partitions down to support the upper partitions by the lower partitions.
@@ -1264,15 +1364,23 @@ void ToolOrdering::collect_extruder_statistics(bool prime_multi_material)
         }
 
     m_last_printing_extruder = (unsigned int)-1;
-    for (auto lt_it = m_layer_tools.rbegin(); lt_it != m_layer_tools.rend(); ++ lt_it)
+    for (auto lt_it = m_layer_tools.rbegin(); lt_it != m_layer_tools.rend(); ++ lt_it) {
+        // Sandwich sub-layers (NeotkoCM) print after the layer body: their last tool ends the layer.
+        if (! lt_it->sandwich_sublayers.empty()) {
+            m_last_printing_extruder = lt_it->sandwich_sublayers.back().tool;
+            break;
+        }
         if (! lt_it->extruders.empty()) {
             m_last_printing_extruder = lt_it->extruders.back();
             break;
         }
+    }
 
     m_all_printing_extruders.clear();
     for (const auto &lt : m_layer_tools) {
         append(m_all_printing_extruders, lt.extruders);
+        for (const LayerTools::SandwichSublayer &ss : lt.sandwich_sublayers)
+            m_all_printing_extruders.push_back(ss.tool);
         sort_remove_duplicates(m_all_printing_extruders);
     }
 

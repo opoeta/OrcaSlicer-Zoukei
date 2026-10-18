@@ -9,6 +9,7 @@
 #include "Flow.hpp"
 #include "SurfaceCollection.hpp"
 #include "ExtrusionEntityCollection.hpp"
+#include "MultiPassSubLayer.hpp"
 #include <vector>
 #include <cstddef>
 #include <algorithm>
@@ -202,6 +203,12 @@ public:
     // shells above them. This is what makes wave_overhang_floor_layers
     // authoritative rather than additive with bottom_shell_layers.
     Polygons                wave_overhang_shadow_polygons;
+
+    // Sandwich sub-layers of this layer (ported from OrcaFS-NeotkoCM, Neotko): top surfaces whose
+    // region carries a pass stack, printed after the layer body at their own Z. Rebuilt by
+    // make_fills(); empty whenever no region uses the Sandwich.
+    std::vector<MultiPassSubLayer> sandwich_sublayers;
+
     size_t                  region_count() const { return m_regions.size(); }
     const LayerRegion*      get_region(int idx) const { return m_regions[idx]; }
     LayerRegion*            get_region(int idx) { return m_regions[idx]; }

@@ -211,6 +211,24 @@ set(lisbslic3r_sources
     ColorDecomposeRecipe.hpp
     ColorMixEngine.cpp
     ColorMixEngine.hpp
+    # Ported from OrcaFS-NeotkoCM (Neotko): Sandwich / ColorStitch / PathBlend / NeoTower
+    ColorStitch.cpp
+    ColorStitch.hpp
+    Fill/FillSandwich.cpp
+    Fill/FillSandwich.hpp
+    GCode/SandwichEmit.cpp
+    MultiPassScheduler.hpp
+    MultiPassSubLayer.hpp
+    NeoTower.cpp
+    NeoTower.hpp
+    NeoTowerZ.hpp
+    NeotkoSurfaceExtrude.cpp
+    NeotkoSurfaceExtrude.hpp
+    PathBlendRuntime.cpp
+    PathBlendRuntime.hpp
+    SurfaceEffectProfile.cpp
+    SurfaceEffectProfile.hpp
+    SurfacePassKind.hpp
     TexturePainting.hpp
     TexturePainting.cpp
     TextureToColor/TextureToColor.hpp

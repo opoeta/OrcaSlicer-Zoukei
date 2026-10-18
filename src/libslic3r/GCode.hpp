@@ -143,6 +143,12 @@ public:
     std::string prime(GCode &gcodegen);
     void next_layer() { ++ m_layer_idx; m_tool_change_idx = 0; }
     std::string tool_change(GCode &gcodegen, int extruder_id, bool finish_layer);
+    // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko): true while the current tower layer still has
+    // a planned tool change result to print (the layer's finish was deferred to the end of the sub-layers).
+    bool has_pending_tool_change() const
+    {
+        return m_layer_idx >= 0 && m_layer_idx < (int) m_tool_changes.size() && size_t(m_tool_change_idx) < m_tool_changes[m_layer_idx].size();
+    }
     bool is_empty_wipe_tower_gcode(GCode &gcodegen, int extruder_id, bool finish_layer);
     std::string finalize(GCode &gcodegen);
     std::vector<float> used_filament_length() const;
@@ -644,6 +650,15 @@ protected:
     std::string     extrude_perimeters(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer, bool is_infill_first, bool unsupported_loops_only = false);
     std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing);
     std::string     extrude_support(const ExtrusionEntityCollection& support_fills, const ExtrusionRole support_extrusion_role);
+    // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko): emits layer_tools.sandwich_sublayers after
+    // the layer body, in the planned order, for every instance printing their layer (all of them, or
+    // only single_object_instance_idx when printing by object). Defined in GCode/SandwichEmit.cpp.
+    std::string     process_sandwich_sublayers(const Print                     &print,
+                                               const std::vector<LayerToPrint> &layers,
+                                               const LayerTools                &layer_tools,
+                                               size_t                           single_object_instance_idx,
+                                               coordf_t                         print_z,
+                                               bool                             has_wipe_tower);
 
     // Farthest-point timelapse: find the extrusion point farthest from camera (0,0)
     void compute_farthest_point(const std::vector<LayerToPrint> &layers, int most_used_extruder,

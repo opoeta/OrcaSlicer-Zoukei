@@ -1213,6 +1213,53 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
     for (auto el : { "overhang_shadow_speed_ratio", "overhang_shadow_distance" })
         toggle_line(el, shadow_on);
 
+    // Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko): enable only what the
+    // current recipe uses.
+    if (config->has("multipass_enabled") && config->has("interlayer_colormix_mode") && config->has("pathblend_mode")) {
+        const bool mp       = config->opt_bool("multipass_enabled");
+        const int  n_passes = config->opt_int("multipass_num_passes");
+        bool pass_cs = false, pass_pb = false;
+        toggle_field("multipass_num_passes", mp);
+        for (int i = 1; i <= 3; ++i) {
+            const std::string     idx  = std::to_string(i);
+            const bool            on   = mp && i <= n_passes;
+            const SandwichPassKind kind = config->opt_enum<SandwichPassKind>("multipass_kind_" + idx);
+            pass_cs |= on && kind == SandwichPassKind::ColorStitch;
+            pass_pb |= on && kind == SandwichPassKind::PathBlend;
+            toggle_field("multipass_kind_" + idx, on);
+            toggle_field("multipass_filament_" + idx, on && kind == SandwichPassKind::Solid);
+            toggle_field("multipass_height_" + idx, on && kind != SandwichPassKind::PathBlend);
+            toggle_field("multipass_angle_" + idx, on && (kind == SandwichPassKind::Solid || kind == SandwichPassKind::None));
+        }
+        const bool cs = pass_cs || (!mp && config->opt_bool("interlayer_colormix_enabled"));
+        const ColorStitchPatternMode cs_mode = config->opt_enum<ColorStitchPatternMode>("interlayer_colormix_mode");
+        const bool cs_blend = cs && (cs_mode == ColorStitchPatternMode::Blend2 || cs_mode == ColorStitchPatternMode::Blend3);
+        const bool cs_blend3 = cs && cs_mode == ColorStitchPatternMode::Blend3;
+        const bool cs_stripes = cs && cs_mode == ColorStitchPatternMode::StripesMM;
+        toggle_field("interlayer_colormix_enabled", !mp);
+        toggle_field("interlayer_colormix_mode", cs);
+        toggle_field("interlayer_colormix_pattern_top", cs && cs_mode == ColorStitchPatternMode::Pattern);
+        toggle_field("interlayer_colormix_weave", cs && cs_mode == ColorStitchPatternMode::Weave);
+        toggle_field("interlayer_colormix_filament_a", cs && cs_mode != ColorStitchPatternMode::Pattern);
+        toggle_field("interlayer_colormix_filament_b", cs && cs_mode != ColorStitchPatternMode::Pattern);
+        toggle_field("interlayer_colormix_filament_c", cs_blend3 || cs_stripes);
+        toggle_field("interlayer_colormix_filament_d", cs_stripes);
+        for (auto el : { "interlayer_colormix_pct_a", "interlayer_colormix_easing", "interlayer_colormix_gradient_span_mm", "interlayer_colormix_repetitions" })
+            toggle_field(el, cs_blend);
+        toggle_field("interlayer_colormix_pct_b", cs_blend3);
+        toggle_field("interlayer_colormix_overlap", cs_blend3);
+        toggle_field("interlayer_colormix_gamma", cs_blend && config->opt_enum<ColorStitchEasing>("interlayer_colormix_easing") == ColorStitchEasing::Gamma);
+        for (auto el : { "interlayer_colormix_band_mm_a", "interlayer_colormix_band_mm_b", "interlayer_colormix_band_mm_c", "interlayer_colormix_band_mm_d" })
+            toggle_field(el, cs_stripes);
+        for (auto el : { "interlayer_colormix_invert", "interlayer_colormix_angle", "interlayer_colormix_min_length", "interlayer_colormix_min_surface_lines" })
+            toggle_field(el, cs);
+        const bool pb = pass_pb || (!mp && !config->opt_bool("interlayer_colormix_enabled") && config->opt_bool("multipass_path_gradient"));
+        toggle_field("multipass_path_gradient", !mp);
+        for (auto el : { "pathblend_mode", "pathblend_filament_ramp", "pathblend_floor_mm", "pathblend_ramp_end_mm", "pathblend_fill_angle" })
+            toggle_field(el, pb);
+        toggle_field("pathblend_filament_cap", pb && config->opt_enum<PathBlendMode>("pathblend_mode") == PathBlendMode::Full);
+    }
+
     toggle_line("flush_into_objects", !is_global_config);
 
     toggle_line("support_interface_not_for_body",config->opt_int("support_interface_filament")&&!config->opt_int("support_filament"));

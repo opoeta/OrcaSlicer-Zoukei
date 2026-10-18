@@ -2717,6 +2717,18 @@ void PreferencesDialog::create_remote_api_page(wxBoxSizer* sizer_page, int v_gap
         "remote_api_allow_sensitive");
     g_sizer->Add(item_sensitive);
 
+    // Orca Zoukei: read by RemoteAPIDevices.cpp on every printer-control request. Default OFF (AppConfig.cpp).
+    auto item_printer_control = create_item_checkbox(
+        _L("Allow printer control from the Remote API"),
+        _L("Off (recommended): the API can only read printers (status, temperatures, filament slots). "
+           "On: an external tool can also send prints to the print host, pause, resume or stop a print, "
+           "set temperatures, load or unload filament and write slot colour or type, but only in "
+           "requests that carry \"confirm\": true. An AI agent can be steered by text it reads, so "
+           "leave this off unless you are watching the printer. The printer's own safety rules "
+           "(for example refusing slot writes while printing) still apply."),
+        "remote_api_printer_control");
+    g_sizer->Add(item_printer_control);
+
     // Port row (bespoke). The stock create_item_input() unconditionally writes the
     // field's raw text back to AppConfig on every Enter/focus-loss (see the
     // handlers in create_item_input) with no empty/range guard, and shows a blank

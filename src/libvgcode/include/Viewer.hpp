@@ -191,6 +191,12 @@ public:
     //
     void set_tool_multi_colors(const std::vector<ToolMultiColor>& multi);
     //
+    // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM), see RealColorParams.
+    // Applies to the Tool / ColorPrint / Summary views.
+    //
+    void set_realcolor(const RealColorParams& params);
+    const RealColorParams& get_realcolor() const;
+    //
     // Return the count of colors in the palette used to render
     // the toolpaths when the view type is EViewType::ColorPrint.
     //

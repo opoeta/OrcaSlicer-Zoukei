@@ -109,7 +109,10 @@ std::map<std::string, std::vector<SimpleSettingData>>  SettingsFactory::OBJECT_C
                     {"slice_closing_radius", "",3}, {"resolution", "",4},
                     {"xy_hole_compensation", "",5}, {"xy_contour_compensation", "",6}, {"elefant_foot_compensation", "",7},
                     {"make_overhang_printable_angle","", 8},{"make_overhang_printable_hole_size","",9}, {"wall_sequence","",10},
-                    {"precise_z_height", "",10}
+                    {"precise_z_height", "",10},
+                    // Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko); details in the object's
+                    // "Surface colour" settings page.
+                    {"multipass_enabled", "",11}, {"interlayer_colormix_enabled", "",12}, {"multipass_path_gradient", "",13}
                     }},
     { L("Support"), {{"brim_type", "",1},{"brim_width", "",2},{"leading_brim_length", "",3},{"extra_brim_width", "",4},{"brim_object_gap", "",5},{"brim_flow_ratio", "",6},{"brim_use_efc_outline", "",7},
                     {"enable_support", "",8},{"support_type", "",9},{"support_threshold_angle", "",10}, {"support_threshold_overlap", "",11}, {"support_on_build_plate_only", "",12},

@@ -843,6 +843,16 @@ void PrintObject::infill()
         );
         m_print->throw_if_canceled();
         BOOST_LOG_TRIVIAL(debug) << "Filling layers in parallel - end";
+        // Sandwich (ported from OrcaFS-NeotkoCM, Neotko): the top surface passes print after the layer
+        // body, ironing included, so ironing would smooth the layer under the passes. Warn about it.
+        if (std::any_of(m_layers.begin(), m_layers.end(), [](const Layer *l) { return !l->sandwich_sublayers.empty(); })) {
+            bool ironing = false;
+            for (size_t i = 0; i < this->num_printing_regions(); ++i)
+                ironing |= this->printing_region(i).config().ironing_type.value != IroningType::NoIroning;
+            if (ironing)
+                this->active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL,
+                    L("Ironing is printed before the Sandwich surface passes and does not iron them. Turn ironing off for objects that use the Sandwich, ColorStitch or PathBlend."));
+        }
         /*  we could free memory now, but this would make this step not idempotent
         ### $_->fill_surfaces->clear for map @{$_->regions}, @{$object->layers};
         */
@@ -1774,6 +1784,13 @@ bool PrintObject::invalidate_state_by_config_options(
             if (old_expansion->value <= 0. || new_expansion->value <= 0.)
                 steps.emplace_back(posPerimeters);
             steps.emplace_back(posPrepareInfill);
+        } else if (opt_key == "neotko_surface_passes_top"
+                || opt_key.rfind("multipass_", 0) == 0
+                || opt_key.rfind("interlayer_colormix_", 0) == 0
+                || opt_key.rfind("pathblend_", 0) == 0) {
+            // Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko): they only rebuild the
+            // top surface fills and their sub-layers (the wipe tower and G-code follow from posInfill).
+            steps.emplace_back(posInfill);
         } else if (opt_key == "neotko_hae_infill_width"
                 || opt_key == "neotko_hae_outer_wall_width"
                 || opt_key == "neotko_hae_inner_wall_width") {

@@ -189,6 +189,8 @@ public:
     const Palette& get_tool_colors() const { return m_tool_colors; }
     void set_tool_colors(const Palette& colors);
     void set_tool_multi_colors(const std::vector<ToolMultiColor>& multi);
+    void set_realcolor(const RealColorParams& params);
+    const RealColorParams& get_realcolor() const { return m_realcolor; }
 
     size_t get_color_print_colors_count() const { return m_color_print_colors.size(); }
     const Palette& get_color_print_colors() const { return m_color_print_colors; }
@@ -357,6 +359,8 @@ private:
     Palette m_tool_colors;
     std::vector<ToolMultiColor> m_tool_multi;
     void apply_tool_multi_colors();
+    // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM), see RealColor.hpp
+    RealColorParams m_realcolor;
     Palette m_color_print_colors;
     //
     // OpenGL shaders ids

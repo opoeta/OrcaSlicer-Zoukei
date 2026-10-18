@@ -3170,6 +3170,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("prime_tower_width", "multimaterial_settings_prime_tower#width");
         optgroup->append_single_option_line("belt_purge_tower_width", "multimaterial_settings_prime_tower#belt-purge-tower-width");
         optgroup->append_single_option_line("prime_volume", "multimaterial_settings_prime_tower");
+        optgroup->append_single_option_line("multipass_prime_volume"); // NeoTower (ported from OrcaFS-NeotkoCM, Neotko)
         optgroup->append_single_option_line("prime_tower_brim_width", "multimaterial_settings_prime_tower#brim-width");
         optgroup->append_single_option_line("prime_tower_infill_gap", "multimaterial_settings_prime_tower");
         optgroup->append_single_option_line("wipe_tower_rotation_angle", "multimaterial_settings_prime_tower#wipe-tower-rotation-angle");
@@ -3218,6 +3219,51 @@ void TabPrint::build()
         optgroup->append_single_option_line("interlocking_beam_layer_count", "multimaterial_settings_advanced#interlocking-beam-layers");
         optgroup->append_single_option_line("interlocking_depth", "multimaterial_settings_advanced#interlocking-depth");
         optgroup->append_single_option_line("interlocking_boundary_avoidance", "multimaterial_settings_advanced#interlocking-boundary-avoidance");
+
+    // Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko). Per object settings.
+    page = add_options_page(L("Surface colour"), "custom-gcode_multi_material"); // ORCA: icon only visible on placeholders
+        optgroup = page->new_optgroup(L("Sandwich (top surface passes)"), L"param_filament_for_features");
+        optgroup->append_single_option_line("multipass_enabled");
+        optgroup->append_single_option_line("multipass_num_passes");
+        for (int i = 1; i <= 3; ++i) {
+            const std::string idx = std::to_string(i);
+            optgroup->append_single_option_line("multipass_kind_" + idx);
+            optgroup->append_single_option_line("multipass_filament_" + idx);
+            optgroup->append_single_option_line("multipass_height_" + idx);
+            optgroup->append_single_option_line("multipass_angle_" + idx);
+        }
+        optgroup = page->new_optgroup("ColorStitch", L"param_filament_for_features");
+        optgroup->append_single_option_line("interlayer_colormix_enabled");
+        optgroup->append_single_option_line("interlayer_colormix_mode");
+        optgroup->append_single_option_line("interlayer_colormix_pattern_top");
+        optgroup->append_single_option_line("interlayer_colormix_weave");
+        optgroup->append_single_option_line("interlayer_colormix_filament_a");
+        optgroup->append_single_option_line("interlayer_colormix_filament_b");
+        optgroup->append_single_option_line("interlayer_colormix_filament_c");
+        optgroup->append_single_option_line("interlayer_colormix_filament_d");
+        optgroup->append_single_option_line("interlayer_colormix_pct_a");
+        optgroup->append_single_option_line("interlayer_colormix_pct_b");
+        optgroup->append_single_option_line("interlayer_colormix_easing");
+        optgroup->append_single_option_line("interlayer_colormix_gamma");
+        optgroup->append_single_option_line("interlayer_colormix_overlap");
+        optgroup->append_single_option_line("interlayer_colormix_band_mm_a");
+        optgroup->append_single_option_line("interlayer_colormix_band_mm_b");
+        optgroup->append_single_option_line("interlayer_colormix_band_mm_c");
+        optgroup->append_single_option_line("interlayer_colormix_band_mm_d");
+        optgroup->append_single_option_line("interlayer_colormix_gradient_span_mm");
+        optgroup->append_single_option_line("interlayer_colormix_repetitions");
+        optgroup->append_single_option_line("interlayer_colormix_invert");
+        optgroup->append_single_option_line("interlayer_colormix_angle");
+        optgroup->append_single_option_line("interlayer_colormix_min_length");
+        optgroup->append_single_option_line("interlayer_colormix_min_surface_lines");
+        optgroup = page->new_optgroup("PathBlend", L"param_filament_for_features");
+        optgroup->append_single_option_line("multipass_path_gradient");
+        optgroup->append_single_option_line("pathblend_mode");
+        optgroup->append_single_option_line("pathblend_filament_ramp");
+        optgroup->append_single_option_line("pathblend_filament_cap");
+        optgroup->append_single_option_line("pathblend_floor_mm");
+        optgroup->append_single_option_line("pathblend_ramp_end_mm");
+        optgroup->append_single_option_line("pathblend_fill_angle");
 
     page = add_options_page(L("Others"), "custom-gcode_other"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("Skirt"), L"param_skirt");

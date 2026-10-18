@@ -58,6 +58,9 @@ private:
     bool dispatch_project(const Request &req, Response &out);
     bool dispatch_paint(const Request &req, Response &out);
     bool dispatch_layers(const Request &req, Response &out);
+    // Orca Zoukei groups G5 (devices / printing, RemoteAPIDevices.cpp) and G6 (calibration, RemoteAPICalib.cpp).
+    bool dispatch_devices(const Request &req, Response &out);
+    bool dispatch_calib(const Request &req, Response &out);
 
     Response handle_status();
     Response handle_get_config(const std::string &target);

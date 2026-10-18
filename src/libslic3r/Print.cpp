@@ -63,6 +63,7 @@
 #include "ClipperUtils.hpp"
 #include "Extruder.hpp"
 #include "FilamentMixer.hpp"
+#include "NeoTower.hpp"
 #include "Flow.hpp"
 #include "Geometry/ConvexHull.hpp"
 #include "I18N.hpp"
@@ -464,6 +465,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "wipe_tower_sparse_layers_combination"
             || opt_key == "flush_volumes_matrix"
             || opt_key == "prime_volume"
+            || opt_key == "multipass_prime_volume" // NeoTower, ported from OrcaFS-NeotkoCM (Neotko)
             || opt_key == "flush_into_infill"
             || opt_key == "flush_into_support"
             || opt_key == "belt_purge_tower_width"
@@ -5035,6 +5037,15 @@ void Print::_make_wipe_tower()
         // Don't generate any wipe tower.
         return;
 
+    // NeoTower (ported from OrcaFS-NeotkoCM, Neotko): with Sandwich sub-layers the tower below also plans
+    // their tool changes (LayerTools::sandwich_sublayers). Without them this is the classic tower.
+    if (NeoTower::active(m_wipe_tower_data.tool_ordering)) {
+        const std::vector<NeoTowerEvent> events = NeoTower::collect_events(m_wipe_tower_data.tool_ordering, {},
+            float(m_config.multipass_prime_volume.value), m_wipe_tower_data.tool_ordering.first_extruder());
+        const size_t n_sub = size_t(std::count_if(events.begin(), events.end(), [](const NeoTowerEvent &ev) { return ev.is_sublayer; }));
+        BOOST_LOG_TRIVIAL(info) << "NeoTower: " << n_sub << " Sandwich sub-layer tool changes out of " << events.size() << " planned into the prime tower";
+    }
+
     // Check whether there are any layers in m_tool_ordering, which are marked with has_wipe_tower,
     // they print neither object, nor support. Each such layer needs a virtual support layer
     // counterpart in m_objects.front() so that GCode::collect_layers_to_print picks it up and the
@@ -5211,6 +5222,44 @@ void Print::_make_wipe_tower()
                     wipe_volume_ec, wipe_volume_nc, volume_to_purge);
                 current_filament_id = filament_id;
             }
+            // NeoTower (ported from OrcaFS-NeotkoCM, Neotko): the Sandwich sub-layer tool changes of this
+            // layer, in the order GCode emits them, after the body ones. Same purge as a body change
+            // (no flushing into objects), floored by the Sandwich wipe reserve. Empty without a Sandwich.
+            for (const LayerTools::SandwichSublayer &ss : layer_tools.sandwich_sublayers) {
+                const unsigned int filament_id = ss.tool;
+                used_filament_ids.insert(filament_id);
+                if (filament_id == current_filament_id)
+                    continue;
+                float volume_to_purge = 0;
+                auto nozzle_info = nozzle_group_result.get_nozzle_for_filament(filament_id, layer_idx);
+                if (nozzle_info) {
+                    int extruder_id = nozzle_info->extruder_id;
+                    int nozzle_id   = nozzle_info->group_id;
+                    int prev_nozzle_filament = nozzle_recorder.get_filament_in_nozzle(nozzle_id);
+                    if (!nozzle_recorder.is_nozzle_empty(nozzle_id) && static_cast<int>(filament_id) != prev_nozzle_filament) {
+                        volume_to_purge = multi_extruder_flush[extruder_id][prev_nozzle_filament][filament_id];
+                        float flush_multiplier = (m_config.prime_volume_mode == PrimeVolumeMode::pvmFast)
+                            ? m_config.flush_multiplier_fast.get_at(extruder_id)
+                            : m_config.flush_multiplier.get_at(extruder_id);
+                        volume_to_purge *= flush_multiplier;
+                    }
+                    nozzle_recorder.set_nozzle_status(nozzle_id, filament_id, extruder_id);
+                }
+                volume_to_purge = NeoTower::sublayer_wipe_volume(volume_to_purge, float(m_config.multipass_prime_volume.value));
+                float wipe_volume_ec = filament_id < m_config.filament_prime_volume.values.size()
+                    ? m_config.filament_prime_volume.values[filament_id]
+                    : (float) m_config.prime_volume;
+                float wipe_volume_nc = filament_id < m_config.filament_prime_volume_nc.values.size()
+                    ? m_config.filament_prime_volume_nc.values[filament_id]
+                    : (float) m_config.prime_volume;
+                if (m_config.prime_volume_mode == PrimeVolumeMode::pvmSaving) {
+                    wipe_volume_ec = 15.f;
+                    wipe_volume_nc = 15.f;
+                }
+                wipe_tower.plan_toolchange((float)layer_tools.print_z, (float)layer_tools.wipe_tower_layer_height, current_filament_id, filament_id,
+                    wipe_volume_ec, wipe_volume_nc, volume_to_purge);
+                current_filament_id = filament_id;
+            }
             layer_tools.wiping_extrusions().ensure_perimeters_infills_order(*this);
 
             // if enable timelapse, slice all layer
@@ -5339,6 +5388,21 @@ void Print::_make_wipe_tower()
                                                    current_extruder_id, extruder_id, volume_to_wipe);
                         current_extruder_id = extruder_id;
                     }
+                }
+                // NeoTower (ported from OrcaFS-NeotkoCM, Neotko): the Sandwich sub-layer tool changes of this
+                // layer, in the order GCode emits them, after the body ones. The classic purge of the pair
+                // (without flushing into objects), floored by the Sandwich wipe reserve. Empty without a Sandwich.
+                for (const LayerTools::SandwichSublayer &ss : layer_tools.sandwich_sublayers) {
+                    if (ss.tool == current_extruder_id)
+                        continue;
+                    float volume_to_wipe = m_config.prime_volume;
+                    if (m_config.purge_in_prime_tower && m_config.single_extruder_multi_material &&
+                        current_extruder_id < wipe_volumes.size() && ss.tool < wipe_volumes[current_extruder_id].size())
+                        volume_to_wipe = wipe_volumes[current_extruder_id][ss.tool] * m_config.flush_multiplier.get_at(0);
+                    volume_to_wipe = NeoTower::sublayer_wipe_volume(volume_to_wipe, float(m_config.multipass_prime_volume.value));
+                    wipe_tower.plan_toolchange((float) layer_tools.print_z, (float) layer_tools.wipe_tower_layer_height,
+                                               current_extruder_id, ss.tool, volume_to_wipe);
+                    current_extruder_id = ss.tool;
                 }
                 layer_tools.wiping_extrusions().ensure_perimeters_infills_order(*this);
                 if (&layer_tools == &m_wipe_tower_data.tool_ordering.back() || (&layer_tools + 1)->wipe_tower_partitions == 0)

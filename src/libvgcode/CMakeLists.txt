@@ -40,6 +40,8 @@ set(LIBVGCODE_SOURCES
 	src/PathVertex.cpp
 	src/Range.hpp
 	src/Range.cpp
+	src/RealColor.hpp
+	src/RealColor.cpp
 	src/SegmentTemplate.hpp
 	src/SegmentTemplate.cpp
 	src/Settings.hpp

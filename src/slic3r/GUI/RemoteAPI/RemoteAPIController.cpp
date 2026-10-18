@@ -465,6 +465,7 @@ static bool project_key_writable(const std::string &key)
         "prime_volume_mode",     // enum, self-validating
         "wipe_tower_x",          // per-plate vector, written via set_at
         "wipe_tower_y",
+        "expert_gcode_reprocessor_rules", // JSON {version, enabled, rules[]}; the engine ignores what it can't parse
     };
     return s_writable.count(key) > 0;
 }
@@ -1232,12 +1233,24 @@ Response Controller::handle_slice()
         // is false here nothing is coming and the state would wedge at
         // "slicing" forever. Flip it to error instead.
         if (!plater->is_background_process_slicing()) {
-            set_slice_state([](SliceState &s) {
+            // Orca Zoukei: report why (incompatible filament temperatures, object outside the bed, ...),
+            // the same text the plater shows in its notification.
+            std::string reason;
+            try {
+                StringObjectException err = plater->background_process().validate();
+                plater->post_process_string_object_exception(err);
+                reason = err.string;
+            } catch (const std::exception &e) {
+                reason = e.what();
+            }
+            if (reason.empty())
+                reason = "plate cannot be sliced (object outside bed or invalid state)";
+            set_slice_state([reason](SliceState &s) {
                 s.state = "error"; s.percent = -1;
-                s.message = "plate cannot be sliced (object outside bed or invalid state)";
+                s.message = reason;
                 s.stats = nullptr; s.warnings = nlohmann::json::array();
             }, "slice.error");
-            return {{"error", "slice_not_started"}};
+            return {{"error", "slice_not_started"}, {"detail", reason}};
         }
         return {{"started", true}};
     });
@@ -2380,6 +2393,8 @@ Response Controller::dispatch(const Request &req)
             if (dispatch_project(req, zr)) return zr;
             if (dispatch_paint(req, zr)) return zr;
             if (dispatch_layers(req, zr)) return zr;
+            if (dispatch_devices(req, zr)) return zr;
+            if (dispatch_calib(req, zr)) return zr;
         }
         if (is("GET", "/api/v1/status"))        return handle_status();
         if (is("GET", "/api/v1/config"))        return handle_get_config(t);

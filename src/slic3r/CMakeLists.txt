@@ -77,6 +77,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/SpoolmanUi.hpp
     GUI/ZoukeiUpdateUi.cpp
     GUI/ZoukeiUpdateUi.hpp
+    GUI/Zoukei/RealColorView.cpp
+    GUI/Zoukei/RealColorView.hpp
+    GUI/Zoukei/PhotoMode.cpp
+    GUI/Zoukei/PhotoMode.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp
@@ -316,6 +320,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/RemoteAPI/RemoteAPIProject.cpp
     GUI/RemoteAPI/RemoteAPIPaint.cpp
     GUI/RemoteAPI/RemoteAPILayers.cpp
+    GUI/RemoteAPI/RemoteAPIDevices.cpp
+    GUI/RemoteAPI/RemoteAPICalib.cpp
     GUI/I18N.cpp
     GUI/I18N.hpp
     GUI/DragDropPanel.cpp

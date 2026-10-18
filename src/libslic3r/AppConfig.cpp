@@ -726,6 +726,11 @@ void AppConfig::set_defaults()
     if (get("flashforge_apply_printer_changes").empty())
         set_bool("flashforge_apply_printer_changes", false);
 
+    // Orca Zoukei: Remote API printer control (send print, pause/resume/stop, temperatures, filament load/unload, slot
+    // writes) stays OFF until the owner ticks it in Preferences > Remote API.
+    if (get("remote_api_printer_control").empty())
+        set_bool("remote_api_printer_control", false);
+
     if (get("use_printer_agents").empty())
     {
         // false = legacy behavior using print hosts

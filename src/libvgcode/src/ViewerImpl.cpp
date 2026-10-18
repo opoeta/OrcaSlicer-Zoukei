@@ -3,6 +3,7 @@
 ///|/ libvgcode is released under the terms of the AGPLv3 or higher
 ///|/
 #include "ViewerImpl.hpp"
+#include "RealColor.hpp"
 #include "../include/GCodeInputData.hpp"
 #include "Shaders.hpp"
 #include "ShadersES.hpp"
@@ -1408,6 +1409,11 @@ void ViewerImpl::update_colors()
          m_settings.view_type == EViewType::Summary) && !m_tool_multi.empty())
         apply_tool_multi_colors();
 
+    // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM, Neotko), after the multi colours it builds on
+    if (m_realcolor.enabled && (m_settings.view_type == EViewType::Tool || m_settings.view_type == EViewType::ColorPrint ||
+        m_settings.view_type == EViewType::Summary))
+        apply_realcolor(m_vertices, m_vertices_colors, m_realcolor);
+
     update_colors_texture();
     m_settings.update_colors = false;
 }
@@ -1746,6 +1752,14 @@ void ViewerImpl::set_tool_multi_colors(const std::vector<ToolMultiColor>& multi)
     if (same || (!any_old && !any_new))
         return;
     m_tool_multi = multi;
+    m_settings.update_colors = true;
+}
+
+void ViewerImpl::set_realcolor(const RealColorParams& params)
+{
+    if (m_realcolor == params)
+        return;
+    m_realcolor = params;
     m_settings.update_colors = true;
 }
 

@@ -270,6 +270,14 @@ enum class WallDirection
     Count,
 };
 
+// Sandwich / ColorStitch / PathBlend (ported from OrcaFS-NeotkoCM, Neotko). SandwichPassKind keeps the
+// values of SurfacePassKind (None 0 .. PathBlend 3).
+enum class SandwichPassKind { None, Solid, ColorStitch, PathBlend };
+enum class ColorStitchPatternMode { Pattern, Blend2, Blend3, StripesMM, Weave };
+enum class ColorStitchEasing { Linear, EaseIn, EaseOut, SCurve, Gamma, HardStep };
+enum class ColorStitchWeaveType { Plain, Twill22, Twill31, Satin5 };
+enum class PathBlendMode { Half, Full };
+
 // IMEX: physical bed corner where tool T0 sits. Determines how tool indices
 // map to bed zones (front = lower Y near operator, rear = higher Y).
 enum class ImexToolLayout {
@@ -848,6 +856,11 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WaveOverhangPattern)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SurfaceFillOrder)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(TpmsAdaptiveMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(TpmsAdaptiveGradient)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SandwichPassKind)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchPatternMode)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchEasing)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchWeaveType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PathBlendMode)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1466,6 +1479,55 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,              neotko_hae_fuzzy_scale))
     ((ConfigOptionString,              neotko_hae_fuzzy_octaves))
     ((ConfigOptionString,              neotko_hae_fuzzy_persistence))
+    // Ported from OrcaFS-NeotkoCM (Neotko): the Sandwich (top surface passes), ColorStitch and PathBlend.
+    // Per object (PrintRegionConfig sits at the Boost.PP sequence limit). All off by default. Filaments
+    // are 1-based here (0 = the object's own filament / off); the JSON stack keeps NeotkoCM's 0-based tools.
+    ((ConfigOptionString,                       neotko_surface_passes_top))
+    ((ConfigOptionBool,                         multipass_enabled))
+    ((ConfigOptionInt,                          multipass_num_passes))
+    ((ConfigOptionEnum<SandwichPassKind>,       multipass_kind_1))
+    ((ConfigOptionEnum<SandwichPassKind>,       multipass_kind_2))
+    ((ConfigOptionEnum<SandwichPassKind>,       multipass_kind_3))
+    ((ConfigOptionInt,                          multipass_filament_1))
+    ((ConfigOptionInt,                          multipass_filament_2))
+    ((ConfigOptionInt,                          multipass_filament_3))
+    ((ConfigOptionPercent,                      multipass_height_1))
+    ((ConfigOptionPercent,                      multipass_height_2))
+    ((ConfigOptionPercent,                      multipass_height_3))
+    ((ConfigOptionInt,                          multipass_angle_1))
+    ((ConfigOptionInt,                          multipass_angle_2))
+    ((ConfigOptionInt,                          multipass_angle_3))
+    ((ConfigOptionBool,                         interlayer_colormix_enabled))
+    ((ConfigOptionEnum<ColorStitchPatternMode>, interlayer_colormix_mode))
+    ((ConfigOptionString,                       interlayer_colormix_pattern_top))
+    ((ConfigOptionEnum<ColorStitchWeaveType>,   interlayer_colormix_weave))
+    ((ConfigOptionInt,                          interlayer_colormix_filament_a))
+    ((ConfigOptionInt,                          interlayer_colormix_filament_b))
+    ((ConfigOptionInt,                          interlayer_colormix_filament_c))
+    ((ConfigOptionInt,                          interlayer_colormix_filament_d))
+    ((ConfigOptionInt,                          interlayer_colormix_pct_a))
+    ((ConfigOptionInt,                          interlayer_colormix_pct_b))
+    ((ConfigOptionEnum<ColorStitchEasing>,      interlayer_colormix_easing))
+    ((ConfigOptionFloat,                        interlayer_colormix_gamma))
+    ((ConfigOptionFloat,                        interlayer_colormix_overlap))
+    ((ConfigOptionBool,                         interlayer_colormix_invert))
+    ((ConfigOptionFloat,                        interlayer_colormix_band_mm_a))
+    ((ConfigOptionFloat,                        interlayer_colormix_band_mm_b))
+    ((ConfigOptionFloat,                        interlayer_colormix_band_mm_c))
+    ((ConfigOptionFloat,                        interlayer_colormix_band_mm_d))
+    ((ConfigOptionFloat,                        interlayer_colormix_gradient_span_mm))
+    ((ConfigOptionInt,                          interlayer_colormix_repetitions))
+    ((ConfigOptionInt,                          interlayer_colormix_angle))
+    ((ConfigOptionFloat,                        interlayer_colormix_min_length))
+    ((ConfigOptionInt,                          interlayer_colormix_min_surface_lines))
+    ((ConfigOptionBool,                         multipass_path_gradient))
+    ((ConfigOptionEnum<PathBlendMode>,          pathblend_mode))
+    ((ConfigOptionInt,                          pathblend_filament_ramp))
+    ((ConfigOptionInt,                          pathblend_filament_cap))
+    ((ConfigOptionFloat,                        pathblend_floor_mm))
+    ((ConfigOptionFloat,                        pathblend_ramp_end_mm))
+    ((ConfigOptionInt,                          pathblend_fill_angle))
+    ((ConfigOptionString,                       pathblend_top))
 )
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.
@@ -2246,6 +2308,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPoint,               bed_mesh_probe_distance))
     ((ConfigOptionFloat,               adaptive_bed_mesh_margin))
 
+    // NeoTower (ported from OrcaFS-NeotkoCM, Neotko): minimum purge of a Sandwich sub-layer tool change.
+    ((ConfigOptionFloat,               multipass_prime_volume))
 
 )
 

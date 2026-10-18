@@ -6,8 +6,8 @@ server (Max Ellis, AGPL-3.0, pinned to 0.1.17) plus the tools below, which drive
 the stock package is a dependency whose server object we extend, not a copy.
 
 > The Remote API listens on `127.0.0.1:13130` only and every request needs the token. Enable it in
-> OrcaSlicer: Preferences > Remote API (copy the token). Nothing here can reach a printer unless you turn on
-> Preferences > "Allow printer control" (default OFF) **and** pass `confirm=true` (group G5).
+> OrcaSlicer: Preferences > Remote API (copy the token). Nothing here can control a printer unless you turn on
+> Preferences > Remote API > "Allow printer control from the Remote API" (default OFF) **and** pass `confirm=true` (group G5).
 
 ## Install (the owner runs this)
 
@@ -123,4 +123,44 @@ connection edits" (same policy as `*_gcode` keys in `PUT /config`).
 | `plate_set` | `PUT /plates/{i}/settings` | change them (bed types only on printers with multiple bed types) |
 | `plate_move` | `POST /plates/{i}/move` | reorder plates |
 
-All mutating calls run on the UI thread and take an undo snapshot, so Ctrl+Z in OrcaSlicer reverts them.
+### G5 - printers, printing and filament slots
+
+Reads are always allowed. **Control tools are refused (HTTP 403 `blocked_by_remote_api_policy`) unless both hold:**
+(1) Preferences > Remote API > **"Allow printer control from the Remote API"** is ticked (`remote_api_printer_control`,
+default OFF; the API cannot change it) and (2) the call passes `confirm=true` (only after the owner agreed to that exact
+action). Every control call is logged by OrcaSlicer and returns what was sent. The code paths are the app's own
+(DeviceManager / MachineObject commands through the printer's agent, the Snapmaker and Flashforge agents' write and feed
+functions, the print host upload queue), so the printers' safety rules stay in force: an official Snapmaker U1 spool is
+never forced (`FORCE` is not available through the API), slot writes and filament moves are refused while a print runs,
+Flashforge slot writes need ZMOD. Printer commands that fail in the app's connection layer can still raise a dialog in
+the window.
+
+| Tool | Remote API | What it does |
+| --- | --- | --- |
+| `device_list` | `GET /devices` | printers the app knows: agent, model, online, connected, selected, state |
+| `device_status` | `GET /devices/{id}` (`selected` = the selected printer) | state, progress, layer, remaining time, temperatures, can pause / resume / stop, slots, agent details |
+| `device_slots` | `GET /devices/{id}/slots` | Bambu AMS, Creality CFS, Flashforge IFS, Snapmaker U1 heads (lock + feeder state), external spool |
+| `print_hosts` | `GET /print_hosts` | OctoPrint / Moonraker / PrusaLink ... presets and physical printers (no credentials) |
+| `printer_control_status` | `GET /printer_control` | whether the Preferences switch is on |
+| `print_send` | `POST /print/send` | upload the sliced plate to the selected preset's print host, optionally start (control) |
+| `print_pause` / `print_resume` / `print_stop` | `POST /devices/{id}/pause\|resume\|stop` | control |
+| `printer_set_temperature` | `POST /devices/{id}/temperature` | nozzle (0-350), bed (0-limit), chamber (0-80) targets (control) |
+| `filament_load` / `filament_unload` | `POST /devices/{id}/filament` | heat + move filament of a slot (control) |
+| `slot_write` | `PUT /devices/{id}/slots` | write colour / type of a slot (control) |
+
+`print_send` covers print-host printers (not `.gcode.3mf` hosts and not the Bambu device dialog). Agent-based printers
+that need a filament mapping are started from the window.
+
+### G6 - calibration
+
+| Tool | Remote API | What it does |
+| --- | --- | --- |
+| `calibration_list` | `GET /calibrations` | the Calibration menu entries with every parameter (type, default, limits) and the printer context (flavor, belt, shaper types) |
+| `calibration_start` | `POST /calibrations/{kind}/start` | validates like the dialog, creates the calibration project (same `Plater::calib_*` call as the menu) and reports objects, modified settings, requested values, warnings |
+
+Kinds: `temperature`, `max_volumetric_speed`, `pressure_advance` (tower / line / pattern), `flow_rate` (pass1, pass2, yolo,
+yolo_perfectionist), `retraction`, `vfa`, `cornering`, `input_shaping_freq`, `input_shaping_damp`. The selected printer, print
+and filament presets are used (select them first); the project is replaced, so a project with unsaved changes is refused
+(409 `unsaved_changes`) unless `discard_changes=true`. Nothing is sliced or sent: run `slice_and_wait` afterwards.
+
+G1-G4: all mutating calls run on the UI thread and take an undo snapshot, so Ctrl+Z in OrcaSlicer reverts them.

@@ -7436,7 +7436,10 @@ LayerResult GCode::process_layer(
 
         std::string gcode_toolchange;
         if (has_wipe_tower) {
-            if (!m_wipe_tower->is_empty_wipe_tower_gcode(*this, extruder_id, extruder_id == layer_tools.extruders.back())) {
+            // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko) print after the body: the tower layer is then
+            // finished by them, not by the last body extruder (no-op without sub-layers).
+            const bool finish_tower_layer = extruder_id == layer_tools.extruders.back() && layer_tools.sandwich_sublayers.empty();
+            if (!m_wipe_tower->is_empty_wipe_tower_gcode(*this, extruder_id, finish_tower_layer)) {
                 if (need_insert_timelapse_gcode_for_traditional && !has_insert_timelapse_gcode
                     && !(m_farthest_point_timelapse.enabled && m_farthest_point_timelapse.farthest_is_photo_head)) {
                     bool should_insert = true;
@@ -7464,7 +7467,7 @@ LayerResult GCode::process_layer(
                     gcode += insert_wrapping_detection_gcode();
                     has_insert_wrapping_detection_gcode = true;
                 }
-                gcode_toolchange = m_wipe_tower->tool_change(*this, extruder_id, extruder_id == layer_tools.extruders.back());
+                gcode_toolchange = m_wipe_tower->tool_change(*this, extruder_id, finish_tower_layer);
             }
         } else {
             // Same case-A/case-B split for the non-wipe-tower path. With the subsystem off,
@@ -8059,6 +8062,11 @@ LayerResult GCode::process_layer(
 
     }
 
+    // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko): printed after the layer body, in the order
+    // ToolOrdering planned (and the wipe tower reserved). Nothing happens without them.
+    if (!layer_tools.sandwich_sublayers.empty())
+        gcode += this->process_sandwich_sublayers(print, layers, layer_tools, single_object_instance_idx, print_z, has_wipe_tower);
+
     // Belt brim orphan sweep (Finding C).  A coincident belt_brim_by_layer band lives on
     // an object layer, but that layer can yield no InstanceVisit above - a zero-extrusion
     // lead-in slice with no coinciding support - so the in-visit emit never fired and the
@@ -8314,9 +8322,19 @@ void GCode::append_full_config(const Print &print, std::string &str)
     auto is_banned = [](const std::string &key) {
         return banned_keys.find(key) != banned_keys.end();
     };
+    // The Sandwich / ColorStitch / PathBlend / NeoTower keys (ported from OrcaFS-NeotkoCM, Neotko) stay out of
+    // the config block while they hold their default, so a print with the feature off keeps a byte-identical
+    // G-code. Once one is changed it is listed like any other key.
+    auto is_inert_sandwich_default = [&cfg](const std::string &key) {
+        if (key != "neotko_surface_passes_top" && key.rfind("multipass_", 0) != 0 &&
+            key.rfind("interlayer_colormix_", 0) != 0 && key.rfind("pathblend_", 0) != 0)
+            return false;
+        const ConfigOptionDef *def = print_config_def.get(key);
+        return def != nullptr && def->default_value && *def->default_value == *cfg.option(key);
+    };
     std::ostringstream ss;
     for (const std::string& key : cfg.keys()) {
-        if (!is_banned(key) && !cfg.option(key)->is_nil()) {
+        if (!is_banned(key) && !cfg.option(key)->is_nil() && !is_inert_sandwich_default(key)) {
             if (key == "wipe_tower_x" || key == "wipe_tower_y") {
                 ss << std::fixed << std::setprecision(3) << "; " << key << " = " << dynamic_cast<const ConfigOptionFloats*>(cfg.option(key))->get_at(print.get_plate_index()) << "\n";
             }

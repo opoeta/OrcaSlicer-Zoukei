@@ -38676,3 +38676,400 @@ msgstr "Rele as faixas de camadas apos mudar o perfil de altura de camada."
 
 msgid "Z is measured from the bottom of the object."
 msgstr "Z e medido a partir da base do objeto."
+
+msgid "Allow printer control from the Remote API"
+msgstr "Permitir controle da impressora pela API remota"
+
+msgid ""
+"Off (recommended): the API can only read printers (status, temperatures, filament slots). "
+"On: an external tool can also send prints to the print host, pause, resume or stop a print, "
+"set temperatures, load or unload filament and write slot colour or type, but only in "
+"requests that carry \"confirm\": true. An AI agent can be steered by text it reads, so "
+"leave this off unless you are watching the printer. The printer's own safety rules "
+"(for example refusing slot writes while printing) still apply."
+msgstr ""
+"Desligado (recomendado): a API so le as impressoras (estado, temperaturas, slots de filamento). "
+"Ligado: uma ferramenta externa tambem pode enviar impressoes ao host de impressao, pausar, "
+"retomar ou parar uma impressao, ajustar temperaturas, carregar ou descarregar filamento e "
+"gravar cor ou tipo do slot, mas apenas em pedidos com \"confirm\": true. Um agente de IA pode "
+"ser induzido por texto que le, entao deixe desligado a menos que esteja acompanhando a "
+"impressora. As regras de seguranca da propria impressora (por exemplo, recusar gravacao de "
+"slot durante a impressao) continuam valendo."
+
+msgid "RealColor"
+msgstr "RealColor"
+
+msgid ""
+"Show the colour that comes out of the printer: layers let light through by the TD of "
+"their filament and neighbouring lines blend, so mixed filaments show their blended "
+"colour. Approximated simulation, not a guarantee of the final colour. Ported from "
+"OrcaFS-NeotkoCM (Neotko)."
+msgstr ""
+"Mostra a cor que sai da impressora: as camadas deixam passar luz conforme o TD do "
+"filamento e linhas vizinhas se misturam, entao filamentos mistos aparecem com a cor "
+"misturada. Simulacao aproximada, nao garante a cor final. Portado do "
+"OrcaFS-NeotkoCM (Neotko)."
+
+msgid "Blend %.1f mm"
+msgstr "Mistura %.1f mm"
+
+msgid "Walls %.2f"
+msgstr "Paredes %.2f"
+
+msgid "Photo mode..."
+msgstr "Modo foto..."
+
+msgid "Hide photo mode"
+msgstr "Ocultar modo foto"
+
+msgid "Photo mode"
+msgstr "Modo foto"
+
+msgid "Background"
+msgstr "Fundo"
+
+msgid "Transparent"
+msgstr "Transparente"
+
+msgid "Colour"
+msgstr "Cor"
+
+msgid "Cast shadow"
+msgstr "Sombra projetada"
+
+msgid "Frame the print"
+msgstr "Enquadrar a peca"
+
+msgid "Light"
+msgstr "Luz"
+
+msgid "Light height"
+msgstr "Altura da luz"
+
+msgid "Save PNG..."
+msgstr "Salvar PNG..."
+
+msgid "Copy image"
+msgstr "Copiar imagem"
+
+msgid "Save photo"
+msgstr "Salvar foto"
+
+msgid "Photo mode could not render the preview."
+msgstr "O modo foto nao conseguiu renderizar a visualizacao."
+
+msgid "Image copied to the clipboard."
+msgstr "Imagem copiada para a area de transferencia."
+
+msgid "The clipboard could not be opened."
+msgstr "Nao foi possivel abrir a area de transferencia."
+
+msgid "Saved: "
+msgstr "Salvo: "
+
+msgid "The file could not be written."
+msgstr "Nao foi possivel gravar o arquivo."
+
+msgid ""
+"Presentation only: the G-code and the preview are not changed. Ported from "
+"OrcaFS-NeotkoCM (Neotko)."
+msgstr ""
+"Somente apresentacao: o G-code e a visualizacao nao mudam. Portado do "
+"OrcaFS-NeotkoCM (Neotko)."
+
+msgid "Sandwich pass stack (JSON)"
+msgstr "Pilha de passadas do Sandwich (JSON)"
+
+msgid "Advanced: a complete Sandwich stack as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the Sandwich, ColorStitch and PathBlend settings."
+msgstr "Avançado: uma pilha completa do Sandwich em JSON, no formato do OrcaFS-NeotkoCM. Quando definida, substitui as configurações de Sandwich, ColorStitch e PathBlend."
+
+msgid "Sandwich (top surface passes)"
+msgstr "Sandwich (passadas da superfície superior)"
+
+msgid "Prints the top surface as a stack of up to 3 thin passes, each with its own filament, angle and share of the layer height. The passes print after the rest of the layer, one filament at a time, so every pass adds tool changes. Not applied on the first layer of the object."
+msgstr "Imprime a superfície superior como uma pilha de até 3 passadas finas, cada uma com seu próprio filamento, ângulo e fração da altura da camada. As passadas são impressas depois do resto da camada, um filamento por vez, então cada passada acrescenta trocas de ferramenta. Não é aplicado na primeira camada do objeto."
+
+msgid "Number of passes"
+msgstr "Número de passadas"
+
+msgid "How many passes the top surface is split into (1 to 3)."
+msgstr "Em quantas passadas a superfície superior é dividida (1 a 3)."
+
+msgid "Pass 1 type"
+msgstr "Tipo da passada 1"
+
+msgid "Pass 2 type"
+msgstr "Tipo da passada 2"
+
+msgid "Pass 3 type"
+msgstr "Tipo da passada 3"
+
+msgid "Pass 1 filament"
+msgstr "Filamento da passada 1"
+
+msgid "Pass 2 filament"
+msgstr "Filamento da passada 2"
+
+msgid "Pass 3 filament"
+msgstr "Filamento da passada 3"
+
+msgid "Pass 1 height"
+msgstr "Altura da passada 1"
+
+msgid "Pass 2 height"
+msgstr "Altura da passada 2"
+
+msgid "Pass 3 height"
+msgstr "Altura da passada 3"
+
+msgid "Pass 1 angle"
+msgstr "Ângulo da passada 1"
+
+msgid "Pass 2 angle"
+msgstr "Ângulo da passada 2"
+
+msgid "Pass 3 angle"
+msgstr "Ângulo da passada 3"
+
+msgid "Solid: one filament. ColorStitch: the filament changes line by line (ColorStitch settings). PathBlend: a gradient built as a Z ramp (PathBlend settings); a PathBlend pass takes the whole layer. Object filament: a plain band in the object's own filament."
+msgstr "Sólido: um filamento. ColorStitch: o filamento muda linha a linha (configurações de ColorStitch). PathBlend: um degradê construído como uma rampa em Z (configurações de PathBlend); uma passada PathBlend ocupa a camada inteira. Filamento do objeto: uma faixa simples no filamento do próprio objeto."
+
+msgid "Object filament"
+msgstr "Filamento do objeto"
+
+msgid "Filament of a Solid pass (1 = first filament). 0 uses the object's top surface filament."
+msgstr "Filamento de uma passada Sólida (1 = primeiro filamento). 0 usa o filamento da superfície superior do objeto."
+
+msgid "Share of the layer height printed by this pass. The shares are scaled to fill the whole layer; a pass thinner than 0.04 mm is dropped and its height goes to the others."
+msgstr "Fração da altura da camada impressa por esta passada. As frações são ajustadas para preencher a camada inteira; uma passada mais fina que 0,04 mm é descartada e sua altura vai para as outras."
+
+msgid "Fill angle of the pass in degrees, kept on every layer. -1 = automatic: the layer angle, rotated 90 degrees on every other pass."
+msgstr "Ângulo de preenchimento da passada em graus, mantido em todas as camadas. -1 = automático: o ângulo da camada, girado 90 graus em passadas alternadas."
+
+msgid "ColorStitch on top surface"
+msgstr "ColorStitch na superfície superior"
+
+msgid "Prints the top surface as one ColorStitch pass: the filament is chosen for every fill line (smooth blends, stripes, weaves or a custom pattern). Used when the Sandwich is off; with the Sandwich on, set a pass to ColorStitch instead."
+msgstr "Imprime a superfície superior como uma passada ColorStitch: o filamento é escolhido para cada linha de preenchimento (mesclas suaves, listras, tramas ou um padrão personalizado). Usado quando o Sandwich está desligado; com o Sandwich ligado, defina uma passada como ColorStitch."
+
+msgid "ColorStitch style"
+msgstr "Estilo do ColorStitch"
+
+msgid "Where the line colours come from. Custom pattern: one digit per line (1 = filament 1), repeated. Smooth blend: filaments A and B (or A, B and C) dithered across the surface. Stripes: bands of a set width in millimetres. Textile weave: a weave of filaments A and B."
+msgstr "De onde vêm as cores das linhas. Padrão personalizado: um dígito por linha (1 = filamento 1), repetido. Mescla suave: filamentos A e B (ou A, B e C) pontilhados ao longo da superfície. Listras: faixas de largura definida em milímetros. Trama têxtil: uma trama dos filamentos A e B."
+
+msgid "Custom pattern"
+msgstr "Padrão personalizado"
+
+msgid "Smooth blend - 2 colours"
+msgstr "Mescla suave - 2 cores"
+
+msgid "Smooth blend - 3 colours"
+msgstr "Mescla suave - 3 cores"
+
+msgid "Stripes (mm)"
+msgstr "Listras (mm)"
+
+msgid "Textile weave"
+msgstr "Trama têxtil"
+
+msgid "Digits 1 to 9 = filament 1 to 9, one digit per fill line, repeated across the surface. Example: 1122 prints two lines of filament 1, then two of filament 2."
+msgstr "Dígitos de 1 a 9 = filamentos 1 a 9, um dígito por linha de preenchimento, repetidos ao longo da superfície. Exemplo: 1122 imprime duas linhas do filamento 1 e depois duas do filamento 2."
+
+msgid "Weave"
+msgstr "Trama"
+
+msgid "Plain: 1:1 alternation. Twill 2/2 and 3/1: shifted by one line every layer, which draws a diagonal. Satin: filament A covers about four fifths of the surface."
+msgstr "Tafetá: alternância 1:1. Sarja 2/2 e 3/1: deslocadas uma linha a cada camada, o que desenha uma diagonal. Cetim: o filamento A cobre cerca de quatro quintos da superfície."
+
+msgid "Plain weave"
+msgstr "Tafetá"
+
+msgid "Twill 2/2"
+msgstr "Sarja 2/2"
+
+msgid "Twill 3/1"
+msgstr "Sarja 3/1"
+
+msgid "Satin 5"
+msgstr "Cetim 5"
+
+msgid "Filament A"
+msgstr "Filamento A"
+
+msgid "Filament B"
+msgstr "Filamento B"
+
+msgid "Filament C"
+msgstr "Filamento C"
+
+msgid "Filament D"
+msgstr "Filamento D"
+
+msgid "Filament used by the ColorStitch blend, stripes and weave (1 = first filament). 0 = off."
+msgstr "Filamento usado pela mescla, pelas listras e pela trama do ColorStitch (1 = primeiro filamento). 0 = desligado."
+
+msgid "Share of filament A"
+msgstr "Fração do filamento A"
+
+msgid "Percentage of the lines printed with filament A in a smooth blend."
+msgstr "Porcentagem das linhas impressas com o filamento A numa mescla suave."
+
+msgid "Share of filament B"
+msgstr "Fração do filamento B"
+
+msgid "Percentage of the lines printed with filament B in a 3 colour blend; filament C takes the rest."
+msgstr "Porcentagem das linhas impressas com o filamento B numa mescla de 3 cores; o filamento C fica com o restante."
+
+msgid "Transition shape"
+msgstr "Forma da transição"
+
+msgid "Where along the surface the blend changes colour. The overall share of each filament does not change."
+msgstr "Onde, ao longo da superfície, a mescla muda de cor. A fração total de cada filamento não muda."
+
+msgid "Even (linear)"
+msgstr "Uniforme (linear)"
+
+msgid "Slow start"
+msgstr "Início lento"
+
+msgid "Slow end"
+msgstr "Fim lento"
+
+msgid "S-curve"
+msgstr "Curva em S"
+
+msgid "Custom (gamma)"
+msgstr "Personalizada (gama)"
+
+msgid "Hard step"
+msgstr "Degrau abrupto"
+
+msgid "Transition gamma"
+msgstr "Gama da transição"
+
+msgid "Exponent of the Custom (gamma) transition shape. 1 = even."
+msgstr "Expoente da forma de transição Personalizada (gama). 1 = uniforme."
+
+msgid "Colour overlap"
+msgstr "Sobreposição de cores"
+
+msgid "How much the colours of a 3 colour blend bleed into each other. 0 = hard zones, 1 = strong overlap."
+msgstr "Quanto as cores de uma mescla de 3 cores se misturam entre si. 0 = zonas nítidas, 1 = sobreposição forte."
+
+msgid "Invert direction"
+msgstr "Inverter direção"
+
+msgid "Reverses the blend, the stripes or the pattern across the surface."
+msgstr "Inverte a mescla, as listras ou o padrão ao longo da superfície."
+
+msgid "Stripe width A"
+msgstr "Largura da listra A"
+
+msgid "Stripe width B"
+msgstr "Largura da listra B"
+
+msgid "Stripe width C"
+msgstr "Largura da listra C"
+
+msgid "Stripe width D"
+msgstr "Largura da listra D"
+
+msgid "Width of this filament's stripe, measured across the fill lines. The stripes repeat A, B, C, D; 0 skips one. A stripe ends between two lines, so it lands within one line of the width set here."
+msgstr "Largura da listra deste filamento, medida transversalmente às linhas de preenchimento. As listras se repetem A, B, C, D; 0 pula uma. Uma listra termina entre duas linhas, então fica a menos de uma linha da largura definida aqui."
+
+msgid "Blend repeats every"
+msgstr "Mescla se repete a cada"
+
+msgid "0 = the blend runs once across each surface (fit to surface). A value in millimetres repeats the blend at that size, the same on every object."
+msgstr "0 = a mescla percorre cada superfície uma vez (ajustada à superfície). Um valor em milímetros repete a mescla nesse tamanho, igual em todos os objetos."
+
+msgid "Blend repetitions"
+msgstr "Repetições da mescla"
+
+msgid "With the blend fitted to the surface, how many times it repeats across it."
+msgstr "Com a mescla ajustada à superfície, quantas vezes ela se repete ao longo dela."
+
+msgid "ColorStitch angle"
+msgstr "Ângulo do ColorStitch"
+
+msgid "Fill angle of a ColorStitch pass in degrees, kept on every layer so the stripes line up. -1 = automatic (follows the layer rotation)."
+msgstr "Ângulo de preenchimento de uma passada ColorStitch em graus, mantido em todas as camadas para as listras se alinharem. -1 = automático (segue a rotação da camada)."
+
+msgid "ColorStitch minimum line length"
+msgstr "Comprimento mínimo de linha do ColorStitch"
+
+msgid "Fill lines shorter than this keep filament A instead of joining the pattern, to avoid tool changes for tiny segments. 0 = off."
+msgstr "Linhas de preenchimento mais curtas que isto ficam com o filamento A em vez de entrar no padrão, para evitar trocas de ferramenta em segmentos minúsculos. 0 = desligado."
+
+msgid "ColorStitch minimum lines"
+msgstr "Mínimo de linhas do ColorStitch"
+
+msgid "Surfaces with fewer fill lines than this print with filament A only. 0 = off."
+msgstr "Superfícies com menos linhas de preenchimento que isto são impressas só com o filamento A. 0 = desligado."
+
+msgid "PathBlend on top surface"
+msgstr "PathBlend na superfície superior"
+
+msgid "Prints the top surface as a gradient made of geometry: the ramp filament climbs as a real Z ramp inside the layer, one height per fill line, and in Full mode the cap filament fills the rest. Used when the Sandwich is off."
+msgstr "Imprime a superfície superior como um degradê feito de geometria: o filamento da rampa sobe como uma rampa real em Z dentro da camada, uma altura por linha de preenchimento, e no modo Completo o filamento da tampa preenche o resto. Usado quando o Sandwich está desligado."
+
+msgid "PathBlend mode"
+msgstr "Modo do PathBlend"
+
+msgid "Full: ramp plus a cap in a second filament, the layer is filled. Half: ramp only, the space above it stays empty."
+msgstr "Completo: rampa mais uma tampa num segundo filamento, a camada fica preenchida. Meio: só a rampa, o espaço acima dela fica vazio."
+
+msgid "Half (ramp only)"
+msgstr "Meio (só rampa)"
+
+msgid "Full (ramp + cap)"
+msgstr "Completo (rampa + tampa)"
+
+msgid "Ramp filament"
+msgstr "Filamento da rampa"
+
+msgid "Filament of the PathBlend ramp (1 = first filament). 0 uses the object's top surface filament."
+msgstr "Filamento da rampa do PathBlend (1 = primeiro filamento). 0 usa o filamento da superfície superior do objeto."
+
+msgid "Cap filament"
+msgstr "Filamento da tampa"
+
+msgid "Filament of the PathBlend cap in Full mode (1 = first filament). 0 = no cap."
+msgstr "Filamento da tampa do PathBlend no modo Completo (1 = primeiro filamento). 0 = sem tampa."
+
+msgid "Ramp floor"
+msgstr "Piso da rampa"
+
+msgid "Height of the ramp at its low end. Never below 0.035 mm (the thinnest bead that still prints cleanly)."
+msgstr "Altura da rampa na extremidade baixa. Nunca abaixo de 0,035 mm (o cordão mais fino que ainda imprime limpo)."
+
+msgid "Ramp end"
+msgstr "Fim da rampa"
+
+msgid "Height of the ramp at its high end. -1 = automatic: the tallest ramp that leaves a printable cap."
+msgstr "Altura da rampa na extremidade alta. -1 = automático: a rampa mais alta que ainda deixa uma tampa imprimível."
+
+msgid "PathBlend angle"
+msgstr "Ângulo do PathBlend"
+
+msgid "Fill angle of the PathBlend pass in degrees. The gradient runs across the fill lines, so this angle also sets its direction. -1 = automatic."
+msgstr "Ângulo de preenchimento da passada PathBlend em graus. O degradê corre transversalmente às linhas de preenchimento, então este ângulo também define a sua direção. -1 = automático."
+
+msgid "PathBlend settings (JSON)"
+msgstr "Configurações do PathBlend (JSON)"
+
+msgid "Advanced: PathBlend settings as JSON, in the format of OrcaFS-NeotkoCM (start and end zones, period). When set it replaces the PathBlend settings."
+msgstr "Avançado: configurações do PathBlend em JSON, no formato do OrcaFS-NeotkoCM (zonas de início e fim, período). Quando definidas, substituem as configurações do PathBlend."
+
+msgid "Sandwich wipe reserve"
+msgstr "Reserva de purga do Sandwich"
+
+msgid "Minimum volume purged on the prime tower for each tool change inside a Sandwich (top surface passes). The flush volume of the filament pair is used when it is larger. 0 = only the flush volume."
+msgstr "Volume mínimo purgado na torre de purga em cada troca de ferramenta dentro de um Sandwich (passadas da superfície superior). O volume de purga do par de filamentos é usado quando é maior. 0 = só o volume de purga."
+
+msgid "Surface colour"
+msgstr "Cor de superfície"
+
+msgid "Ironing is printed before the Sandwich surface passes and does not iron them. Turn ironing off for objects that use the Sandwich, ColorStitch or PathBlend."
+msgstr "O alisamento é impresso antes das passadas de superfície do Sandwich e não as alcança. Desligue o alisamento nos objetos que usam Sandwich, ColorStitch ou PathBlend."

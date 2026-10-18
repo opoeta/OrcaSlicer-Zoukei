@@ -36,6 +36,7 @@
 #include "FillTpmsD.hpp"
 #include "FillTpmsFK.hpp"
 #include "FillConcentric.hpp"
+#include "FillSandwich.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Line.hpp"
@@ -1425,6 +1426,8 @@ void Layer::make_fills(const FillAdaptive::RegionOctrees* fill_octrees, FillLigh
 {
 	for (LayerRegion *layerm : m_regions)
 		layerm->fills.clear();
+    // Sandwich sub-layers (ported from OrcaFS-NeotkoCM, Neotko) are rebuilt with the fills.
+    this->sandwich_sublayers.clear();
 
 
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
@@ -1585,6 +1588,11 @@ void Layer::make_fills(const FillAdaptive::RegionOctrees* fill_octrees, FillLigh
                 if (f->layer_id > 0 && f->layer_id <= elefant_layers)
                     params.density = 1.0f - (1.0f - elefant_density) * (elefant_layers - (f->layer_id - 1)) / elefant_layers; // Reverse calculation - The higher layer number means the higher density. Counting starts from the second layer.
             }
+            // Sandwich (ported from OrcaFS-NeotkoCM, Neotko): a top surface of a region with a pass
+            // stack becomes thin sub-layers printed after the layer body, so it is not filled here.
+            // False for every region with the feature off.
+            if (sandwich_fill_surface(*this, *layerm, *f, params, surface_fill.surface))
+                continue;
             // make fill
 			f->fill_surface_extrusion(&surface_fill.surface,
 				params,

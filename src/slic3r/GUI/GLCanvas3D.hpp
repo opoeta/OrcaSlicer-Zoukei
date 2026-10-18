@@ -61,6 +61,7 @@ namespace Slic3r { class DynamicPrintConfig; }
 namespace Slic3r { class GLShaderProgram; }
 namespace Slic3r { struct GCodeProcessorResult; }
 namespace Slic3r::GUI { class ImGuiWrapper; }
+namespace Slic3r::GUI::Zoukei { struct PhotoOptions; }
 namespace libvgcode { struct PathVertex; }
 struct ImVec2;
 
@@ -935,6 +936,11 @@ public:
     size_t       m_shadow_map_key{ 0 };
     // Plate rectangle a shadow can reach, min xy then max xy.
     std::array<float, 4> m_shadow_plate_bounds{ { 0.0f, 0.0f, 0.0f, 0.0f } };
+    // Orca Zoukei: Photo Mode capture (ported from OrcaFS-NeotkoCM, Neotko), see GUI/Zoukei/PhotoMode.cpp.
+    // Only true while photo_capture() renders: forces the shadows on and aims the static light.
+    bool         m_photo_active{ false };
+    bool         m_photo_shadows{ true };
+    Vec3d        m_photo_light_dir{ Vec3d(-0.4, -0.6, 1.0).normalized() };
 public:
     explicit GLCanvas3D(wxGLCanvas* canvas, Bed3D &bed);
     ~GLCanvas3D();
@@ -1194,6 +1200,10 @@ public:
     // Returns false when no toolpaths are loaded or the FBO cannot be built.
     bool render_gcode_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h,
                                 Camera::ViewAngleType camera_view_angle_type, bool frame_object);
+    // Orca Zoukei: Photo Mode (ported from OrcaFS-NeotkoCM, Neotko). Offscreen studio render of the
+    // G-code preview from the current camera: no bed, no UI, a soft cast shadow, a transparent or solid
+    // background. RGBA, bottom row first. Returns false when there is nothing to render.
+    bool photo_capture(const Zoukei::PhotoOptions& options, ThumbnailData& out);
     static void render_thumbnail_internal(ThumbnailData& thumbnail_data, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, ModelObjectPtrs& model_objects,
         const GLVolumeCollection& volumes, std::vector<ColorRGBA>& extruder_colors,
                                           GLShaderProgram *                  shader,
