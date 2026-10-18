@@ -40,6 +40,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <locale>
 #include <sstream>
 #include <vector>
 
@@ -500,13 +501,15 @@ static std::string numeric_list_error(const std::string &s)
         const size_t b     = tok.find_first_not_of(" \t");
         const size_t e     = tok.find_last_not_of(" \t");
         tok                = (b == std::string::npos) ? std::string() : tok.substr(b, e - b + 1);
-        try {
-            size_t pos = 0;
-            (void) std::stod(tok, &pos);
-            if (pos != tok.size())
-                throw std::invalid_argument("trailing characters");
-        } catch (const std::exception &) {
-            return "\"" + tok + "\" is not a number";
+        {
+            // std::stod follows the C locale, which the app sets to the UI language: with pt_BR it stops at the
+            // '.' of "1.5". Config values always use '.', so parse with the classic locale.
+            std::istringstream is(tok);
+            is.imbue(std::locale::classic());
+            double v = 0.;
+            is >> v;
+            if (tok.empty() || is.fail() || is.peek() != std::char_traits<char>::eof())
+                return "\"" + tok + "\" is not a number";
         }
         if (comma == std::string::npos) break;
         start = comma + 1;
