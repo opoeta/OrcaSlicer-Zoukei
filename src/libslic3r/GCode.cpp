@@ -8282,6 +8282,16 @@ void GCode::append_full_config(const Print &print, std::string &str)
         else { // flush_volumes_matrix value count error?
             throw Slic3r::SlicingError(_(L("Flush volumes matrix do not match to the correct size!")));
         }
+        // Orca Zoukei: the Creality CFS firmware reads flush_volumes_matrix AND flush_multiplier from this block and
+        // multiplies them again, doubling every purge whenever the multiplier is not 1. The matrix above already
+        // carries the multiplier, so report 1 (the "Creality CFS Flush Fix" plugin, made native). The slicing itself
+        // reads m_config, not this dump.
+        if (const auto *model = cfg.option<ConfigOptionString>("printer_model");
+            model != nullptr && boost::istarts_with(model->value, "Creality") &&
+            filament_count_tmp * filament_count_tmp * heads_count_tmp == temp_flush_volumes_matrix.size()) {
+            auto &mult = cfg.option<ConfigOptionFloats>("flush_multiplier")->values;
+            std::fill(mult.begin(), mult.end(), 1.);
+        }
     }
     // filament_map_2 (the per-filament (extruder x volume-type) slot map) is computed during apply /
     // write-back and lives in the applied print config only; the pre-expansion snapshot this dump is
