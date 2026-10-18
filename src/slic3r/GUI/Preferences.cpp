@@ -2,6 +2,7 @@
 #include "CloudProvider.hpp"
 #include "OptionsGroup.hpp"
 #include "GUI_App.hpp"
+#include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
 #include "MainFrame.hpp"
 #include "WebViewDialog.hpp"
 #include "Plater.hpp"
@@ -1107,6 +1108,14 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                     canvas->set_as_dirty();
                     canvas->request_extra_frame();
                 }
+            }
+        }
+        else if (param == "zoukei_libre_mode") {
+            // Mirror the switch into the preset bundle (slice-time key) and invalidate the plate result.
+            LibreMode::sync_to_bundle();
+            if (Plater* plater = wxGetApp().plater()) {
+                plater->schedule_background_process();
+                plater->update_menus();
             }
         }
         else if (param == "realistic_prepare_view") {
@@ -2473,6 +2482,17 @@ void PreferencesDialog::create_items()
 
     auto item_keep_painting    = create_item_checkbox(_L("Keep painted feature after mesh change"), _L("Attempt to keep painted features (color/seam/support/fuzzy etc.) after changing the object mesh (such as cut/reload from disk/simplify/fix etc.)\nHighly experimental! Slow and may create artifact."), "keep_painting");
     g_sizer->Add(item_keep_painting);
+
+    // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): the single opt-in switch. Off = stock behaviour, byte-identical G-code.
+    auto item_libre_mode = create_item_checkbox(
+        _L("Libre Mode (True Objects, Snap & Drag)"),
+        _L("Experimental. Objects may float at any height and the slicer measures what is really under every surface: a face resting "
+           "on another object prints as a normal contact surface and only the part over air is a bridge.\n"
+           "Also enables Snap & Drag (drag an object and it lands on the real surface below), the per-object \"Assembled boolean\" "
+           "switch, per-part XY compensation and Copy / Paste Process Settings in the object list.\n"
+           "Snap & Drag options are in the Align & Stack panel. Ported from OrcaFS-NeotkoCM (Neotko)."),
+        "zoukei_libre_mode");
+    g_sizer->Add(item_libre_mode);
 
     auto item_plugin_printer_agents = create_item_checkbox(
         _L("Use printer agents instead of print hosts"), _L(

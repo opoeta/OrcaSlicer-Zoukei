@@ -193,6 +193,8 @@ private:
     void        append_menu_item_change_filament(wxMenu* menu);
     void        append_menu_item_set_printable(wxMenu* menu);
     void        append_menu_item_set_auto_drop(wxMenu* menu);
+    // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): Assembled Mode (Boolean), Copy / Paste Process Settings. Rebuilt on every call; empty while Libre Mode is off.
+    void        append_menu_items_libre(wxMenu* menu);
     void        append_menu_item_locked(wxMenu* menu);
     void        append_menu_item_fill_bed(wxMenu *menu);
     void        append_menu_item_plate_name(wxMenu *menu);

@@ -1928,6 +1928,9 @@ bool model_volume_list_changed(const ModelObject &model_object_old, const ModelO
 // Test whether the now ModelObject has newer custom supports data than the old one.
 // The function assumes that volumes list is synchronized.
 bool model_custom_supports_data_changed(const ModelObject& mo, const ModelObject& mo_new);
+// Support Zones (ported from OrcaFS-NeotkoCM, Neotko): did the config of any SUPPORT_ENFORCER / SUPPORT_BLOCKER
+// volume change? Only valid when the support volume list is unchanged.
+bool model_support_volume_config_changed(const ModelObject& mo, const ModelObject& mo_new);
 
 // Test whether the now ModelObject has newer custom seam data than the old one.
 // The function assumes that volumes list is synchronized.

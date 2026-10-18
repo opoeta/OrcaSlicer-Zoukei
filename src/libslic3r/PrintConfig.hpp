@@ -1384,12 +1384,21 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,      support_threshold_overlap))
     ((ConfigOptionFloat,               support_object_xy_distance))
     ((ConfigOptionFloat,               support_object_first_layer_gap))
+    // PerObject Support, ported from OrcaFS-NeotkoCM (Neotko): support avoids the other objects on the plate.
+    ((ConfigOptionBool,                support_cross_object_avoidance))
     ((ConfigOptionBool,                support_ironing))
     ((ConfigOptionEnum<InfillPattern>, support_ironing_pattern))
     ((ConfigOptionPercent,             support_ironing_flow))
     ((ConfigOptionFloat,               support_ironing_spacing))
     ((ConfigOptionFloat,               xy_hole_compensation))
     ((ConfigOptionFloat,               xy_contour_compensation))
+    // Ported from OrcaFS-NeotkoCM (Neotko) - Libre Mode / True Objects. neotko_true_objects is a slice-time
+    // mirror of the app preference "zoukei_libre_mode" (injected by PresetBundle::full_fff_config); it never lives in a preset.
+    ((ConfigOptionBool,                neotko_true_objects))
+    // Gravity contact tolerance as a FRACTION of the layer height (never mm).
+    ((ConfigOptionFloat,               gravity_contact_gap_ratio))
+    // Libre Mode "Assembled Boolean mode" (per object). true = stock union of the parts; false = parts stay separate.
+    ((ConfigOptionBool,                neotko_assemble_boolean))
     ((ConfigOptionBool,                flush_into_objects))
     // BBS
     ((ConfigOptionBool,                flush_into_infill))
@@ -1479,6 +1488,26 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,              neotko_hae_fuzzy_scale))
     ((ConfigOptionString,              neotko_hae_fuzzy_octaves))
     ((ConfigOptionString,              neotko_hae_fuzzy_persistence))
+    // Bump Mapping (ported from OrcaFS-NeotkoCM, Neotko): a PNG becomes relief. bump_wall_* offsets the Arachne
+    // walls; zbump_* modulates the Z of the top solid infill. All off by default (G-code unchanged).
+    ((ConfigOptionBool,                bump_wall_enabled))
+    ((ConfigOptionString,              bump_wall_image))
+    ((ConfigOptionFloat,               bump_wall_thickness))
+    ((ConfigOptionFloat,               bump_wall_scale))
+    ((ConfigOptionInt,                 bump_wall_repeat))
+    ((ConfigOptionInt,                 bump_wall_projection))
+    ((ConfigOptionFloat,               bump_wall_point_distance))
+    ((ConfigOptionFloat,               bump_wall_max_angle))
+    ((ConfigOptionBool,                zbump_enabled))
+    ((ConfigOptionString,              zbump_image))
+    ((ConfigOptionFloat,               zbump_height))
+    ((ConfigOptionFloat,               zbump_scale))
+    ((ConfigOptionInt,                 zbump_repeat))
+    ((ConfigOptionFloat,               zbump_offset_x))
+    ((ConfigOptionFloat,               zbump_offset_y))
+    ((ConfigOptionFloat,               zbump_edge_margin))
+    ((ConfigOptionFloat,               zbump_max_slope))
+    ((ConfigOptionFloat,               zbump_segment))
     // Ported from OrcaFS-NeotkoCM (Neotko): the Sandwich (top surface passes), ColorStitch and PathBlend.
     // Per object (PrintRegionConfig sits at the Boost.PP sequence limit). All off by default. Filaments
     // are 1-based here (0 = the object's own filament / off); the JSON stack keeps NeotkoCM's 0-based tools.

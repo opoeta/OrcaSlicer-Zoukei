@@ -37,6 +37,7 @@
 #include "FillTpmsFK.hpp"
 #include "FillConcentric.hpp"
 #include "FillSandwich.hpp"
+#include "libslic3r/Feature/BumpMapping/BumpMapping.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Line.hpp"
@@ -1594,9 +1595,13 @@ void Layer::make_fills(const FillAdaptive::RegionOctrees* fill_octrees, FillLigh
             if (sandwich_fill_surface(*this, *layerm, *f, params, surface_fill.surface))
                 continue;
             // make fill
+            const size_t zbump_first_entity = dst_entities.size();
 			f->fill_surface_extrusion(&surface_fill.surface,
 				params,
 				dst_entities);
+            // Z bump (ported from OrcaFS-NeotkoCM, Neotko): per-vertex Z relief on the top solid infill. No-op while the feature is off.
+            if (surface_fill.surface.surface_type == stTop)
+                Feature::Bump::apply_zbump_to_range(*this, layerm->region().config(), surface_fill.surface.expolygon, dst_entities, zbump_first_entity);
 		}
 		// Orca: now tag every newly-produced path/loop/multi-path/sub-collection if
 		// this SurfaceFill represented a wave-overhang Hilbert floor.

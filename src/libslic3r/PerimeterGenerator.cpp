@@ -9,6 +9,7 @@
 #include "ExtrusionEntity.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "Feature/FuzzySkin/FuzzySkin.hpp"
+#include "Feature/BumpMapping/BumpMapping.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "Polygon.hpp"
 #include "Polyline.hpp"
 #include "Point.hpp"
@@ -176,7 +177,8 @@ static ExtrusionEntityCollection traverse_loops(const PerimeterGenerator &perime
         const Polygon polygon = apply_fuzzy_skin(loop.polygon, perimeter_generator, loop.depth, loop.is_contour);
 
         ExtrusionPaths paths;
-        if (perimeter_generator.config->detect_overhang_wall && perimeter_generator.layer_id > perimeter_generator.object_config->raft_layers) {
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): also detect overhang on the object's base layer when it rests on a foreign floor.
+        if (perimeter_generator.config->detect_overhang_wall && (perimeter_generator.layer_id > perimeter_generator.object_config->raft_layers || perimeter_generator.has_gravity_floor)) {
             // detect overhanging/bridging perimeters
 
             // get non 100% overhang paths by intersecting this loop with the grown lower slices
@@ -401,7 +403,7 @@ struct PerimeterGeneratorArachneExtrusion
 };
 
 static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& perimeter_generator, std::vector<PerimeterGeneratorArachneExtrusion>& pg_extrusions,
-    bool &steep_overhang_contour, bool &steep_overhang_hole)
+    bool &steep_overhang_contour, bool &steep_overhang_hole, int total_loops = -1)
 {
     // Detect steep overhangs
     bool overhangs_reverse = perimeter_generator.config->overhang_reverse &&
@@ -418,10 +420,14 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
 
         const bool  is_contour = !extrusion->is_closed || pg_extrusion.is_contour;
         apply_fuzzy_skin(extrusion, perimeter_generator, is_contour, extrusion->is_closed);
+        // Bump mapping (ported from OrcaFS-NeotkoCM, Neotko): image relief on the walls. No-op while the table is null.
+        if (perimeter_generator.wall_bump_table != nullptr)
+            Feature::Bump::apply_wall_bump(extrusion, perimeter_generator, is_contour, total_loops);
 
         ExtrusionPaths paths;
         // detect overhanging/bridging perimeters
-        if (perimeter_generator.config->detect_overhang_wall && perimeter_generator.layer_id > perimeter_generator.object_config->raft_layers) {
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): same base-layer relaxation as the classic path.
+        if (perimeter_generator.config->detect_overhang_wall && (perimeter_generator.layer_id > perimeter_generator.object_config->raft_layers || perimeter_generator.has_gravity_floor)) {
             ClipperZUtils::ZPath extrusion_path;
             extrusion_path.reserve(extrusion->size());
             BoundingBox extrusion_path_bbox;
@@ -2900,7 +2906,9 @@ void PerimeterGenerator::process_arachne()
         // lower layer, so we take lower slices and offset them by half the nozzle diameter used
         // in the current layer
         double nozzle_diameter = this->print_config->nozzle_diameter.get_at(this->config->outer_wall_filament_id - 1);
-        m_lower_slices_polygons = offset(*this->lower_slices, float(scale_(+nozzle_diameter / 2)));
+        // Bump mapping widens the walls outward by up to its thickness, so the overhang check must allow for it.
+        const double bump_wall_extra_mm = this->wall_bump_table != nullptr ? this->object_config->bump_wall_thickness.value : 0.;
+        m_lower_slices_polygons = offset(*this->lower_slices, float(scale_(+nozzle_diameter / 2 + bump_wall_extra_mm)));
     }
 
     Surfaces all_surfaces = this->slices->surfaces;
@@ -2932,6 +2940,9 @@ void PerimeterGenerator::process_arachne()
         const bool is_topmost_layer = (this->upper_slices == nullptr) ? true : false;
         if (is_topmost_layer && loop_number > 0 && only_one_wall_top)
             loop_number = 0;
+        // Bump mapping needs at least 2 walls: the innermost one is the anchor that stays bonded to the infill.
+        if (this->wall_bump_table != nullptr)
+            loop_number = std::max(loop_number, 1);
         
         auto apply_precise_outer_wall = config->precise_outer_wall && config->wall_sequence == WallSequence::InnerOuter;
         // Orca: properly adjust offset for the outer wall if precise_outer_wall is enabled.
@@ -3312,7 +3323,7 @@ void PerimeterGenerator::process_arachne()
             steep_overhang_contour = true;
             steep_overhang_hole    = true;
         }
-        if (ExtrusionEntityCollection extrusion_coll = traverse_extrusions(*this, ordered_extrusions, steep_overhang_contour, steep_overhang_hole); !extrusion_coll.empty()) {
+        if (ExtrusionEntityCollection extrusion_coll = traverse_extrusions(*this, ordered_extrusions, steep_overhang_contour, steep_overhang_hole, loop_number); !extrusion_coll.empty()) {
             if (config->overhang_reverse) {
                 reorient_perimeters(extrusion_coll, steep_overhang_contour, steep_overhang_hole,
                                     this->config->overhang_reverse_internal_only);

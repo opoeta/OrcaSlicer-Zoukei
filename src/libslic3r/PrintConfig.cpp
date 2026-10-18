@@ -4570,6 +4570,178 @@ void PrintConfigDef::init_fff_params()
     def->mode = comDevelop;
     def->set_default_value(new ConfigOptionString(""));
 
+    // Bump Mapping (ported from OrcaFS-NeotkoCM, Neotko). Per object, all off by default.
+    def = this->add("bump_wall_enabled", coBool);
+    def->label = L("Wall bump mapping");
+    def->category = L("Others");
+    def->tooltip = L("Turn a PNG image into relief on the walls: the walls are pushed outward by the image "
+                     "brightness (white = full thickness). Works with the Arachne wall generator only. The "
+                     "innermost wall stays at its nominal position so the part stays bonded to the infill.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("bump_wall_image", coString);
+    def->label = L("Wall bump image");
+    def->category = L("Others");
+    def->tooltip = L("Path to a PNG image (grayscale or colour; colour is converted to luminance) used as the wall height map.");
+    def->gui_type = ConfigOptionDef::GUIType::one_string;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("bump_wall_thickness", coFloat);
+    def->label = L("Wall bump thickness");
+    def->category = L("Others");
+    def->tooltip = L("Maximum outward wall displacement, in mm, at full-white image value.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.4));
+
+    def = this->add("bump_wall_scale", coFloat);
+    def->label = L("Wall bump scale");
+    def->category = L("Others");
+    def->tooltip = L("Height in Z, in mm, covered by one repetition of the image.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(20.0));
+
+    def = this->add("bump_wall_repeat", coInt);
+    def->label = L("Wall bump repeat");
+    def->category = L("Others");
+    def->tooltip = L("How many times the image repeats around the object (per face for the cubic projection).");
+    def->min = 1;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(1));
+
+    def = this->add("bump_wall_projection", coInt);
+    def->label = L("Wall bump projection");
+    def->category = L("Others");
+    def->tooltip = L("0 = planar (along X), 1 = cylindrical (around Z), 2 = cubic (the 4 side faces).");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    def = this->add("bump_wall_point_distance", coFloat);
+    def->label = L("Wall bump point distance");
+    def->category = L("Others");
+    def->tooltip = L("Distance, in mm, between the points of the wall that get displaced. Smaller follows the image more closely.");
+    def->sidetext = L("mm");
+    def->min = 0.05;
+    def->max = 5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.4));
+
+    def = this->add("bump_wall_max_angle", coFloat);
+    def->label = L("Wall bump max angle");
+    def->category = L("Others");
+    def->tooltip = L("Largest slope the relief may imply between two layers. The image is smoothed along Z so no "
+                     "wall leans out more than this (the support generator only sees the real mesh).");
+    def->sidetext = L("deg");
+    def->min = 1;
+    def->max = 80;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(45.0));
+
+    def = this->add("zbump_enabled", coBool);
+    def->label = L("Z bump (top surface)");
+    def->category = L("Others");
+    def->tooltip = L("Turn a PNG image into a Z relief on the top solid infill: brighter pixels raise the surface. "
+                     "The Z is sampled point by point along every top fill line. Not applied to the first layer, and "
+                     "not combined with Z anti-aliasing.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("zbump_image", coString);
+    def->label = L("Z bump image");
+    def->category = L("Others");
+    def->tooltip = L("Path to a PNG image (grayscale or colour; colour is converted to luminance) used as the top surface height map.");
+    def->gui_type = ConfigOptionDef::GUIType::one_string;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("zbump_height", coFloat);
+    def->label = L("Z bump height");
+    def->category = L("Others");
+    def->tooltip = L("Maximum Z displacement, in mm, at full-white image value. It is limited to what one pass can "
+                     "safely reach (0.8 x nozzle diameter minus layer height).");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.4));
+
+    def = this->add("zbump_scale", coFloat);
+    def->label = L("Z bump scale");
+    def->category = L("Others");
+    def->tooltip = L("Size, in mm, covered by one repetition of the image on the top surface.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(20.0));
+
+    def = this->add("zbump_repeat", coInt);
+    def->label = L("Z bump repeat");
+    def->category = L("Others");
+    def->tooltip = L("How many times the image repeats inside one tile of the scale.");
+    def->min = 1;
+    def->max = 50;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(1));
+
+    def = this->add("zbump_offset_x", coFloat);
+    def->label = L("Z bump offset X");
+    def->category = L("Others");
+    def->tooltip = L("Shifts the image in X, in mm, to line the pattern up with a spot of the top surface.");
+    def->sidetext = L("mm");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("zbump_offset_y", coFloat);
+    def->label = L("Z bump offset Y");
+    def->category = L("Others");
+    def->tooltip = L("Shifts the image in Y, in mm, to line the pattern up with a spot of the top surface.");
+    def->sidetext = L("mm");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("zbump_edge_margin", coFloat);
+    def->label = L("Z bump edge ramp");
+    def->category = L("Others");
+    def->tooltip = L("Distance, in mm, from the edge of the top surface over which the relief ramps from zero to full "
+                     "height, so the wall itself stays flat.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 20;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(3.0));
+
+    def = this->add("zbump_max_slope", coFloat);
+    def->label = L("Z bump max slope");
+    def->category = L("Others");
+    def->tooltip = L("Slope limiter: maximum mm of Z change per mm of XY travel. The height map is blurred so no "
+                     "scanline needs a steeper change, avoiding gaps and nozzle dragging.");
+    def->min = 0.01;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.5));
+
+    def = this->add("zbump_segment", coFloat);
+    def->label = L("Z bump segment length");
+    def->category = L("Others");
+    def->tooltip = L("Length, in mm, of the sub-segments each top fill line is split into for the Z sampling. "
+                     "Shorter follows the image more closely, at the cost of more G-code moves.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->max = 20;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
     // Ported from OrcaFS-NeotkoCM (Neotko): the Sandwich (top surface passes), ColorStitch and PathBlend.
     // Per object; everything off by default (no output change). Filaments are 1-based, 0 = the object's
     // own top surface filament (or "off" for ColorStitch C/D).
@@ -8391,6 +8563,55 @@ void PrintConfigDef::init_fff_params()
     //Support with too small spacing may touch the object and difficult to remove.
     def->set_default_value(new ConfigOptionFloat(0.2));
 
+    // PerObject Support, ported from OrcaFS-NeotkoCM (Neotko).
+    def = this->add("support_cross_object_avoidance", coBool);
+    def->label = L("PerObject Support");
+    def->category = L("Support");
+    def->tooltip = L("The support of this object avoids the other objects on the plate (their body and their "
+                     "already generated support) and keeps the support/object XY distance from them, instead of "
+                     "growing through them. Useful when separate objects sit close together or overlap. Only active "
+                     "when all objects are printed at once (by layer). Organic tree support falls back to Hybrid "
+                     "while this is on, and the wide first-layer base of the support is dropped.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    // Support Zones / Stumps, ported from OrcaFS-NeotkoCM (Neotko). Hidden per-volume keys, written only by the
+    // Support Zones gizmo on SUPPORT_ENFORCER / SUPPORT_BLOCKER volumes and never shown in a settings page.
+    // An enforcer volume is a support zone only when it carries neotko_zone_lean_deg, so plain enforcers keep
+    // their stock behaviour.
+    def = this->add("neotko_support_zone_gesture", coString);
+    def->label = L("Support zone gesture");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_zone_lean_deg", coFloat);
+    def->label = L("Support zone lean angle");
+    def->sidetext = u8"°";
+    def->min = 0;
+    def->max = 89;
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("neotko_zone_roof_only", coBool);
+    def->label = L("Support zone: only under unsupported surface");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neotko_zone_solid", coBool);
+    def->label = L("Support zone: print the whole block");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neotko_zone_land_only", coBool);
+    def->label = L("Support zone: only land at the end");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neotko_support_cut", coBool);
+    def->label = L("Support cut");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def = this->add("support_angle", coFloat);
     def->label = L("Pattern angle");
     def->category = L("Support");
@@ -9587,6 +9808,32 @@ void PrintConfigDef::init_fff_params()
     def->sidetext = L("mm");	// millimeters, CIS languages need translation
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0));
+
+    // Ported from OrcaFS-NeotkoCM (Neotko) - Libre Mode / True Objects (Gravity).
+    def = this->add("neotko_true_objects", coBool);
+    def->label = L("True Objects mode (slice-time)");
+    def->tooltip = L("Internal: true while Libre Mode (True Objects) is active. The slicer then measures what is "
+                     "really underneath each surface (the bed, this object, or ANOTHER object on the plate) "
+                     "instead of assuming that anything not resting on its own previous layer is bridging over air.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("gravity_contact_gap_ratio", coFloat);
+    def->label = L("Gravity contact tolerance");
+    def->tooltip = L("How close a surface must be to what lies underneath to count as resting on it, as a fraction "
+                     "of the layer height. The mesh is sliced at one plane per layer, at mid-height, so a gap under "
+                     "half a layer cannot be distinguished by the slicer anyway. Lower values are stricter (more bridges).");
+    def->min = 0.;
+    def->max = 1.;
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionFloat(0.5));
+
+    def = this->add("neotko_assemble_boolean", coBool);
+    def->label = L("Assembled boolean union");
+    def->tooltip = L("When off, the parts of a multi-part (assembled) object are sliced without boolean union, so "
+                     "overlapping parts keep their own perimeters. Default on = stock behaviour.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("hole_to_polyhole", coBool);
     def->label = L("Convert holes to polyholes");

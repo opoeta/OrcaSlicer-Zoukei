@@ -7,6 +7,7 @@
 #include "../MutablePolygon.hpp"
 #include "../Geometry.hpp"
 #include "../Point.hpp"
+#include "../InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
 
 #include <cmath>
 #include <boost/container/static_vector.hpp>
@@ -325,7 +326,9 @@ SupportGeneratorLayersPtr generate_raft_base(
     // puts lines in the air ahead of the belt crossing (and into the belt behind
     // it).  The belt brim takes the adhesion role instead.
     const bool  belt_floor_active        = std::abs(slicing_params.belt_floor_shear_factor) > EPSILON;
-    const float inflate_factor_1st_layer = belt_floor_active ? 0.f :
+    // PerObject Support (NEOTKO_XOBJ_TAG s225, ported from OrcaFS-NeotkoCM, Neotko): this inflation is never
+    // clipped against anything, so it is dropped while cross-object avoidance is active.
+    const float inflate_factor_1st_layer = (belt_floor_active || InstanceContact::cross_object_active(object)) ? 0.f :
         std::max(0.f, float(scale_(object.config().raft_first_layer_expansion)) - inflate_factor_fine);
     SupportGeneratorLayer       *contacts         = top_contacts         .empty() ? nullptr : top_contacts         .front();
     SupportGeneratorLayer       *interfaces       = interface_layers     .empty() ? nullptr : interface_layers     .front();

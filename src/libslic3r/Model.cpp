@@ -3962,6 +3962,16 @@ bool model_custom_supports_data_changed(const ModelObject& mo, const ModelObject
         [](const ModelVolume &mv_old, const ModelVolume &mv_new){ return mv_old.supported_facets.timestamp_matches(mv_new.supported_facets); });
 }
 
+// Support Zones (NEOTKO_SUPPORTZONES_TAG s286 F3, ported from OrcaFS-NeotkoCM, Neotko): the recipe of a support zone
+// (or a cut) lives in the config of its SUPPORT_ENFORCER / SUPPORT_BLOCKER volume, which the volume list
+// comparison does not check.
+bool model_support_volume_config_changed(const ModelObject &mo, const ModelObject &mo_new)
+{
+    return model_property_changed(mo, mo_new,
+        [](const ModelVolumeType t) { return t == ModelVolumeType::SUPPORT_ENFORCER || t == ModelVolumeType::SUPPORT_BLOCKER; },
+        [](const ModelVolume &mv_old, const ModelVolume &mv_new){ return mv_old.config.timestamp_matches(mv_new.config); });
+}
+
 bool model_custom_seam_data_changed(const ModelObject& mo, const ModelObject& mo_new)
 {
     return model_property_changed(mo, mo_new,

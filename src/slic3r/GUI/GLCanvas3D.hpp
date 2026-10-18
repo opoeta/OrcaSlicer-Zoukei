@@ -752,6 +752,8 @@ private:
     bool m_dynamic_background_enabled;
     bool m_multisample_allowed;
     bool m_moving;
+    // Libre Mode / Snap & Drag (ported from OrcaFS-NeotkoCM, Neotko): per-instance hysteresis of the live "rest on the surface below" resolution; lives for one drag.
+    std::map<std::pair<int, int>, bool> m_snapdrag_engaged;
     // The key-down being dispatched, kept for the char event that may follow it.
     struct KeyDown
     {

@@ -352,6 +352,12 @@ public:
 
     void simplify_support_extrusion_path() { this->simplify_support_entity_collection(&support_fills); }
 
+    // PerObject Support (NEOTKO_XOBJ_TAG s225, ported from OrcaFS-NeotkoCM, Neotko): read-only access to the printed
+    // tree areas for InstanceContact::neighbor_occupancy(); the members themselves stay protected.
+    const ExPolygons& tree_roof_areas()     const { return roof_areas; }
+    const ExPolygons& tree_roof_1st_layer() const { return roof_1st_layer; }
+    const ExPolygons& tree_floor_areas()    const { return floor_areas; }
+
 protected:
     friend class PrintObject;
     friend class TreeSupport;

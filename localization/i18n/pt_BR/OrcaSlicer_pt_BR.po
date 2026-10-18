@@ -39073,3 +39073,387 @@ msgstr "Cor de superfície"
 
 msgid "Ironing is printed before the Sandwich surface passes and does not iron them. Turn ironing off for objects that use the Sandwich, ColorStitch or PathBlend."
 msgstr "O alisamento é impresso antes das passadas de superfície do Sandwich e não as alcança. Desligue o alisamento nos objetos que usam Sandwich, ColorStitch ou PathBlend."
+
+msgid "Bump mapping (walls)"
+msgstr "Mapa de relevo (paredes)"
+
+msgid "Bump mapping (top surface, Z bump)"
+msgstr "Mapa de relevo (superficie superior, Z bump)"
+
+msgid "Wall bump mapping"
+msgstr "Relevo nas paredes por imagem"
+
+msgid "Turn a PNG image into relief on the walls: the walls are pushed outward by the image brightness (white = full thickness). Works with the Arachne wall generator only. The innermost wall stays at its nominal position so the part stays bonded to the infill."
+msgstr "Transforma uma imagem PNG em relevo nas paredes: as paredes sao empurradas para fora conforme o brilho da imagem (branco = espessura maxima). Funciona somente com o gerador de paredes Arachne. A parede mais interna fica na posicao nominal, para a peca continuar colada ao preenchimento."
+
+msgid "Wall bump image"
+msgstr "Imagem do relevo das paredes"
+
+msgid "Path to a PNG image (grayscale or colour; colour is converted to luminance) used as the wall height map."
+msgstr "Caminho de uma imagem PNG (tons de cinza ou colorida; a cor e convertida em luminancia) usada como mapa de altura das paredes."
+
+msgid "Wall bump thickness"
+msgstr "Espessura do relevo das paredes"
+
+msgid "Maximum outward wall displacement, in mm, at full-white image value."
+msgstr "Deslocamento maximo da parede para fora, em mm, no valor branco total da imagem."
+
+msgid "Wall bump scale"
+msgstr "Escala do relevo das paredes"
+
+msgid "Height in Z, in mm, covered by one repetition of the image."
+msgstr "Altura em Z, em mm, coberta por uma repeticao da imagem."
+
+msgid "Wall bump repeat"
+msgstr "Repeticoes do relevo das paredes"
+
+msgid "How many times the image repeats around the object (per face for the cubic projection)."
+msgstr "Quantas vezes a imagem se repete ao redor do objeto (por face na projecao cubica)."
+
+msgid "Wall bump projection"
+msgstr "Projecao do relevo das paredes"
+
+msgid "0 = planar (along X), 1 = cylindrical (around Z), 2 = cubic (the 4 side faces)."
+msgstr "0 = planar (ao longo de X), 1 = cilindrica (ao redor de Z), 2 = cubica (as 4 faces laterais)."
+
+msgid "Wall bump point distance"
+msgstr "Distancia entre pontos do relevo das paredes"
+
+msgid "Distance, in mm, between the points of the wall that get displaced. Smaller follows the image more closely."
+msgstr "Distancia, em mm, entre os pontos da parede que sao deslocados. Menor segue a imagem com mais fidelidade."
+
+msgid "Wall bump max angle"
+msgstr "Angulo maximo do relevo das paredes"
+
+msgid "Largest slope the relief may imply between two layers. The image is smoothed along Z so no wall leans out more than this (the support generator only sees the real mesh)."
+msgstr "Maior inclinacao que o relevo pode implicar entre duas camadas. A imagem e suavizada em Z para nenhuma parede se inclinar mais que isso (o gerador de suporte so enxerga a malha real)."
+
+msgid "deg"
+msgstr "graus"
+
+msgid "Z bump (top surface)"
+msgstr "Z bump (superficie superior)"
+
+msgid "Turn a PNG image into a Z relief on the top solid infill: brighter pixels raise the surface. The Z is sampled point by point along every top fill line. Not applied to the first layer, and not combined with Z anti-aliasing."
+msgstr "Transforma uma imagem PNG em relevo em Z no preenchimento solido superior: pixels mais claros elevam a superficie. O Z e amostrado ponto a ponto em cada linha do preenchimento superior. Nao se aplica a primeira camada nem se combina com o anti-aliasing em Z."
+
+msgid "Z bump image"
+msgstr "Imagem do Z bump"
+
+msgid "Path to a PNG image (grayscale or colour; colour is converted to luminance) used as the top surface height map."
+msgstr "Caminho de uma imagem PNG (tons de cinza ou colorida; a cor e convertida em luminancia) usada como mapa de altura da superficie superior."
+
+msgid "Z bump height"
+msgstr "Altura do Z bump"
+
+msgid "Maximum Z displacement, in mm, at full-white image value. It is limited to what one pass can safely reach (0.8 x nozzle diameter minus layer height)."
+msgstr "Deslocamento maximo em Z, em mm, no valor branco total da imagem. Fica limitado ao que uma passada alcanca com seguranca (0,8 x diametro do bico menos a altura da camada)."
+
+msgid "Z bump scale"
+msgstr "Escala do Z bump"
+
+msgid "Size, in mm, covered by one repetition of the image on the top surface."
+msgstr "Tamanho, em mm, coberto por uma repeticao da imagem na superficie superior."
+
+msgid "Z bump repeat"
+msgstr "Repeticoes do Z bump"
+
+msgid "How many times the image repeats inside one tile of the scale."
+msgstr "Quantas vezes a imagem se repete dentro de um ladrilho da escala."
+
+msgid "Z bump offset X"
+msgstr "Deslocamento X do Z bump"
+
+msgid "Shifts the image in X, in mm, to line the pattern up with a spot of the top surface."
+msgstr "Desloca a imagem em X, em mm, para alinhar o padrao com um ponto da superficie superior."
+
+msgid "Z bump offset Y"
+msgstr "Deslocamento Y do Z bump"
+
+msgid "Shifts the image in Y, in mm, to line the pattern up with a spot of the top surface."
+msgstr "Desloca a imagem em Y, em mm, para alinhar o padrao com um ponto da superficie superior."
+
+msgid "Z bump edge ramp"
+msgstr "Rampa de borda do Z bump"
+
+msgid "Distance, in mm, from the edge of the top surface over which the relief ramps from zero to full height, so the wall itself stays flat."
+msgstr "Distancia, em mm, a partir da borda da superficie superior em que o relevo sobe de zero a altura total, para a parede continuar plana."
+
+msgid "Z bump max slope"
+msgstr "Inclinacao maxima do Z bump"
+
+msgid "Slope limiter: maximum mm of Z change per mm of XY travel. The height map is blurred so no scanline needs a steeper change, avoiding gaps and nozzle dragging."
+msgstr "Limitador de inclinacao: maximo de mm de variacao em Z por mm de deslocamento em XY. O mapa de altura e suavizado para nenhuma linha precisar de mudanca mais brusca, evitando falhas e arrasto do bico."
+
+msgid "Z bump segment length"
+msgstr "Comprimento de segmento do Z bump"
+
+msgid "Length, in mm, of the sub-segments each top fill line is split into for the Z sampling. Shorter follows the image more closely, at the cost of more G-code moves."
+msgstr "Comprimento, em mm, dos sub-segmentos em que cada linha do preenchimento superior e dividida para amostrar o Z. Menor segue a imagem com mais fidelidade, ao custo de mais movimentos no G-code."
+
+msgid "Libre Mode (True Objects, Snap & Drag)"
+msgstr "Modo Livre (Objetos Reais, Snap & Drag)"
+
+msgid "Experimental. Objects may float at any height and the slicer measures what is really under every surface: a face resting on another object prints as a normal contact surface and only the part over air is a bridge.\nAlso enables Snap & Drag (drag an object and it lands on the real surface below), the per-object \"Assembled boolean\" switch, per-part XY compensation and Copy / Paste Process Settings in the object list.\nSnap & Drag options are in the Align & Stack panel. Ported from OrcaFS-NeotkoCM (Neotko)."
+msgstr "Experimental. Os objetos podem flutuar em qualquer altura e o fatiador mede o que existe de fato sob cada superfície: uma face apoiada em outro objeto é impressa como superfície de contato normal e só a parte sobre o ar vira ponte.\nTambém ativa o Snap & Drag (arraste um objeto e ele pousa na superfície real abaixo), a chave \"Booleana montada\" por objeto, a compensação XY por peça e Copiar / Colar configurações de processo na lista de objetos.\nAs opções do Snap & Drag ficam no painel Alinhar e Empilhar. Portado do OrcaFS-NeotkoCM (Neotko)."
+
+msgid "True Objects mode (slice-time)"
+msgstr "Modo Objetos Reais (na hora de fatiar)"
+
+msgid "Internal: true while Libre Mode (True Objects) is active. The slicer then measures what is really underneath each surface (the bed, this object, or ANOTHER object on the plate) instead of assuming that anything not resting on its own previous layer is bridging over air."
+msgstr "Interno: verdadeiro enquanto o Modo Livre (Objetos Reais) está ativo. O fatiador então mede o que existe de fato sob cada superfície (a mesa, este objeto ou OUTRO objeto da placa) em vez de supor que tudo que não se apoia na própria camada anterior é ponte sobre o ar."
+
+msgid "Gravity contact tolerance"
+msgstr "Tolerância de contato (gravidade)"
+
+msgid "How close a surface must be to what lies underneath to count as resting on it, as a fraction of the layer height. The mesh is sliced at one plane per layer, at mid-height, so a gap under half a layer cannot be distinguished by the slicer anyway. Lower values are stricter (more bridges)."
+msgstr "Quão perto uma superfície precisa estar do que há embaixo para contar como apoiada, como fração da altura de camada. A malha é fatiada em um plano por camada, na metade da altura, então uma folga menor que meia camada o fatiador não distingue de qualquer jeito. Valores menores são mais estritos (mais pontes)."
+
+msgid "Assembled boolean union"
+msgstr "União booleana da montagem"
+
+msgid "When off, the parts of a multi-part (assembled) object are sliced without boolean union, so overlapping parts keep their own perimeters. Default on = stock behaviour."
+msgstr "Desligado, as peças de um objeto de várias peças (montado) são fatiadas sem união booleana, e peças sobrepostas mantêm seus próprios perímetros. Padrão ligado = comportamento normal."
+
+msgid "One object has an empty first layer (floating object). True Objects: slicing continues, expect potential artifacts."
+msgstr "Um objeto tem a primeira camada vazia (objeto flutuando). Objetos Reais: o fatiamento continua, podem aparecer defeitos."
+
+msgid "Assembled Mode (Boolean)"
+msgstr "Modo montado (booleana)"
+
+msgid "When unchecked, the parts of this assembled object are sliced without boolean union (overlapping parts keep their own perimeters)."
+msgstr "Desmarcado, as peças deste objeto montado são fatiadas sem união booleana (peças sobrepostas mantêm seus próprios perímetros)."
+
+msgid "Copy this object's per-object overrides (by block, or All) to the clipboard"
+msgstr "Copia as configurações próprias deste objeto (por bloco, ou Todos) para a área de transferência"
+
+msgid "Apply the copied process settings to the selected object(s)"
+msgstr "Aplica as configurações de processo copiadas ao(s) objeto(s) selecionado(s)"
+
+msgid "Libre Mode"
+msgstr "Modo Livre"
+
+msgid "True Objects: the slicer measures what is really under every surface, so a face resting on another object prints as a normal contact surface and only the part over air is a bridge. Also enables Snap & Drag. Off = stock behaviour."
+msgstr "Objetos Reais: o fatiador mede o que existe de fato sob cada superfície, então uma face apoiada em outro objeto é impressa como superfície de contato normal e só a parte sobre o ar vira ponte. Também ativa o Snap & Drag. Desligado = comportamento normal."
+
+msgid "Snap & Drag"
+msgstr "Snap & Drag"
+
+msgid "While dragging, rest the object on the top surface of whatever real part is underneath it."
+msgstr "Ao arrastar, apoia o objeto na superfície de cima da peça real que estiver embaixo dele."
+
+msgid "Snap to bed"
+msgstr "Encaixar na mesa"
+
+msgid "Move selection as one block"
+msgstr "Mover a seleção como um bloco"
+
+msgid "PerObject Support"
+msgstr "Suporte por objeto"
+
+msgid "The support of this object avoids the other objects on the plate (their body and their already generated support) and keeps the support/object XY distance from them, instead of growing through them. Useful when separate objects sit close together or overlap. Only active when all objects are printed at once (by layer). Organic tree support falls back to Hybrid while this is on, and the wide first-layer base of the support is dropped."
+msgstr "O suporte deste objeto desvia dos outros objetos da mesa (do corpo deles e do suporte já gerado) e mantém deles a distância XY suporte/objeto, em vez de crescer através deles. Útil quando objetos separados ficam muito próximos ou se sobrepõem. Só funciona quando todos os objetos são impressos juntos (por camada). Com esta opção ligada, o suporte em árvore orgânico passa a Híbrido e a base larga da primeira camada do suporte é removida."
+
+msgid "Support zone gesture"
+msgstr "Gesto da zona de suporte"
+
+msgid "Support zone lean angle"
+msgstr "Inclinação da zona de suporte"
+
+msgid "Support zone: only under unsupported surface"
+msgstr "Zona de suporte: só sob superfície sem apoio"
+
+msgid "Support zone: print the whole block"
+msgstr "Zona de suporte: imprimir o bloco inteiro"
+
+msgid "Support zone: only land at the end"
+msgstr "Zona de suporte: apoiar só no fim"
+
+msgid "Support cut"
+msgstr "Corte de suporte"
+
+msgid "Support Zones"
+msgstr "Zonas de suporte"
+
+msgid "1. Footprint"
+msgstr "1. Base"
+
+msgid "2. Landing"
+msgstr "2. Apoio"
+
+msgid "2. Stumps"
+msgstr "2. Tocos"
+
+msgid "3. Shape"
+msgstr "3. Forma"
+
+msgid "Whole patch"
+msgstr "Face inteira"
+
+msgid "Round"
+msgstr "Redonda"
+
+msgid "Paint (stumps)"
+msgstr "Pintar (tocos)"
+
+msgid "Brush size (mm)"
+msgstr "Tamanho do pincel (mm)"
+
+msgid "Size (mm)"
+msgstr "Tamanho (mm)"
+
+msgid "Cover (the shape may grow past the surface)"
+msgstr "Cobrir (a forma pode passar da superfície)"
+
+msgid "Only mark overhanging faces"
+msgstr "Marcar só faces em saliência"
+
+msgid "Stop painting"
+msgstr "Parar de pintar"
+
+msgid "Paint the area to hold up"
+msgstr "Pintar a área a sustentar"
+
+msgid "Cancel pick"
+msgstr "Cancelar seleção"
+
+msgid "Pick another surface"
+msgstr "Escolher outra superfície"
+
+msgid "Pick the surface to hold up"
+msgstr "Escolher a superfície a sustentar"
+
+msgid "Drag on the part to paint, Shift + drag to erase."
+msgstr "Arraste sobre a peça para pintar, Shift + arrastar para apagar."
+
+msgid "Click a surface facing down. The wheel cycles stacked surfaces."
+msgstr "Clique numa superfície voltada para baixo. A roda do mouse alterna entre superfícies sobrepostas."
+
+msgid "Clear paint"
+msgstr "Limpar pintura"
+
+msgid "Lands on the plate."
+msgstr "Apoia na mesa."
+
+msgid "Lands on the part at Z"
+msgstr "Apoia na peça em Z"
+
+msgid "Move it"
+msgstr "Mover"
+
+msgid "Click on the plate or on a shelf of the part to place the foot."
+msgstr "Clique na mesa ou numa saliência da peça para posicionar o pé."
+
+msgid "Add / remove stumps"
+msgstr "Adicionar / remover tocos"
+
+msgid "Stump size (mm)"
+msgstr "Tamanho do toco (mm)"
+
+msgid "Stumps:"
+msgstr "Tocos:"
+
+msgid "Lean angle"
+msgstr "Inclinação"
+
+msgid "Recommended maximum for this layer height:"
+msgstr "Máximo recomendado para esta altura de camada:"
+
+msgid "Head edge (mm)"
+msgstr "Borda da cabeça (mm)"
+
+msgid "Positive pulls the edge in, negative grows it."
+msgstr "Positivo recolhe a borda, negativo aumenta."
+
+msgid "Foot edge (mm)"
+msgstr "Borda do pé (mm)"
+
+msgid "Grab only at its roof"
+msgstr "Agarrar só no topo"
+
+msgid "The zone seeds contact only where its block ends at the top, not where it crosses the part."
+msgstr "A zona cria contato só onde o bloco termina em cima, não onde atravessa a peça."
+
+msgid "Print the whole block"
+msgstr "Imprimir o bloco inteiro"
+
+msgid "The section of the block is printed on every layer, touching an overhang or not."
+msgstr "A seção do bloco é impressa em todas as camadas, tocando um saliência ou não."
+
+msgid "Only land at the end"
+msgstr "Apoiar só no fim"
+
+msgid "The column does not rest on the shelves it crosses, only on its landing."
+msgstr "A coluna não se apoia nas saliências que atravessa, só no seu ponto de apoio."
+
+msgid "Out of reach: at this angle the column cannot get there. Raise the angle or move the foot."
+msgstr "Fora de alcance: com esta inclinação a coluna não chega lá. Aumente a inclinação ou mova o pé."
+
+msgid "No gap between the head and the stumps: it will come down as a plain pillar."
+msgstr "Sem espaço entre a cabeça e os tocos: vai descer como um pilar comum."
+
+msgid "Support style is not Snug: a leaning column will come out in grid steps. Snug is recommended."
+msgstr "O estilo de suporte não é Ajustado: uma coluna inclinada sairá em degraus da grade. Recomenda-se Ajustado."
+
+msgid "Support style set to Snug for this object (object setting, undoable)."
+msgstr "Estilo de suporte definido como Ajustado para este objeto (ajuste do objeto, pode ser desfeito)."
+
+msgid "Tree support ignores the corridor: creating a zone switches this object to normal support."
+msgstr "O suporte em árvore ignora o corredor: criar uma zona muda este objeto para suporte normal."
+
+msgid "Create zone"
+msgstr "Criar zona"
+
+msgid "Stop cutting"
+msgstr "Parar de cortar"
+
+msgid "Draw a support cut"
+msgstr "Desenhar um corte de suporte"
+
+msgid "A polygon drawn on screen, cut through the part along the view. It removes every support inside it, including columns coming down from above."
+msgstr "Um polígono desenhado na tela, cortado através da peça na direção da vista. Remove todo o suporte dentro dele, inclusive colunas que descem de cima."
+
+msgid "Click to add points, click the first point to close, right click to cancel."
+msgstr "Clique para adicionar pontos, clique no primeiro ponto para fechar, botão direito para cancelar."
+
+msgid "Show overhangs"
+msgstr "Mostrar saliências"
+
+msgid "Threshold"
+msgstr "Limite"
+
+msgid "Zones of this object"
+msgstr "Zonas deste objeto"
+
+msgid "No support zone yet."
+msgstr "Nenhuma zona de suporte ainda."
+
+msgid "catches nothing"
+msgstr "não pega nada"
+
+msgid "catches"
+msgstr "pega"
+
+msgid "This zone does not reach any downward-facing surface: it will not produce any support."
+msgstr "Esta zona não alcança nenhuma superfície voltada para baixo: não vai gerar suporte."
+
+msgid "Only my zones (no automatic support)"
+msgstr "Só minhas zonas (sem suporte automático)"
+
+msgid "Add support zone"
+msgstr "Adicionar zona de suporte"
+
+msgid "Add support cut"
+msgstr "Adicionar corte de suporte"
+
+msgid "Support zone"
+msgstr "Zona de suporte"
+
+msgid "Support zone (stump)"
+msgstr "Zona de suporte (toco)"
+
+msgid "Support zones: only my zones"
+msgstr "Zonas de suporte: só minhas zonas"
+
+msgid "Support zones: support style set to Snug"
+msgstr "Zonas de suporte: estilo de suporte definido como Ajustado"

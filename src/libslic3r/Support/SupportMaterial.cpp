@@ -1,4 +1,5 @@
 #include "ClipperUtils.hpp"
+#include "../Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): real floor
 #include "libslic3r/ExPolygon.hpp"
 #include "ExtrusionEntity.hpp"
 #include "ExtrusionEntityCollection.hpp"
@@ -13,6 +14,8 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "SupportCommon.hpp"
 #include "BeltFloorContext.hpp"
+#include "InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
+#include "Feature/SupportZones/SupportZoneEngine.hpp" // Support Zones (ported from OrcaFS-NeotkoCM, Neotko)
 #include "Geometry.hpp"
 #include "Point.hpp"
 #include "MutablePolygon.hpp"
@@ -417,6 +420,9 @@ void PrintObjectSupportMaterial::generate(PrintObject &object)
 {
     BOOST_LOG_TRIVIAL(info) << "Support generator - Start";
 
+    // PerObject Support (NEOTKO_XOBJ_TAG s225 A3): built once, empty when the toggle is off.
+    m_neighbor_occupancy = InstanceContact::neighbor_occupancy(object);
+
     coordf_t max_object_layer_height = 0.;
     for (size_t i = 0; i < object.layer_count(); ++ i)
         max_object_layer_height = std::max(max_object_layer_height, object.layers()[i]->height);
@@ -559,6 +565,31 @@ void PrintObjectSupportMaterial::generate(PrintObject &object)
 //    top_contacts.clear();
 //    intermediate_layers.clear();
 //    interface_layers.clear();
+
+    // Support Zones cuts (NEOTKO_SUPPORTZONES_TAG s343e, ported from OrcaFS-NeotkoCM, Neotko): a SUPPORT_BLOCKER marked
+    // neotko_support_cut is subtracted from EVERY support layer here, so it also cuts the columns coming down from
+    // above (a plain blocker only removes seeds). The object layer is looked up by print_z. No-op without cuts.
+    if (const std::vector<Polygons> cutters = SupportZones::slice_cutters(object); ! cutters.empty() && object.layer_count() > 0) {
+        std::vector<double> obj_z;
+        obj_z.reserve(object.layer_count());
+        for (const Layer *l : object.layers())
+            obj_z.push_back(l->print_z);
+        auto cut_one = [&cutters, &obj_z](SupportGeneratorLayer *sl) {
+            if (sl == nullptr || sl->polygons.empty())
+                return;
+            const double zmid = sl->print_z - 0.5 * sl->height;
+            auto it = std::lower_bound(obj_z.begin(), obj_z.end(), zmid);
+            if (it == obj_z.end())
+                it = std::prev(obj_z.end());
+            const size_t idx = size_t(it - obj_z.begin());
+            if (idx < cutters.size() && ! cutters[idx].empty())
+                sl->polygons = diff(sl->polygons, cutters[idx]);
+        };
+        for (SupportGeneratorLayersPtr *v : { &raft_layers, &bottom_contacts, &top_contacts, &intermediate_layers,
+                                              &interface_layers, &base_interface_layers })
+            for (SupportGeneratorLayer *sl : *v)
+                cut_one(sl);
+    }
 
 #ifdef SLIC3R_DEBUG
     SupportGeneratorLayersPtr layers_sorted =
@@ -1399,11 +1430,16 @@ std::vector<Polygons> PrintObjectSupportMaterial::buildplate_covered(const Print
 
 struct SupportAnnotations
 {
-    SupportAnnotations(const PrintObject &object, const std::vector<Polygons> &buildplate_covered) :
+    SupportAnnotations(const PrintObject &object, const std::vector<Polygons> &buildplate_covered, float roof_expand = 0.f) :
         enforcers_layers(object.slice_support_enforcers()),
         blockers_layers(object.slice_support_blockers()),
         buildplate_covered(buildplate_covered)
     {
+        // Support Zones (NEOTKO_SUPPORTZONES_TAG s300e, ported from OrcaFS-NeotkoCM, Neotko): a roof-only zone
+        // seeds contact only where its block ends at the top, never where it merely crosses the part.
+        // Empty (and enforcers_layers untouched) when the object has no roof-only zone.
+        roof_only_layers = SupportZones::roof_only_seeds(object, enforcers_layers, roof_expand);
+
         // Append custom supports.
         object.project_and_append_custom_facets(false, EnforcerBlockerType::ENFORCER, enforcers_layers);
         object.project_and_append_custom_facets(false, EnforcerBlockerType::BLOCKER, blockers_layers);
@@ -1419,6 +1455,8 @@ struct SupportAnnotations
     }
 
     std::vector<Polygons>         enforcers_layers;
+    // Support Zones: roof bands of the roof-only zones, per object layer.
+    std::vector<Polygons>         roof_only_layers;
     std::vector<Polygons>         blockers_layers;
     const std::vector<Polygons>&  buildplate_covered;
 };
@@ -1756,6 +1794,21 @@ static inline std::tuple<Polygons, Polygons, double> detect_contacts(
                     polygons_append(contact_polygons, diff(enforcer_polygons, slices_margin.all_polygons.empty() ? slices_margin.polygons : slices_margin.all_polygons));
                 }
             }
+
+        // Support Zones (NEOTKO_SUPPORTZONES_TAG s300e, ported from OrcaFS-NeotkoCM, Neotko): a roof-only zone seeds
+        // like an enforcer, but only on the band where its block ends at the top. No-op without such zones.
+        if (layer_id < annotations.roof_only_layers.size() && ! annotations.roof_only_layers[layer_id].empty()) {
+            Polygons roof = diff(intersection(layer.lslices, annotations.roof_only_layers[layer_id]),
+                                 expand(lower_layer_polygons, 0.05f * no_interface_offset, SUPPORT_SURFACES_OFFSET_PARAMETERS));
+            if (! roof.empty() && ! annotations.blockers_layers.empty() && ! annotations.blockers_layers[layer_id].empty())
+                roof = diff(roof, annotations.blockers_layers[layer_id]);
+            if (! roof.empty()) {
+                polygons_append(enforcer_polygons, roof);
+                polygons_append(overhang_polygons, roof);
+                slices_margin_update(std::min(lower_layer_offset, float(scale_(gap_xy))), no_interface_offset);
+                polygons_append(contact_polygons, diff(roof, slices_margin.all_polygons.empty() ? slices_margin.polygons : slices_margin.all_polygons));
+            }
+        }
     }
 
     return std::make_tuple(std::move(contact_polygons), std::move(enforcer_polygons), no_interface_offset);
@@ -2195,7 +2248,8 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(
     }
 
     // Slice support enforcers / support blockers.
-    SupportAnnotations annotations(object, buildplate_covered);
+    SupportAnnotations annotations(object, buildplate_covered,
+                                   scaled<float>(0.5 * m_support_params.support_material_flow.width())); // Support Zones: roof band expansion
 
     // Output layers, sorted by top Z.
     SupportGeneratorLayersPtr contact_out;
@@ -2213,12 +2267,19 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::top_contact_layers(
 
     std::vector<ExPolygons> overhangs_per_layers(num_layers);
     size_t layer_id_start = this->has_raft() ? 0 : 1;
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): the real floor of this object (top of any OTHER object it
+    // rests on), object-local, per object layer. Empty unless Gravity is active. Built once here (single-threaded); OR-ed into
+    // lower_layer_polygons below so a face resting on a neighbour is not flagged as an overhang needing support.
+    const std::vector<Polygons> gravity_floor = Gravity::foreign_floor(object);
      // main part of overhang detection can be parallel
     tbb::parallel_for(tbb::blocked_range<size_t>(layer_id_start, num_layers),
         [&](const tbb::blocked_range<size_t>& range) {
             for (size_t layer_id = range.begin(); layer_id < range.end(); layer_id++) {
                 const Layer& layer = *object.layers()[layer_id];
                 Polygons            lower_layer_polygons = (layer_id == 0) ? Polygons() : to_polygons(object.layers()[layer_id - 1]->lslices);
+                // Libre Mode / True Objects: the neighbour's top under THIS layer counts as supported ground (no-op if gravity_floor is empty).
+                if (layer_id < gravity_floor.size() && !gravity_floor[layer_id].empty())
+                    append(lower_layer_polygons, gravity_floor[layer_id]);
 
                 overhangs_per_layers[layer_id] = detect_overhangs(layer, layer_id, lower_layer_polygons, *m_print_config, *m_object_config, annotations, m_support_params.gap_xy
 #ifdef SLIC3R_DEBUG
@@ -2804,11 +2865,19 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::bottom_contact_layers_and_
     // Sum of unsupported enforcer contact areas above the current layer.print_z.
     // Only used if "supports on build plate only" is enabled and both automatic and support enforcers are enabled.
     Polygons  enforcers_projection;
+    // Support Zones (NEOTKO_SUPPORTZONES_TAG s284-s343g, ported from OrcaFS-NeotkoCM, Neotko): one accumulator per
+    // zone, guided by its corridor / stumps. Empty (every hook below a no-op) when the object has no zone.
+    SupportZones::ZoneDescent zone_descent(object, m_support_params.support_material_flow.width(),
+                                           grid_params.support_closing_radius, m_support_params.gap_xy, buildplate_only);
     // Last top contact layer visited when collecting the projection of contact areas.
     int       contact_idx = int(top_contacts.size()) - 1;
     for (int layer_id = int(object.total_layer_count()) - 2; layer_id >= 0; -- layer_id) {
         BOOST_LOG_TRIVIAL(trace) << "Support generator - bottom_contact_layers - layer " << layer_id;
         const Layer &layer = *object.get_layer(layer_id);
+        // Support Zones: walk the zone columns from layer_id + 1 down to layer_id, before this layer's contacts join.
+        if (! zone_descent.empty() && size_t(layer_id + 1) < object.layer_count())
+            zone_descent.descend(layer_id, layer, double(object.get_layer(layer_id + 1)->print_z) - double(layer.print_z),
+                                 overhangs_projection, enforcers_projection);
         // Collect projections of all contact areas above or at the same level as this top surface.
 #ifdef SLIC3R_DEBUG
         Polygons polygons_new;
@@ -2837,18 +2906,30 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::bottom_contact_layers_and_
             // These are the overhang surfaces. They are touching the object and they are not expanded away from the object.
             // Use a slight positive offset to overlap the touching regions.
             polygons_append(polygons_new, expand(*top_contact.overhang_polygons, float(SCALED_EPSILON)));
+            // Support Zones: the pieces that belong to a zone leave the general stream and travel in their own column.
+            if (! zone_descent.empty())
+                zone_descent.route_contacts(top_contact.idx_object_layer_above, polygons_new, enforcers_new);
             polygons_append(overhangs_projection, union_(polygons_new));
             polygons_append(enforcers_projection, enforcers_new);
         }
-        if (overhangs_projection.empty() && enforcers_projection.empty())
+        if (overhangs_projection.empty() && enforcers_projection.empty() && (zone_descent.empty() || ! zone_descent.layer_has_work(layer_id)))
             continue;
 
         // Overhangs_projection will be filled in asynchronously, move it away.
         Polygons overhangs_projection_raw = union_(std::move(overhangs_projection));
         Polygons enforcers_projection_raw = union_(std::move(enforcers_projection));
+        // Support Zones: this layer's raw zone areas (accumulators + block sections), and what the bottom contact
+        // detector must see (the zone contacts left the general stream).
+        Polygons zone_bottom_contacts;
+        if (! zone_descent.empty()) {
+            zone_descent.begin_layer(layer_id, layer);
+            if (zone_descent.has_raw())
+                zone_bottom_contacts = zone_descent.bottom_contact_source(layer_id, buildplate_only ? enforcers_projection_raw : overhangs_projection_raw);
+        }
 
         tbb::task_group task_group;
-        const Polygons &overhangs_for_bottom_contacts = buildplate_only ? enforcers_projection_raw : overhangs_projection_raw;
+        const Polygons &overhangs_for_bottom_contacts = (! zone_descent.empty() && zone_descent.has_raw()) ? zone_bottom_contacts :
+            (buildplate_only ? enforcers_projection_raw : overhangs_projection_raw);
         if (! overhangs_for_bottom_contacts.empty())
             // Find the bottom contact layers above the top surfaces of this layer,
             // and also detect belt floor contacts if belt mode is active.
@@ -2936,6 +3017,19 @@ SupportGeneratorLayersPtr PrintObjectSupportMaterial::bottom_contact_layers_and_
             else
                 layer_support_area = union_(layer_support_area, layer_support_area_enforcers);
         }
+
+        // Support Zones: one grid projection per zone (their identity must survive the propagation), then the
+        // printed areas join this layer's support area.
+        if (! zone_descent.empty() && zone_descent.has_raw())
+            zone_descent.project_and_merge(layer_id, layer,
+                [&grid_params](const Layer &l, const Polygons &raw) {
+                    return project_support_to_grid(l, grid_params, raw, nullptr
+#ifdef SLIC3R_DEBUG
+                        , 0, l.id(), "zone"
+#endif // SLIC3R_DEBUG
+                    );
+                },
+                layer_support_area);
     } // over all layers downwards
 
     std::reverse(bottom_contacts.begin(), bottom_contacts.end());
@@ -3407,6 +3501,9 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                                                    scale_(no_overlap_xy_gap);
                         polygons_append(polygons_trimming, offset({ expoly }, trimming_offset, SUPPORT_SURFACES_OFFSET_PARAMETERS));
                     }
+                    // PerObject Support (NEOTKO_XOBJ_TAG s225 A3): trim by the OTHER objects too, same object layer index.
+                    if (i < m_neighbor_occupancy.size() && !m_neighbor_occupancy[i].empty())
+                        polygons_append(polygons_trimming, offset(m_neighbor_occupancy[i], gap_xy_scaled, SUPPORT_SURFACES_OFFSET_PARAMETERS));
                 }
                 if (!m_slicing_params.zero_gap_interface_top && m_object_config->thick_bridges) {
                     // Collect all bottom surfaces, which will be extruded with a bridging flow.

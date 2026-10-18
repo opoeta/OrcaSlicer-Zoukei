@@ -95,6 +95,10 @@ private:
 	SlicingParameters	     m_slicing_params;
 	// Various precomputed support parameters to be shared with external functions.
 	SupportParameters   	 m_support_params;
+	// PerObject Support (NEOTKO_XOBJ_TAG s225 A3, ported from OrcaFS-NeotkoCM, Neotko): per object layer, the
+	// footprint of the OTHER objects (body + already generated support), consumed by
+	// trim_support_layers_by_object(). Empty when the feature is off (built once in generate()).
+	std::vector<Polygons>    m_neighbor_occupancy;
 };
 
 } // namespace Slic3r

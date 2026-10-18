@@ -1,4 +1,5 @@
 #include "Feature/HeightAdaptive/HeightCurve.hpp"
+#include "Feature/BumpMapping/BumpMapping.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "Flow.hpp"
 #include "Config.hpp"
 #include "ExPolygon.hpp"
@@ -184,12 +185,33 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
     g.ext_perimeter_flow    = this->flow(frExternalPerimeter);
     g.overhang_flow         = this->bridging_flow(frPerimeter, object_config.thick_bridges);
     g.solid_infill_flow     = this->flow(frSolidInfill);
+    // Bump mapping (ported from OrcaFS-NeotkoCM, Neotko): wall relief table, Arachne only. Null (feature off) leaves everything untouched.
+    if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)
+        g.wall_bump_table = Slic3r::Feature::Bump::get_wall_table(this->layer()->object());
 
     // Cumulative sum of polygons over all the regions, less what the lower layer could not print.
     ExPolygons lower_slices;
     if (this->layer()->lower_layer != nullptr) {
         lower_slices   = g.printable_slices(this->layer()->lower_layer->lslices);
         g.lower_slices = &lower_slices;
+    }
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): overhang is measured against the REAL floor, not just
+    // this object's own previous layer. Widen lower_slices with the foreign floor under this layer (top of any neighbour),
+    // so a wall resting on another piece is not flagged overhang; at layer 0 (no lower layer) a non-empty floor gives the
+    // generator something to rest on. Built once in PrintObject::make_perimeters(); the local outlives process_*().
+    // Empty floor -> stock pointer untouched (byte-identical when Gravity is off).
+    {
+        const std::vector<Polygons> &floor = this->layer()->object()->gravity_floor();
+        const size_t                 li    = this->layer()->id();
+        if (li < floor.size() && ! floor[li].empty()) {
+            Polygons combined;
+            if (this->layer()->lower_layer != nullptr)
+                append(combined, to_polygons(lower_slices));
+            append(combined, floor[li]);
+            lower_slices         = union_ex(combined);
+            g.lower_slices       = &lower_slices;
+            g.has_gravity_floor  = true;
+        }
     }
 
     if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)

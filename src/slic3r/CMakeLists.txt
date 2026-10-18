@@ -81,6 +81,12 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/RealColorView.hpp
     GUI/Zoukei/PhotoMode.cpp
     GUI/Zoukei/PhotoMode.hpp
+    GUI/Zoukei/LibreMode.cpp
+    GUI/Zoukei/LibreMode.hpp
+    GUI/Zoukei/GravitySnap.cpp
+    GUI/Zoukei/GravitySnap.hpp
+    GUI/Zoukei/GLGizmoSupportZones.cpp
+    GUI/Zoukei/GLGizmoSupportZones.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp

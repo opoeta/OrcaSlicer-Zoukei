@@ -87,6 +87,7 @@
 #include "SurfaceCollection.hpp"
 #include "TriangleMesh.hpp"
 #include "BeltBrim.hpp"
+#include "Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): real floor / True Objects
 
 namespace Slic3r { enum class EnforcerBlockerType : int8_t; }
 
@@ -588,6 +589,11 @@ void PrintObject::make_perimeters()
         BOOST_LOG_TRIVIAL(debug) << "Generating extra perimeters for region " << region_id << " in parallel - end";
     }
 
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): build the real floor ONCE (single-threaded), here, after
+    // every object on the plate is already sliced (Print::process orders it). LayerRegion::make_perimeters() widens
+    // lower_slices with the neighbour's top, so an overhang resting on another piece is not flagged. Empty unless Gravity is active.
+    m_gravity_floor = Gravity::foreign_floor(*this);
+
     BOOST_LOG_TRIVIAL(debug) << "Generating perimeters in parallel - start";
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, m_layers.size()),
@@ -626,6 +632,9 @@ void PrintObject::prepare_infill()
     // by the cummulative area of the previous $layerm->fill_surfaces.
     this->detect_surfaces_type();
     m_print->throw_if_canceled();
+
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): read-only diagnostic, only with ORCA_DEBUG_GRAVITY set.
+    Gravity::diagnose(*this);
 
     // Decide what surfaces are to be filled.
     // Here the stTop / stBottomBridge / stBottom infill is turned to just stInternal if zero top / bottom infill layers are configured.
@@ -1570,6 +1579,11 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "raft_contact_distance"
             || opt_key == "slice_closing_radius"
             || opt_key == "slicing_mode"
+            // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): the real floor feeds slicing (elephant foot),
+            // bottom/bridge classification, perimeters and support; the assembled-boolean switch changes the slicing itself.
+            || opt_key == "neotko_true_objects"
+            || opt_key == "gravity_contact_gap_ratio"
+            || opt_key == "neotko_assemble_boolean"
             || opt_key == "slowdown_for_curled_perimeters"
             || opt_key == "make_overhang_printable"
             || opt_key == "make_overhang_printable_angle"
@@ -1631,6 +1645,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "support_style"
             || opt_key == "support_object_xy_distance"
             || opt_key == "support_object_first_layer_gap"
+            || opt_key == "support_cross_object_avoidance" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
             || opt_key == "support_base_pattern_spacing"
             || opt_key == "support_expansion"
             || opt_key == "independent_support_layer_height" // Orca
@@ -1812,6 +1827,14 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "neotko_hae_fuzzy_scale"
             || opt_key == "neotko_hae_fuzzy_octaves"
             || opt_key == "neotko_hae_fuzzy_persistence"
+            || opt_key == "bump_wall_enabled"
+            || opt_key == "bump_wall_image"
+            || opt_key == "bump_wall_thickness"
+            || opt_key == "bump_wall_scale"
+            || opt_key == "bump_wall_repeat"
+            || opt_key == "bump_wall_projection"
+            || opt_key == "bump_wall_point_distance"
+            || opt_key == "bump_wall_max_angle"
             || opt_key == "fuzzy_skin_point_distance"
             || opt_key == "fuzzy_skin_first_layer"
             || opt_key == "fuzzy_skin_mode"
@@ -1830,6 +1853,19 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "precise_outer_wall") {
             steps.emplace_back(posPerimeters);
             steps.emplace_back(posSupportMaterial);
+        } else if (
+               opt_key == "zbump_enabled"
+            || opt_key == "zbump_image"
+            || opt_key == "zbump_height"
+            || opt_key == "zbump_scale"
+            || opt_key == "zbump_repeat"
+            || opt_key == "zbump_offset_x"
+            || opt_key == "zbump_offset_y"
+            || opt_key == "zbump_edge_margin"
+            || opt_key == "zbump_max_slope"
+            || opt_key == "zbump_segment") {
+            // Z bump (ported from OrcaFS-NeotkoCM, Neotko): modulates the top fill paths.
+            steps.emplace_back(posInfill);
         } else if (opt_key == "bridge_expansion_extra") {
             // Bridging infill extra expansion: consumed in LayerRegion::process_external_surfaces() (posPrepareInfill).
             steps.emplace_back(posPrepareInfill);
@@ -2010,6 +2046,10 @@ void PrintObject::detect_surfaces_type()
     // authoritative wave-promotion pass below can accumulate fresh masks across regions.
     for (Layer *l : m_layers) l->wave_overhang_shadow_polygons.clear();
 
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): the object's real floor, built ONCE here
+    // (single-threaded); empty unless Gravity is active, so stock behaviour is untouched.
+    const std::vector<Polygons> gravity_floor = Gravity::foreign_floor(*this);
+
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
         BOOST_LOG_TRIVIAL(debug) << "Detecting solid surfaces for region " << region_id << " in parallel - start";
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
@@ -2030,7 +2070,7 @@ void PrintObject::detect_surfaces_type()
             		((num_layers > 1) ? num_layers - 1 : num_layers) :
             		// In non-spiral vase mode, go over all layers.
             		m_layers.size()),
-            [this, region_id, interface_shells, &surfaces_new](const tbb::blocked_range<size_t>& range) {
+            [this, region_id, interface_shells, &surfaces_new, &gravity_floor](const tbb::blocked_range<size_t>& range) {
                 // If we have soluble support material, don't bridge. The overhang will be squished against a soluble layer separating
                 // the support from the print.
                 // BBS: the above logic only applys for normal(auto) support. Complete logic:
@@ -2120,6 +2160,11 @@ void PrintObject::detect_surfaces_type()
                         for (Surface &surface : bottom)
                             surface.surface_type = stBottom;
                     }
+
+                    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): split the bottom surfaces by the real
+                    // floor. A face resting on another object becomes stBottom, the part over air stays a bridge.
+                    // Byte-identical unless Gravity is active; reads only the pre-computed gravity_floor (thread-safe).
+                    Gravity::reclassify_bottom_surfaces(*this, idx_layer, lower_layer == nullptr, gravity_floor, bottom);
 
                     // now, if the object contained a thin membrane, we could have overlapping bottom
                     // and top surfaces; let's do an intersection to discover them and consider them
@@ -5392,6 +5437,10 @@ void PrintObject::combine_infill()
 
 void PrintObject::_generate_support_material()
 {
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): refresh the real-floor cache at support entry too;
+    // make_perimeters() fills it but returns early on cached perimeters. Cheap, single-threaded, empty when Gravity is off.
+    m_gravity_floor = Gravity::foreign_floor(*this);
+
     if (is_tree(m_config.support_type.value)) {
         TreeSupport tree_support(*this, m_slicing_params);
         tree_support.throw_on_cancel = [this]() { this->throw_if_canceled(); };
@@ -5470,6 +5519,14 @@ void PrintObject::remove_bridges_from_contacts(
     Lines overhang_perimeters = to_lines(*overhang_regions);
     auto layer_regions = current_layer->regions();
     Polygons lower_layer_polygons = to_polygons(lower_layer->lslices);
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): a bridge perimeter resting on ANOTHER object is
+    // self-supported, so widen the supporting surface with the foreign floor under this layer. No-op unless Gravity is on.
+    if (Gravity::active(*current_layer->object())) {
+        const std::vector<Polygons> &floor = current_layer->object()->gravity_floor();
+        const size_t                 li    = current_layer->id();
+        if (li < floor.size() && ! floor[li].empty())
+            polygons_append(lower_layer_polygons, floor[li]);
+    }
     const PrintObjectConfig& object_config = current_layer->object()->config();
 
     Polygons all_bridges;

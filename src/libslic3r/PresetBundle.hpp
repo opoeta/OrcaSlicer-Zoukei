@@ -486,6 +486,9 @@ public:
     // not part of any preset or project. Mirrored into the full config at slice time by full_fff_config().
     bool                        idle_tool_power_down{ false };
     bool                        idle_tool_deep_sleep{ false };
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): application preference "zoukei_libre_mode"
+    // (Preferences, default off). Mirrored into the full config key neotko_true_objects at slice time by full_fff_config().
+    bool                        libre_true_objects{ false };
 
     // There will be an entry for each system profile loaded,
     // and the system profiles will point to the VendorProfile instances owned by PresetBundle::vendors.

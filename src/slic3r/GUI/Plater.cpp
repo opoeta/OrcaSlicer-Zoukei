@@ -192,6 +192,7 @@
 #include "GUI.hpp"
 #include "BoxPrintMappingDialog.hpp"
 #include "GUI_App.hpp"
+#include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
 #include "PostProcessor.hpp"
 #include "CrealityCfsUi.hpp"
 #include "Shortcuts.hpp"
@@ -1285,6 +1286,8 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
 
         // "Bed and Nozzle Extras" (idle tool power down), ported from OrcaFS-NeotkoCM (Neotko). Off by default.
         sync_idle_tool_extras_to_bundle();
+        // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): mirror the stored opt-in switch into the preset bundle (default off).
+        LibreMode::sync_to_bundle();
         m_idle_tool_extras_btn = new Button(m_panel_printer_content, _L("Bed and Nozzle Extras"));
         m_idle_tool_extras_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
         m_idle_tool_extras_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {

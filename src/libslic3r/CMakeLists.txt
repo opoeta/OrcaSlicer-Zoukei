@@ -153,12 +153,25 @@ set(lisbslic3r_sources
     FaceDetector.hpp
     Feature/FuzzySkin/FuzzySkin.cpp
     Feature/FuzzySkin/FuzzySkin.hpp
+    Feature/BumpMapping/BumpMapping.cpp
+    Feature/BumpMapping/BumpMapping.hpp
+    # Ported from OrcaFS-NeotkoCM (Neotko): Gravity / True Objects (Libre Mode)
+    Feature/Gravity/GravityDebug.hpp
+    Feature/Gravity/GravityFloor.cpp
+    Feature/Gravity/GravityFloor.hpp
+    InstanceContact.cpp
+    InstanceContact.hpp
     Feature/HeightAdaptive/HeightCurve.cpp
     Feature/HeightAdaptive/HeightCurve.hpp
     Feature/Interlocking/InterlockingGenerator.cpp
     Feature/Interlocking/InterlockingGenerator.hpp
     Feature/Interlocking/VoxelUtils.cpp
     Feature/Interlocking/VoxelUtils.hpp
+    # Ported from OrcaFS-NeotkoCM (Neotko): Support Zones / Stumps
+    Feature/SupportZones/SupportZoneEngine.cpp
+    Feature/SupportZones/SupportZoneEngine.hpp
+    Feature/SupportZones/SupportZoneProbe.cpp
+    Feature/SupportZones/SupportZoneProbe.hpp
     FileParserError.hpp
     Fill/Fill3DHoneycomb.cpp
     Fill/Fill3DHoneycomb.hpp

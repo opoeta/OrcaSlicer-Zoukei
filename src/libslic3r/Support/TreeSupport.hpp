@@ -336,6 +336,11 @@ public:
     // union contours of all layers below
     std::vector<ExPolygons> m_layer_outlines_below;
 
+    // PerObject Support (NEOTKO_XOBJ_TAG s225, ported from OrcaFS-NeotkoCM, Neotko): per object layer, the
+    // RAW footprint of the OTHER objects (body + already generated support) in this object's frame.
+    // Empty = inactive. Kept apart from m_layer_outlines, which carries "my own object" semantics.
+    std::vector<Polygons> m_neighbor_occupancy;
+
     std::vector<double> m_max_move_distances;
 
     /*!

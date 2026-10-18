@@ -904,6 +904,9 @@ wxDECLARE_EVENT(EVT_UPDATE_BUNDLE_COMPLETE, wxCommandEvent);
 
 
 bool is_support_filament(int extruder_id, bool strict_check = true);
+// Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): true when the opt-in "Libre Mode" switch is on, i.e. objects may float at any
+// height and True Objects (Gravity) is active. Defined in GUI_App.cpp over LibreMode::enabled().
+bool gravity_allow_free_z();
 bool is_soluble_filament(int extruder_id);
 // check if the filament for model is in the list
 bool has_filaments(const std::vector<std::string>& model_filaments);

@@ -5239,6 +5239,8 @@ DynamicPrintConfig PresetBundle::full_fff_config(bool apply_extruder, std::optio
     // Idle tool power down: slice-time mirror of the application preferences.
     out.set_key_value("neotko_idle_tool_power_down", new ConfigOptionBool(this->idle_tool_power_down));
     out.set_key_value("neotko_idle_tool_deep_sleep", new ConfigOptionBool(this->idle_tool_power_down && this->idle_tool_deep_sleep));
+    // Libre Mode / True Objects: slice-time mirror of the application preference (never stored in a preset).
+    out.set_key_value("neotko_true_objects", new ConfigOptionBool(this->libre_true_objects));
 
     // BBS
     size_t  num_filaments = this->filament_presets.size();

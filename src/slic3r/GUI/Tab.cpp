@@ -3095,6 +3095,7 @@ void TabPrint::build()
     page = add_options_page(L("Support"), "custom-gcode_support"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("Support"), L"param_support");
         optgroup->append_single_option_line("enable_support", "support_settings_support");
+        optgroup->append_single_option_line("support_cross_object_avoidance"); // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
         optgroup->append_single_option_line("support_type", "support_settings_support#type");
         optgroup->append_single_option_line("support_style", "support_settings_support#style");
         optgroup->append_single_option_line("support_threshold_angle", "support_settings_support#threshold-angle");
@@ -3316,6 +3317,29 @@ void TabPrint::build()
         optgroup->append_single_option_line("fuzzy_skin_ripple_offset", "others_settings_fuzzy_skin#ripple-offset");
         optgroup->append_single_option_line("fuzzy_skin_layers_between_ripple_offset", "others_settings_fuzzy_skin#layers-between-ripple-offset");
         optgroup->append_single_option_line("fuzzy_skin_first_layer", "others_settings_fuzzy_skin#apply-fuzzy-skin-to-first-layer");
+
+        // Bump mapping (ported from OrcaFS-NeotkoCM, Neotko): a PNG becomes relief on the walls / the top surface.
+        optgroup = page->new_optgroup(L("Bump mapping (walls)"), L"fuzzy_skin");
+        optgroup->append_single_option_line("bump_wall_enabled");
+        optgroup->append_single_option_line("bump_wall_image");
+        optgroup->append_single_option_line("bump_wall_thickness");
+        optgroup->append_single_option_line("bump_wall_scale");
+        optgroup->append_single_option_line("bump_wall_repeat");
+        optgroup->append_single_option_line("bump_wall_projection");
+        optgroup->append_single_option_line("bump_wall_point_distance");
+        optgroup->append_single_option_line("bump_wall_max_angle");
+
+        optgroup = page->new_optgroup(L("Bump mapping (top surface, Z bump)"), L"fuzzy_skin");
+        optgroup->append_single_option_line("zbump_enabled");
+        optgroup->append_single_option_line("zbump_image");
+        optgroup->append_single_option_line("zbump_height");
+        optgroup->append_single_option_line("zbump_scale");
+        optgroup->append_single_option_line("zbump_repeat");
+        optgroup->append_single_option_line("zbump_offset_x");
+        optgroup->append_single_option_line("zbump_offset_y");
+        optgroup->append_single_option_line("zbump_edge_margin");
+        optgroup->append_single_option_line("zbump_max_slope");
+        optgroup->append_single_option_line("zbump_segment");
 
         optgroup = page->new_optgroup(L("G-code output"), L"param_gcode");
         optgroup->append_single_option_line("reduce_infill_retraction", "others_settings_g_code_output#reduce-infill-retraction");

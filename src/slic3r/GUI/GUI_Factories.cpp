@@ -6,6 +6,7 @@
 #include "GUI_Factories.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_App.hpp"
+#include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode
 #include "Shortcuts.hpp"
 #include "SpoolmanUi.hpp"
 #include "I18N.hpp"
@@ -121,7 +122,8 @@ std::map<std::string, std::vector<SimpleSettingData>>  SettingsFactory::OBJECT_C
                     {"support_bottom_z_distance", "",22},{"support_top_z_distance", "",23},{"support_base_pattern", "",24},{"support_base_pattern_spacing", "",25},
                     {"support_interface_top_layers", "",26},{"support_interface_bottom_layers", "",27},{"support_interface_spacing", "",28},{"support_bottom_interface_spacing", "",29},
                     {"support_object_xy_distance", "",30}, {"bridge_no_support", "",31},{"max_bridge_length", "",32},{"support_critical_regions_only", "",33},{"support_remove_small_overhang","",34},
-                    {"support_object_first_layer_gap","",35}
+                    {"support_object_first_layer_gap","",35},
+                    {"support_cross_object_avoidance","",36} // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
                     }},
     { L("Speed"), {{"support_speed", "",12}, {"support_interface_speed", "",13}
                   }}
@@ -214,6 +216,11 @@ std::vector<std::string> SettingsFactory::get_options(const bool is_part)
         PrintObjectConfig obj_config;
         std::vector<std::string> obj_options = obj_config.keys();
         options.insert(options.end(), obj_options.begin(), obj_options.end());
+    } else if (LibreMode::enabled()) {
+        // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): per-part (volume) XY compensation; the engine applies the delta
+        // versus the object value in PrintObject::slice_volumes().
+        options.push_back("xy_hole_compensation");
+        options.push_back("xy_contour_compensation");
     }
     return options;
 }
@@ -257,6 +264,10 @@ std::vector<SimpleSettingData> SettingsFactory::get_visible_options(const std::s
         it = OBJECT_CATEGORY_SETTINGS.find(category);
         if (it != OBJECT_CATEGORY_SETTINGS.end())
             options.insert(options.end(), OBJECT_CATEGORY_SETTINGS[category].begin(), OBJECT_CATEGORY_SETTINGS[category].end());
+    } else if (category == "Quality" && LibreMode::enabled()) {
+        // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): expose XY hole / contour compensation on parts too, under Quality.
+        options.push_back({"xy_hole_compensation", "", 5});
+        options.push_back({"xy_contour_compensation", "", 6});
     }
 
     auto sort_func = [](SimpleSettingData& setting1, SimpleSettingData& setting2) {
@@ -2158,6 +2169,7 @@ wxMenu* MenuFactory::multi_selection_menu()
         
         append_menu_item_set_auto_drop(menu);
         menu->AppendSeparator();
+        append_menu_items_libre(menu); // Libre Mode: Copy / Paste Process Settings (nothing while the switch is off)
         
         append_menu_item_per_object_process(menu);
         menu->AppendSeparator();
@@ -2616,6 +2628,47 @@ void MenuFactory::append_menu_item_plate_name(wxMenu *menu)
 void MenuFactory::update_object_menu()
 {
     append_menu_items_add_volume(&m_object_menu);
+    append_menu_items_libre(&m_object_menu);
+}
+
+// Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): per-object Assembled Boolean mode and Copy / Paste
+// Process Settings. The items are removed and, only while the opt-in switch is on, appended again, so toggling Libre Mode
+// takes effect without a restart (Plater::update_menus() -> MenuFactory::update()). With the switch off the menu is stock.
+void MenuFactory::append_menu_items_libre(wxMenu* menu)
+{
+    const wxString labels[] = { _L("Assembled Mode (Boolean)"), _L("Copy Process Settings"), _L("Paste Process Settings") };
+    for (const wxString& label : labels) {
+        const int item_id = menu->FindItem(label);
+        if (item_id != wxNOT_FOUND)
+            menu->Destroy(item_id);
+    }
+    if (!LibreMode::enabled())
+        return;
+
+    append_menu_check_item(menu, wxID_ANY, labels[0],
+        _L("When unchecked, the parts of this assembled object are sliced without boolean union (overlapping parts keep their own perimeters)."),
+        [](wxCommandEvent&) { LibreMode::toggle_assemble_boolean(); }, menu,
+        []() { return LibreMode::assemble_boolean_available(); },
+        []() { return LibreMode::assemble_boolean_checked(); }, m_parent);
+
+    wxMenu* copy_menu = new wxMenu();
+    auto add_copy = [this, copy_menu, menu](const wxString& label, const std::string& category) {
+        append_menu_item(copy_menu, wxID_ANY, label, "",
+            [category](wxCommandEvent&) { LibreMode::copy_process_settings(category); }, "", menu,
+            []() { return true; }, m_parent);
+    };
+    add_copy(_L("Speed"),    "Speed");
+    add_copy(_L("Quality"),  "Quality");
+    add_copy(_L("Strength"), "Strength");
+    add_copy(_L("All"),      "");
+    append_submenu(menu, copy_menu, wxID_ANY, labels[1],
+                   _L("Copy this object's per-object overrides (by block, or All) to the clipboard"),
+                   "", []() { return true; }, m_parent);
+
+    append_menu_item(menu, wxID_ANY, labels[2],
+        _L("Apply the copied process settings to the selected object(s)"),
+        [](wxCommandEvent&) { LibreMode::paste_process_settings(); }, "", menu,
+        []() { return LibreMode::has_process_settings_clipboard(); }, m_parent);
 }
 
 void MenuFactory::update_default_menu()

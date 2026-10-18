@@ -237,6 +237,7 @@
 #include "WebGuideDialog.hpp"
 #include "ReleaseNote.hpp"
 #include "ZoukeiUpdateUi.hpp"
+#include "Zoukei/LibreMode.hpp"
 #include "slic3r/Utils/ZoukeiUpdate.hpp"
 #include "PrivacyUpdateDialog.hpp"
 #include "ModelMall.hpp"
@@ -10364,6 +10365,12 @@ Vec3d build_plate_tilt_up_direction()
     if (tilt_x == 0. && tilt_y == 0.)
         return Vec3d::UnitZ();
     return Vec3d(std::tan(Geometry::deg2rad(tilt_y)), std::tan(Geometry::deg2rad(tilt_x)), 1.).normalized();
+}
+
+// Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): see GUI_App.hpp.
+bool gravity_allow_free_z()
+{
+    return LibreMode::enabled();
 }
 
 } // GUI

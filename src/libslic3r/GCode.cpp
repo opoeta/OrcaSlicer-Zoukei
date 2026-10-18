@@ -1,4 +1,6 @@
 #include "ArcFitter.hpp"
+#include "InstanceContact.hpp" // ported from OrcaFS-NeotkoCM (Neotko): real contact detection
+#include <cstdio>
 #include "BoundingBox.hpp"
 #include "Circle.hpp"
 #include "Config.hpp"
@@ -2235,6 +2237,18 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
     size_t idx_brim_band = 0;
     const auto &brim_bands = object.belt_brim_prologue();   // ordered by ascending print_z
     const LayerToPrint* last_extrusion_layer = nullptr;
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): lazy per-object contact measurement, shared by the
+    // two floating-related checks below. Only consulted when True Objects is on, so the stock path is untouched.
+    const bool                       true_objects_on = object.config().neotko_true_objects.value;
+    bool                             contact_checked = false;
+    InstanceContact::ObjectContact   contact_cache;
+    auto contact = [&]() -> const InstanceContact::ObjectContact& {
+        if (!contact_checked) {
+            contact_checked = true;
+            contact_cache   = InstanceContact::analyze_object(object);
+        }
+        return contact_cache;
+    };
     while (idx_object_layer < object.layers().size() || idx_support_layer < object.support_layers().size()
         || idx_brim_band < brim_bands.size()) {
         LayerToPrint layer_to_print;
@@ -2286,8 +2300,24 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
         // an error.  In global shear mode the object may also start above
         // Z=0 on the tilted belt surface.
         if (layers_to_print.size() == 1u) {
-            if (!has_extrusions && !skip_empty_first_layer)
-                throw Slic3r::SlicingError(_(L("One object has an empty first layer and can't be printed. Please Cut the bottom or enable supports.")), object.id().id);
+            if (!has_extrusions && !skip_empty_first_layer) {
+                if (!true_objects_on)
+                    throw Slic3r::SlicingError(_(L("One object has an empty first layer and can't be printed. Please Cut the bottom or enable supports.")), object.id().id);
+                // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): an empty first layer is legitimate when
+                // every instance rests on the bed or on another object (measured, not guessed); otherwise report the measured gap and
+                // downgrade the hard error to a non-critical warning so an intentionally floating object still slices.
+                if (!contact().all_supported) {
+                    std::string gap_note;
+                    if (std::isfinite(contact().worst_gap_mm)) {
+                        char buf[64];
+                        std::snprintf(buf, sizeof(buf), " (measured gap below: %.3f mm)", contact().worst_gap_mm);
+                        gap_note = buf;
+                    }
+                    const_cast<Print*>(object.print())->active_step_add_warning(
+                        PrintStateBase::WarningLevel::NON_CRITICAL,
+                        _(L("One object has an empty first layer (floating object). True Objects: slicing continues, expect potential artifacts.")) + gap_note);
+                }
+            }
         }
 
         // In case there are extrusions on this layer, check there is a layer to lay it on.
@@ -2328,7 +2358,10 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
                 // over-angle overhang that would print into air).
                 const bool belt_leading_gap = object.print()->config().belt_printer.value
                                            && last_extrusion_layer == nullptr;
-                if (!belt_leading_gap)
+                // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): the bottom range (nothing extruded below yet) is the
+                // "floating object" case; resting on another object means the gap is filled by that object's body - no warning.
+                const bool resting_on_object = true_objects_on && last_extrusion_layer == nullptr && contact().all_supported;
+                if (!belt_leading_gap && !resting_on_object)
                     warning_ranges.emplace_back(std::make_pair((last_extrusion_layer ? last_extrusion_layer->print_z() : 0.), layers_to_print.back().print_z()));
             }
         }
@@ -8280,6 +8313,14 @@ void GCode::append_full_config(const Print &print, std::string &str)
         // banning it from the dump has no effect on the feature; the only H2C/H2D delta is the M9711/M971
         // snapshot reposition.
         "farthest_point_timelapse"sv,
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): slice-time keys, read from m_config and never
+        // parsed back out of the dump; banned so a print with the feature off keeps a byte-identical G-code.
+        "neotko_true_objects"sv,
+        "gravity_contact_gap_ratio"sv,
+        "neotko_assemble_boolean"sv,
+        // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko): read at slice time from the object config, never parsed
+        // back out of the dump; banned so a print with the feature off keeps a byte-identical G-code.
+        "support_cross_object_avoidance"sv,
         // The IMEX (IDEX/IQEX parallel printing) keys are newly-registered printer/process keys whose
         // defaults are non-nil, so leaving them in the dump would add fourteen `; imex_* = <default>`
         // lines to every printer's config block — an ordinary single-nozzle machine included. Excluding

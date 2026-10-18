@@ -81,6 +81,7 @@ template<> struct hash<Slic3r::FuzzySkinConfig>
 
 namespace Slic3r {
 
+namespace Feature { namespace Bump { class WallBumpTable; } }
 class PerimeterGenerator {
 public:
     // Inputs:
@@ -89,6 +90,9 @@ public:
     const ExPolygons            *upper_slices;
     const SurfaceCollection     *upper_slices_same_region;
     const ExPolygons            *lower_slices;
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): true when lower_slices was widened with a foreign floor
+    // (this object rests on ANOTHER object at this layer). Default false = stock behaviour.
+    bool                         has_gravity_floor = false;
     double                       layer_height;
     int                          layer_id;
     coordf_t                     slice_z;
@@ -118,6 +122,8 @@ public:
     std::vector<std::pair<FuzzySkinConfig, ExPolygons>> regions_by_fuzzify;
     // Area resting on the layer below, where fuzzy skin is allowed. Unset means no restriction.
     std::optional<ExPolygons>                       fuzzy_supported_area;
+    // Wall bump mapping (ported from OrcaFS-NeotkoCM, Neotko): per-object relief table, nullptr when off.
+    const Feature::Bump::WallBumpTable*             wall_bump_table = nullptr;
     
 
     // Orca: 2D footprint of wave-overhang extrusions emitted by this generator

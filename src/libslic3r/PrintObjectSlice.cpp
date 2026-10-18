@@ -44,6 +44,7 @@
 #include "libslic3r/Feature/Interlocking/InterlockingGenerator.hpp"
 #include "Config.hpp"
 #include "SurfaceCollection.hpp"
+#include "Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): elephant foot on stacked objects
 
 //! macro used to mark string used at localization, return same string
 #define L(s) Slic3r::I18N::translate(s)
@@ -1373,9 +1374,48 @@ void PrintObject::slice_volumes()
     //applyNegtiveVolumes(this->model_object()->volumes, objSliceByVolume, firstLayerObjSliceByGroups, scaled_resolution);
     firstLayerObjSliceByVolume = objSliceByVolume;
 
+    // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko) - per-volume XY compensation. If a ModelVolume (part)
+    // carries an explicit xy_contour/hole_compensation override in its own config, apply the DELTA versus the object-level
+    // value to that volume's pre-merge slices. The object-level compensation still runs later (make_slices), so the net
+    // is: part with override -> its value; part without -> the object value. Without overrides this block is a no-op.
+    if (! objSliceByVolume.empty()) {
+        const float obj_xy_contour = float(m_config.xy_contour_compensation.value);
+        const float obj_xy_hole    = float(m_config.xy_hole_compensation.value);
+        for (VolumeSlices& vs : objSliceByVolume) {
+            const ModelVolume* mv = nullptr;
+            for (const ModelVolume* v : this->model_object()->volumes)
+                if (v->id() == vs.volume_id) { mv = v; break; }
+            if (!mv || !mv->is_model_part()) continue;
+
+            const auto* opt_c = mv->config.get().option<ConfigOptionFloat>("xy_contour_compensation");
+            const auto* opt_h = mv->config.get().option<ConfigOptionFloat>("xy_hole_compensation");
+            if (!opt_c && !opt_h) continue;
+
+            const float vol_c = opt_c ? float(opt_c->value) : obj_xy_contour;
+            const float vol_h = opt_h ? float(opt_h->value) : obj_xy_hole;
+            const float dc    = scaled<float>(vol_c - obj_xy_contour);  // contour delta
+            const float dh    = scaled<float>(vol_h - obj_xy_hole);     // hole delta
+            if (std::abs(dc) < 1.f && std::abs(dh) < 1.f) continue;     // sub-nanometer: skip
+
+            for (ExPolygons& lslices : vs.slices) {
+                if (lslices.empty()) continue;
+                if (dc > 0.f || dh > 0.f)
+                    lslices = this->_shrink_contour_holes(std::max(0.f, dc), std::max(0.f, dh), lslices);
+                if (dc < 0.f || dh < 0.f)
+                    lslices = this->_shrink_contour_holes(std::min(0.f, dc), std::min(0.f, dh), lslices);
+            }
+        }
+    }
+
+    // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko) - per-object Assembled Boolean mode. Default
+    // (neotko_assemble_boolean = true) keeps the stock global clip; false disables the boolean union of this object's
+    // parts (overlaps allowed, each part keeps its own perimeters). No-op for single-part objects.
+    const bool clip_multipart = this->config().neotko_assemble_boolean.value
+                                    ? PrintObject::clip_multipart_objects : false;
+
     std::vector<std::vector<ExPolygons>> region_slices =
         slices_to_regions(print->config(), *this, this->model_object()->volumes, *m_shared_regions, slice_zs,
-                          std::move(objSliceByVolume), PrintObject::clip_multipart_objects, throw_on_cancel_callback);
+                          std::move(objSliceByVolume), clip_multipart, throw_on_cancel_callback);
 
     for (size_t region_id = 0; region_id < region_slices.size(); ++ region_id) {
         std::vector<ExPolygons> &by_layer = region_slices[region_id];
@@ -1445,7 +1485,11 @@ void PrintObject::slice_volumes()
         const size_t num_extruders = print->config().filament_diameter.size();
         const auto   xy_hole_scaled = (num_extruders > 1 && this->is_mm_painted()) ? scaled<float>(0.f) : scaled<float>(m_config.xy_hole_compensation.value);
         const auto   xy_contour_scaled            = (num_extruders > 1 && this->is_mm_painted()) ? scaled<float>(0.f) : scaled<float>(m_config.xy_contour_compensation.value);
-        const float  elephant_foot_compensation_scaled = (m_config.raft_layers == 0) ?
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): elephant foot compensates the extra material that
+        // squishes out against the BED on the first real layer. A face that rests on ANOTHER piece has no such squish, so
+        // suppress it when Gravity is active and this object does not touch the bed. Byte-identical with the gate off.
+        const bool   gravity_lifts_off_bed = Gravity::active(*this) && ! Gravity::rests_on_bed(*this);
+        const float  elephant_foot_compensation_scaled = (m_config.raft_layers == 0 && ! gravity_lifts_off_bed) ?
         	// Only enable Elephant foot compensation if printing directly on the print bed.
             float(scale_(m_config.elefant_foot_compensation.value)) :
         	0.f;

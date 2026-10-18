@@ -8,6 +8,8 @@
 #include "Polygon.hpp"
 #include "Print.hpp"
 #include "BeltTransform.hpp"
+#include "Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Gravity::active()
+#include "InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
 #include "FilamentMixer.hpp"
 #include "Slicing.hpp"
 #include "libslic3r.h"
@@ -1781,7 +1783,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             model_object.assign_copy(model_object_new);
         } else {
             model_object_status.print_object_regions_status = ModelObjectStatus::PrintObjectRegionsStatus::Valid;
-            if (supports_differ || model_custom_supports_data_changed(model_object, model_object_new)) {
+            if (supports_differ || model_custom_supports_data_changed(model_object, model_object_new) ||
+                model_support_volume_config_changed(model_object, model_object_new)) { // Support Zones: a zone's recipe changed
                 // First stop background processing before shuffling or deleting the ModelVolumes in the ModelObject's list.
                 if (supports_differ) {
                     this->call_cancel_callback();
@@ -1828,6 +1831,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             //FIXME What to do with m_material_id?
 			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, ModelVolumeType::MODEL_PART);
 			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, ModelVolumeType::PARAMETER_MODIFIER);
+			// Support Zones (ported from OrcaFS-NeotkoCM, Neotko): the zone / cut recipe lives in the support volume config.
+			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */,
+				{ ModelVolumeType::SUPPORT_ENFORCER, ModelVolumeType::SUPPORT_BLOCKER });
 			// Synchronize Precise Seam modifier volumes
 			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, precise_seam_types);
             layer_height_ranges_copy_configs(model_object.layer_config_ranges /* dst */, model_object_new.layer_config_ranges /* src */);
@@ -1870,6 +1876,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         PrintObjectPtrs print_objects_new;
         print_objects_new.reserve(std::max(m_objects.size(), m_model.objects.size()));
         bool new_objects = false;
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): a Gravity object reads its neighbours, an edge the step graph does not model.
+        bool gravity_plate_changed = false;
         bool belt_instances_shifted = false;
         // Walk over all new model objects and check, whether there are matching PrintObjects.
         for (ModelObject *model_object : m_model.objects) {
@@ -1927,6 +1935,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                         size_t extruder_num = new_full_config.option<ConfigOptionFloats>("nozzle_diameter")->size();
                         update_apply_status(status == PrintBase::APPLY_STATUS_INVALIDATED);
                         belt_instances_shifted = true;
+                        gravity_plate_changed = true;
                     }
 					print_objects_new.emplace_back((*it_old)->print_object);
 					const_cast<PrintObjectStatus*>(*it_old)->status = PrintObjectStatus::Reused;
@@ -1936,6 +1945,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         if (m_objects != print_objects_new) {
             //BBS: add more logs
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: found print object changed.")%__LINE__;
+            gravity_plate_changed = true;
             this->call_cancel_callback();
 			update_apply_status(this->invalidate_all_steps());
             m_objects = print_objects_new;
@@ -1959,6 +1969,33 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 			if (new_objects)
 	            update_apply_status(false);
             print_regions_reshuffled = true;
+        }
+        // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): the bottom/bridge classification and the
+        // overhang of a Gravity-active object read its NEIGHBOURS' slices, so a plate change (instance moved, object
+        // added/removed) stales its perimeters, infill and support. invalidate_step(posPerimeters) cascades.
+        if (gravity_plate_changed)
+            for (PrintObject *object : m_objects)
+                if (Gravity::active(*object))
+                    update_apply_status(object->invalidate_step(posPerimeters));
+        // PerObject Support (NEOTKO_XOBJ_TAG s225, ported from OrcaFS-NeotkoCM, Neotko): the support of an object with
+        // cross-object avoidance depends on where the other objects sit and on their GENERATED support, an edge the
+        // step graph does not model. A plate change, or any object whose support is about to be regenerated,
+        // invalidates the support of every such object. No-op when no object has the avoidance active.
+        {
+            bool xobj_any = false, xobj_pending = gravity_plate_changed;
+            for (PrintObject *object : m_objects) {
+                if (InstanceContact::cross_object_active(*object))
+                    xobj_any = true;
+                // Unguarded on purpose: Print::apply already holds the state mutex.
+                if (! object->is_step_done_unguarded(posSupportMaterial))
+                    xobj_pending = true;
+            }
+            if (xobj_any && xobj_pending)
+                for (PrintObject *object : m_objects)
+                    if (InstanceContact::cross_object_active(*object)) {
+                        update_apply_status(object->invalidate_step(posSupportMaterial));
+                        object->clear_tree_support_preview_cache();
+                    }
         }
         print_object_status_db.clear();
 

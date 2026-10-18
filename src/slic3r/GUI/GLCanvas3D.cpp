@@ -97,6 +97,7 @@
 #include "MainFrame.hpp"
 #include "WipeTowerDialog.hpp"
 #include "GUI_App.hpp"
+#include "Zoukei/GravitySnap.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Snap & Drag
 #include "Shortcuts.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Colors.hpp"
@@ -5093,6 +5094,18 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                 TransformationType trafo_type;
                 trafo_type.set_relative();
                 m_selection.translate(cur_pos - m_mouse.drag.start_position_3D, trafo_type);
+                // Libre Mode / Snap & Drag (ported from OrcaFS-NeotkoCM, Neotko): live floor snap while dragging. GLVolume-only
+                // (visual): the model is written once, on mouse-up, in do_move(). Inert unless Libre Mode and Snap & Drag are on.
+                if (m_canvas_type == ECanvasType::CanvasView3D && m_selection.get_mode() == Selection::Instance && GravitySnap::enabled()) {
+                    std::set<std::pair<int, int>> moving;
+                    for (unsigned int idx : m_selection.get_volume_idxs()) {
+                        const GLVolume* gv = m_volumes.volumes[idx];
+                        if (gv->is_wipe_tower || gv->is_modifier || gv->object_idx() < 0 || gv->instance_idx() < 0)
+                            continue;
+                        moving.insert({ gv->object_idx(), gv->instance_idx() });
+                    }
+                    GravitySnap::settle(m_volumes, moving, m_snapdrag_engaged);
+                }
                 // Ghost transforms refresh from _render_imex_ghosts via the live GLVolume
                 // lookup, so no explicit update call is needed here.
                 if (current_printer_technology() == ptFFF) {
@@ -5537,6 +5550,24 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
 
     Selection::EMode selection_mode = m_selection.get_mode();
 
+    // Libre Mode / Snap & Drag (ported from OrcaFS-NeotkoCM, Neotko): commit of the live snap. The GLVolumes already hold the landed
+    // position, so this is idempotent for a mouse drag and also settles other moves (keyboard, sidebar). `snap_landed` records
+    // which instances ended on the plate (true) or on another object (false) to set the object "Auto drop" flag below.
+    std::map<std::pair<int, int>, bool> snap_landed;
+    if (m_canvas_type == ECanvasType::CanvasView3D && selection_mode == Selection::Instance && GravitySnap::enabled()) {
+        std::set<std::pair<int, int>> moving;
+        for (unsigned int idx : m_selection.get_volume_idxs()) {
+            if (idx >= m_volumes.volumes.size())
+                continue;
+            const GLVolume* gv = m_volumes.volumes[idx];
+            if (gv->is_wipe_tower || gv->is_modifier || gv->object_idx() < 0 || gv->instance_idx() < 0)
+                continue;
+            moving.insert({ gv->object_idx(), gv->instance_idx() });
+        }
+        snap_landed = GravitySnap::settle(m_volumes, moving, m_snapdrag_engaged).landed_on_bed;
+    }
+    m_snapdrag_engaged.clear();
+
     for (const GLVolume* v : m_volumes.volumes) {
         int object_idx = v->object_idx();
         int instance_idx = v->instance_idx();
@@ -5599,6 +5630,12 @@ void GLCanvas3D::do_move(const std::string& snapshot_type)
                 m_selection.notify_instance_update(key.first, key.second);
         }
     }
+
+    // Libre Mode / Snap & Drag (ported from OrcaFS-NeotkoCM, Neotko): an object that landed on another object keeps that height
+    // (Auto drop off, as Align & Stack does); one that landed on the plate is plate-bound again (Auto drop on).
+    for (const auto& landed : snap_landed)
+        if (landed.first.first >= 0 && landed.first.first < (int)m_model->objects.size())
+            m_model->objects[landed.first.first]->auto_drop = landed.second;
 
     // Fixes sinking/flying instances (snaps object to buildplate)
     for (const std::pair<int, int>& i : done) {

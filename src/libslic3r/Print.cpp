@@ -58,6 +58,7 @@
 #include "IMEXHelpers.hpp"
 #include "IMEXZones.hpp"
 #include "Print.hpp"
+#include "InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
 #include "BoundingBox.hpp"
 #include "Brim.hpp"
 #include "ClipperUtils.hpp"
@@ -3202,6 +3203,11 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             return false;
         if (model_obj1->config.get() != model_obj2->config.get())
             return false;
+        // PerObject Support (NEOTKO_XOBJ_TAG s225, ported from OrcaFS-NeotkoCM, Neotko): the support depends on
+        // where the neighbours sit RELATIVE to the object, so two identical objects at different plate positions
+        // must not share it. Opt-in only.
+        if (object1->config().support_cross_object_avoidance.value || object2->config().support_cross_object_avoidance.value)
+            return false;
         return true;
     };
     int object_count = m_objects.size();
@@ -3364,13 +3370,22 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             for (size_t i = 0; i < m_objects.size(); ++i)
                 sup_was_done[i] = m_objects[i]->is_step_done(posSupportMaterial) ? 1 : 0;
 
+        // PerObject Support (NEOTKO_XOBJ_TAG s225 A2, ported from OrcaFS-NeotkoCM, Neotko): an object with cross-object
+        // avoidance must see the ALREADY generated support of its neighbours, so it cannot run inside the parallel
+        // batch: those objects run serially after it, in plate order (deterministic). Everything else stays parallel.
+        std::vector<char> xobj_serial(m_objects.size(), 0);
+        for (size_t i = 0; i < m_objects.size(); ++i)
+            if (need_slicing_objects.count(m_objects[i]) != 0 && InstanceContact::cross_object_active(*m_objects[i]))
+                xobj_serial[i] = 1;
+
         tbb::parallel_for(tbb::blocked_range<int>(0, int(m_objects.size())),
-            [this, need_slicing_objects](const tbb::blocked_range<int>& range) {
+            [this, need_slicing_objects, &xobj_serial](const tbb::blocked_range<int>& range) {
                 for (int i = range.begin(); i < range.end(); i++) {
                     PrintObject* obj = m_objects[i];
                     if (need_slicing_objects.count(obj) != 0) {
                         // The belt brim follows sequentially below.
-                        obj->generate_support_material(false);
+                        if (xobj_serial[i] == 0) // PerObject Support: generated serially below
+                            obj->generate_support_material(false);
                     }
                     else {
                         if (obj->set_started(posSupportMaterial))
@@ -3379,6 +3394,9 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 }
             }
         );
+        for (size_t i = 0; i < m_objects.size(); ++i)
+            if (xobj_serial[i] != 0)
+                m_objects[i]->generate_support_material(false); // PerObject Support: serial, plate order
         // The belt brim keeps clear of every object's layers and support layers,
         // so it runs once no support step is rebuilding them any more.
         for (PrintObject *obj : m_objects)

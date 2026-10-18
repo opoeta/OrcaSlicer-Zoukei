@@ -389,6 +389,12 @@ public:
     LayerPtrs&                   layers()               { return m_layers; }
     SupportLayerPtrs&            support_layers()       { return m_support_layers; }
 
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko): this object's real floor, i.e. the top of any OTHER
+    // object under each layer (object-local frame, indexed by layer). Rebuilt each make_perimeters(); empty unless
+    // Gravity is active. Derived geometry, never serialized.
+    const std::vector<Polygons>& gravity_floor() const { return m_gravity_floor; }
+    std::vector<Polygons>&       gravity_floor()       { return m_gravity_floor; }
+
     template<typename PolysType>
     static void remove_bridges_from_contacts(
         const Layer* lower_layer,
@@ -691,6 +697,7 @@ private:
 
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
+    std::vector<Polygons>                   m_gravity_floor; // Libre Mode / True Objects, see gravity_floor()
     LayerPtrs                               m_belt_truncated_layers;
     // Fills removed by belt_drop_unclaimed_fills(), owned by this vector until
     // restored or until clear_layers() deletes them. An entity is in exactly one

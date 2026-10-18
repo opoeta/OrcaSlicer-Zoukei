@@ -1048,7 +1048,8 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
         "support_interface_pattern", "support_interface_top_layers", "support_interface_bottom_layers",
         "bridge_no_support", "max_bridge_length", "support_top_z_distance", "support_bottom_z_distance",
         "support_type", "support_on_build_plate_only", "support_critical_regions_only", "support_interface_not_for_body",
-        "support_object_xy_distance", "support_object_first_layer_gap", "independent_support_layer_height"})
+        "support_object_xy_distance", "support_object_first_layer_gap", "independent_support_layer_height",
+        "support_cross_object_avoidance" /* PerObject Support (ported from OrcaFS-NeotkoCM, Neotko) */})
         toggle_field(el, have_support_material);
     toggle_field("support_threshold_angle", have_support_material && is_auto(support_type));
     toggle_field("support_threshold_overlap", config->opt_int("support_threshold_angle") == 0 && have_support_material && is_auto(support_type));
@@ -1280,6 +1281,14 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
     toggle_line("fuzzy_skin_ripples_per_layer", is_ripple && has_fuzzy_skin);
     toggle_line("fuzzy_skin_ripple_offset", is_ripple && has_fuzzy_skin);
     toggle_line("fuzzy_skin_layers_between_ripple_offset", is_ripple && has_fuzzy_skin);
+
+    // Bump mapping (ported from OrcaFS-NeotkoCM, Neotko): the detail lines only matter while the feature is on.
+    const bool has_wall_bump = config->opt_bool("bump_wall_enabled");
+    for (auto el : {"bump_wall_image", "bump_wall_thickness", "bump_wall_scale", "bump_wall_repeat", "bump_wall_projection", "bump_wall_point_distance", "bump_wall_max_angle"})
+        toggle_line(el, has_wall_bump);
+    const bool has_zbump = config->opt_bool("zbump_enabled");
+    for (auto el : {"zbump_image", "zbump_height", "zbump_scale", "zbump_repeat", "zbump_offset_x", "zbump_offset_y", "zbump_edge_margin", "zbump_max_slope", "zbump_segment"})
+        toggle_line(el, has_zbump);
 
     bool have_arachne = config->opt_enum<PerimeterGeneratorType>("wall_generator") == PerimeterGeneratorType::Arachne;
     for (auto el : {"wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle", "min_feature_size", "min_length_factor",

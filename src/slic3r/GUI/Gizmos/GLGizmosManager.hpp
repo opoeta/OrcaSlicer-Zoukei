@@ -105,6 +105,7 @@ public:
         PrecisionALH,          // ported from OrcaFS-NeotkoCM (Neotko)
         HeightAdaptiveEffects, // ported from OrcaFS-NeotkoCM (Neotko)
         AlignStack, // ported from OrcaFS-NeotkoCM (Neotko)
+        SupportZones, // ported from OrcaFS-NeotkoCM (Neotko)
         //SlaSupports,
         // BBS
         //FaceRecognition,

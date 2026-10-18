@@ -9,6 +9,7 @@
 #include "slic3r/GUI/3DScene.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"
 #include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
 #include "libslic3r/Model.hpp"
 
 #include <imgui/imgui.h>
@@ -343,6 +344,10 @@ void GLGizmoAlignStack::on_render_input_window(float x, float y, float bottom_li
         m_hover_op = hovered;
         m_parent.set_as_dirty();
     }
+
+    // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): the opt-in switch and the Snap & Drag options live next to the stacking tools.
+    ImGui::Separator();
+    LibreMode::render_imgui_options();
 
     GizmoImguiEnd();
     ImGui::PopStyleVar(1);
