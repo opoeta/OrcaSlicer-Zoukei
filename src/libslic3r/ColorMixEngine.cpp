@@ -553,6 +553,17 @@ std::vector<Candidate> enumerate_candidates(const std::vector<Filament> &palette
         for (int comp : n.components)
             if (comp < 0 || comp >= K)
                 return;
+        // check_mixed_filament_type_consistency() rejects mixes of different types (PLA + ABS).
+        std::string type;
+        for (int comp : n.components) {
+            const std::string &t = palette[size_t(comp)].type;
+            if (t.empty())
+                continue;
+            if (type.empty())
+                type = t;
+            else if (t != type)
+                return;
+        }
         for (Candidate &c : out)
             if (c.recipe.components == n.components && c.recipe.weights == n.weights) {
                 c.existing = c.existing || existing;

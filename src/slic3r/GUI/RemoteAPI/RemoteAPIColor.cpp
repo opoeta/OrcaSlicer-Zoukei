@@ -5,7 +5,7 @@
 // and takes an undo snapshot where the equivalent UI action does.
 //
 //   GET    /api/v1/filaments                    project filament slots (colour, multi colour, TD, mix recipe)
-//   PUT    /api/v1/filaments/{slot}             colour / multi_colour / td of a slot (slots are 1-based)
+//   PUT    /api/v1/filaments/{slot}             preset / colour / multi_colour / td of a slot (slots are 1-based)
 //   GET    /api/v1/mixed_filaments              mixed slots with recipe, pattern, predicted colour
 //   POST   /api/v1/mixed_filaments              add (components + ratios | pattern) - "Add Mixed Filament"
 //   PUT    /api/v1/mixed_filaments/{slot}       change components / ratios / gradient
@@ -372,6 +372,7 @@ json do_solve(const json &in)
             f.td_mm = std::max(0.0, td_in[std::to_string(slot + 1)].get<double>());
         f.opacity = ColorMix::default_opacity(phys.type[size_t(k)], phys.name[size_t(k)], hex_alpha(phys.color[size_t(k)]));
         f.name    = phys.name[size_t(k)];
+        f.type    = phys.type[size_t(k)];
         palette.push_back(f);
         rec.palette_slot.push_back(slot);
         rec.phys_numbers.push_back(unsigned(k + 1));
@@ -743,6 +744,19 @@ bool Controller::dispatch_color(const Request &req, Response &out)
             const size_t i = size_t(slot - 1);
             const PhysInfo phys = physical_info();
             plater()->take_snapshot(_u8L("Edit filament"));
+            bool preset_changed = false;
+            if (body.contains("preset")) {
+                // PUT /preset only changes the first filament; this sets the preset of any slot.
+                if (!body["preset"].is_string() || pb.filaments.find_preset(body["preset"].get<std::string>()) == nullptr)
+                    return {{"error", "unknown_preset"}};
+                if (slot_is_mixed(i))
+                    return {{"error", "mixed_has_no_preset"}, {"detail", "a mixed filament uses its components' presets"}};
+                const std::string name = body["preset"].get<std::string>();
+                if (name != pb.filament_presets[i]) {
+                    pb.set_filament_preset(i, name);
+                    preset_changed = true;
+                }
+            }
             if (body.contains("colour")) {
                 const std::string hex = body["colour"].is_string() ? norm_hex(body["colour"].get<std::string>()) : std::string();
                 if (hex.empty())
@@ -781,6 +795,13 @@ bool Controller::dispatch_color(const Request &req, Response &out)
                 const std::string key = "td_" + key_safe(phys.color[size_t(k)]) + "_" + key_safe(phys.name[size_t(k)]);
                 wxGetApp().app_config->set(kSection, key, td > 0.0 ? wxString::Format("%.1f", td).ToStdString() : std::string());
             }
+            if (preset_changed) {
+                pb.normalize_filament_colour_lists();
+                plater()->sidebar().update_presets(Preset::TYPE_FILAMENT);
+                plater()->sidebar().update_dynamic_filament_list();
+                pb.export_selections(*wxGetApp().app_config);
+            }
+            plater()->update_filament_colors_in_full_config();
             plater()->sidebar().update_mixed_filament_list();
             plater()->update_project_dirty_from_presets();
             return slot_json(physical_info(), i);

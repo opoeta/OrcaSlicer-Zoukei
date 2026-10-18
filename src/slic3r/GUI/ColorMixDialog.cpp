@@ -344,6 +344,7 @@ std::vector<ColorMix::Filament> ColorMixDialog::palette() const
         f.td_mm   = m_td[size_t(fi)];
         f.opacity = ColorMix::default_opacity(src.type, src.name, hex_alpha(src.hex));
         f.name    = src.name;
+        f.type    = src.type;
         out.push_back(f);
     }
     return out;

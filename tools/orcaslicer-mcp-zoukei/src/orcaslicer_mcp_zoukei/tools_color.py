@@ -45,12 +45,13 @@ def register(mcp) -> None:
     @mcp.tool()
     async def filament_set(
         slot: Annotated[int, Field(description="1-based project filament slot.")],
+        preset: Annotated[str | None, Field(description="Filament preset name for this slot (physical slots only). Mixes only accept components of the same filament type.")] = None,
         colour: Annotated[str | None, Field(description="'#RRGGBB'. Physical filaments only (a mixed filament's colour follows its components).")] = None,
         multi_colour: Annotated[str | None, Field(description="Space-separated '#RRGGBB #RRGGBB ...' for a multi-colour (gradient/dual) filament.")] = None,
         td: Annotated[float | None, Field(description="HueForge-style transmission distance in mm (0 = unknown, 0..50). Used by the colour mixing engine to predict translucent filaments; stored in OrcaSlicer's settings, not in the project.")] = None,
     ) -> dict:
-        """Change a filament's colour, multi-colour fields and/or the TD the mixing engine uses."""
-        body = {k: v for k, v in {"colour": colour, "multi_colour": multi_colour, "td": td}.items() if v is not None}
+        """Change a filament slot's preset, colour, multi-colour fields and/or the TD the mixing engine uses."""
+        body = {k: v for k, v in {"preset": preset, "colour": colour, "multi_colour": multi_colour, "td": td}.items() if v is not None}
         return await _call("PUT", f"filaments/{slot}", body)
 
     @mcp.tool()

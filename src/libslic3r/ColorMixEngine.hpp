@@ -89,6 +89,9 @@ struct Filament {
     // Opacity of one stripe of the mix when td_mm is unknown, in [0, 1]. 1 = opaque.
     double      opacity{1.0};
     std::string name;
+    // Filament type (PLA, PETG ...). The slicer refuses a mix whose components differ in type, so the
+    // solver only pairs filaments of the same type; empty = unknown, pairs with anything.
+    std::string type;
 };
 
 // Default opacity for a filament from its type/name ("translucent", "transparent", "clear",
