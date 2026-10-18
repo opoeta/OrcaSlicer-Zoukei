@@ -454,6 +454,10 @@ json start_calibration(const std::string &kind, const json &body)
         p->new_project(true, false);   // no prompt; the calibration then starts from a clean project
         if (project_dirty(p))
             zk::fail("unsaved_changes", "modified presets are still pending; save or discard them in the window first");
+    } else if (!p->model().objects.empty()) {
+        // Plater::calib_*() call new_project(false, ...), which asks "replace the current project?" in a modal
+        // dialog nothing can answer from here. The project is clean (saved or empty), so replace it silently.
+        p->new_project(true, false);
     }
 
     BOOST_LOG_TRIVIAL(info) << "RemoteAPI calibration start: " << kind;
