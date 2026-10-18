@@ -966,6 +966,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/GeneratedConfig.hpp.in
                ${CMAKE_CURRENT_BINARY_DIR}/GeneratedConfig.hpp
                @ONLY)
 
+# Orca Zoukei: the fork's own GUI code (Remote API, printer panels and agents, colour mixing, setting tip
+# cards, NeotkoCM ports) builds into libslic3r_gui_zoukei. Inside libslic3r_gui it pushes the static library
+# past MSVC's 4 GB archive limit. New Zoukei GUI files go under GUI/Zoukei/ or match the pattern below.
+set(SLIC3R_GUI_ZOUKEI_SOURCES ${SLIC3R_GUI_SOURCES})
+list(FILTER SLIC3R_GUI_ZOUKEI_SOURCES INCLUDE REGEX
+    "^(GUI/RemoteAPI/|GUI/Zoukei/|GUI/Creality|GUI/Flashforge|GUI/Snapmaker|GUI/Spoolman|GUI/ColorMix|GUI/ColorDecompose|GUI/ParamTipCard|GUI/GCodeReprocessor|GUI/TextureImport|GUI/Gizmos/GLGizmo(AlignStack|PrecisionALH|HeightAdaptiveEffects|Neotko)|Utils/Creality|Utils/Flashforge|Utils/Snapmaker|Utils/Spoolman)")
+list(REMOVE_ITEM SLIC3R_GUI_SOURCES ${SLIC3R_GUI_ZOUKEI_SOURCES})
+
 if (WIN32)
     add_library(libslic3r_gui STATIC
         ${SLIC3R_GUI_SOURCES}
@@ -1018,7 +1026,18 @@ target_include_directories(libslic3r_creality_net PRIVATE Utils ${CMAKE_CURRENT_
 target_link_libraries(libslic3r_creality_net libslic3r ${wxWidgets_LIBRARIES} libcurl OpenSSL::SSL OpenSSL::Crypto)
 set_property(TARGET libslic3r_creality_net PROPERTY FOLDER "slic3r")
 
-target_link_libraries(libslic3r_gui libslic3r libslic3r_creality_net cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
+add_library(libslic3r_gui_zoukei STATIC ${SLIC3R_GUI_ZOUKEI_SOURCES})
+target_include_directories(libslic3r_gui_zoukei PRIVATE Utils ${CMAKE_CURRENT_BINARY_DIR})
+if (WIN32)
+    target_include_directories(libslic3r_gui_zoukei SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/WebView2/include)
+endif()
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SLIC3R_GUI_ZOUKEI_SOURCES})
+add_dependencies(libslic3r_gui_zoukei git_commit_hash_header)
+# Same dependencies as libslic3r_gui (minus libslic3r_gui itself: the linker resolves the two archives together).
+target_link_libraries(libslic3r_gui_zoukei libslic3r libslic3r_creality_net cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
+set_property(TARGET libslic3r_gui_zoukei PROPERTY FOLDER "slic3r")
+
+target_link_libraries(libslic3r_gui libslic3r libslic3r_creality_net libslic3r_gui_zoukei cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Linux finds wxWidgets in module mode, whose include dirs and definitions
@@ -1056,6 +1075,7 @@ if (SLIC3R_STATIC)
     # FIXME: This was previously exported by wx-config but the wxWidgets
     # cmake build forgets this and the build fails in debug mode (or on raspberry release)
     target_compile_definitions(libslic3r_gui PUBLIC -DwxDEBUG_LEVEL=0)
+    target_compile_definitions(libslic3r_gui_zoukei PUBLIC -DwxDEBUG_LEVEL=0)
 endif()
 
 if (SPNAV_LIB)
@@ -1068,9 +1088,11 @@ endif ()
 
 if (SLIC3R_PCH AND NOT SLIC3R_SYNTAXONLY)
     add_precompiled_header(libslic3r_gui pchheader.hpp FORCEINCLUDE)
+    add_precompiled_header(libslic3r_gui_zoukei pchheader.hpp FORCEINCLUDE)
 elseif (MSVC)
     # Puts the Windows headers first when the PCH is off.
     target_compile_options(libslic3r_gui PRIVATE "/FIslic3r/win_platform.hpp")
+    target_compile_options(libslic3r_gui_zoukei PRIVATE "/FIslic3r/win_platform.hpp")
 endif ()
 
 if (APPLE)
