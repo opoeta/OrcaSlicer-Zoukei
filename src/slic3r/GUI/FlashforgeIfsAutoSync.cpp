@@ -272,7 +272,9 @@ void FlashforgeIfsAutoSync::check_printer_changes(const std::shared_ptr<Flashfor
         return;
     }
     const std::string auto_apply = wxGetApp().app_config->get("flashforge_apply_printer_changes");
-    for (const auto& [port, sig] : now) {
+    for (const auto& port_sig : now) {
+        const int   port = port_sig.first;
+        const auto& sig  = port_sig.second;
         if (m_printer_last[port] == sig)
             continue;
         m_printer_last[port] = sig;

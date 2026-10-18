@@ -991,7 +991,7 @@ bool FlashforgePrinterAgent::write_lane_data(const std::string& base_url, const 
     // colour or material outranks every later firmware reading, so the screen kept the old slot until a reboot).
     for (auto it = rec.begin(); it != rec.end();) {
         const std::string k = it.key();
-        if (k.rfind("helix_", 0) == 0 && k != "helix_spoolman_filament_id" || k == "vendor" || k == "spool_name" || k == "scan_time")
+        if ((k.rfind("helix_", 0) == 0 && k != "helix_spoolman_filament_id") || k == "vendor" || k == "spool_name" || k == "scan_time")
             it = rec.erase(it);
         else
             ++it;

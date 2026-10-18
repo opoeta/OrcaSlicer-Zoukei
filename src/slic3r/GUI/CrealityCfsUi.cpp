@@ -808,7 +808,7 @@ Badge::Badge(wxWindow* parent, int idx, wxWindow* colour_btn) : wxPanel(parent, 
             wxTheApp->CallAfter(edit_colour);
             return;
         }
-        auto* p = new Picker(this, m_idx, current_entries(), [this] {
+        auto* p = new Picker(this, m_idx, current_entries(), [] {
             for (Badge* b : s_badges)
                 b->Refresh();
             if (s_watcher != nullptr)

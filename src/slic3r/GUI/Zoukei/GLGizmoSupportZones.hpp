@@ -276,7 +276,6 @@ private:
     bool      m_hover_model_past   = false;
     Vec2d     m_hover_model_centre { Vec2d::Zero() };
     int       m_hover_model_key    = -1;
-    size_t    m_hover_model_stamps = size_t(-1);
     GLModel   m_target_model;
     int       m_target_model_facet = -1;
     int       m_target_model_key   = -1;

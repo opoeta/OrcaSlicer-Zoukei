@@ -744,7 +744,9 @@ endif ()
 set_source_files_properties(
     TextureToColor/ColorUtils.cpp
     TextureToColor/TextureToColor.cpp
-    PROPERTIES COMPILE_DEFINITIONS CGAL_LINKED_WITH_TBB)
+    PROPERTIES COMPILE_DEFINITIONS CGAL_LINKED_WITH_TBB
+               # the macro differs from the precompiled header's: clang-cl rejects that (-Wclang-cl-pch)
+               SKIP_PRECOMPILE_HEADERS ON)
 
 encoding_check(libslic3r)
 

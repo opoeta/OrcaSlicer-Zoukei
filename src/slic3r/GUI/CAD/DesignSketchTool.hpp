@@ -32,7 +32,7 @@ class GLVolumeCollection;
 namespace GUI {
 
 class GLCanvas3D;
-class Camera;     // fwd — move_gizmo_arm() sizes the gizmo from the current zoom
+struct Camera;    // fwd — move_gizmo_arm() sizes the gizmo from the current zoom
 
 // Onshape-style sketch session. `begin` enters a session on a plane; the active
 // drawing tool (Mode) can be switched mid-session via `set_tool` while entities

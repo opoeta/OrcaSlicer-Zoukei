@@ -128,7 +128,6 @@ public:
     SpoolDialog(wxWindow* parent, int filament_idx, int current_id, int slot_spool_id)
         : wxDialog(parent, wxID_ANY, wxString::Format(_L("Spoolman spool for filament %d"), filament_idx + 1), wxDefaultPosition, wxDefaultSize,
                    wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
-        , m_idx(filament_idx)
         , m_current(current_id)
         , m_slot_spool(slot_spool_id)
     {
@@ -332,7 +331,6 @@ private:
         return 0;
     }
 
-    int                                m_idx;
     int                                m_current;
     int                                m_slot_spool;
     bool                               m_default_used{false};

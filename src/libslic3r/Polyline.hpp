@@ -294,7 +294,7 @@ inline ThickPolylines to_thick_polylines(Polylines&& polylines, const coordf_t w
     return out;
 }
 
-class Polyline3 : public MultiPoint3
+class Polyline3 final : public MultiPoint3
 {
 public:
     Polyline3() {}

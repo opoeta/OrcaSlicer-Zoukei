@@ -262,7 +262,7 @@ static nlohmann::json config_to_json(const DynamicPrintConfig &cfg,
 
 Response Controller::handle_status()
 {
-    nlohmann::json j = run_on_ui([this]() -> nlohmann::json {
+    nlohmann::json j = run_on_ui([]() -> nlohmann::json {
         auto *bundle = wxGetApp().preset_bundle;
         auto *plater = wxGetApp().plater();
 
@@ -502,7 +502,7 @@ static std::string numeric_list_error(const std::string &s)
         tok                = (b == std::string::npos) ? std::string() : tok.substr(b, e - b + 1);
         try {
             size_t pos = 0;
-            std::stod(tok, &pos);
+            (void) std::stod(tok, &pos);
             if (pos != tok.size())
                 throw std::invalid_argument("trailing characters");
         } catch (const std::exception &) {

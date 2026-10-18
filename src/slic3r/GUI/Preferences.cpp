@@ -1325,7 +1325,7 @@ wxBoxSizer* PreferencesDialog::create_item_spoolman(wxString title, wxString too
             }
         });
     });
-    detect_btn->Bind(wxEVT_BUTTON, [save, weak_status, weak_input](wxCommandEvent&) {
+    detect_btn->Bind(wxEVT_BUTTON, [weak_status, weak_input](wxCommandEvent&) {
         weak_status->SetLabel(_L("Looking for a Moonraker printer with Spoolman..."));
         SpoolmanUi::detect_url_async([weak_status, weak_input](const std::string& url) {
             if (!weak_status)
