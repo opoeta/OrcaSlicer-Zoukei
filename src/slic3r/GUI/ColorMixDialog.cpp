@@ -21,6 +21,7 @@
 #include "Tab.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/ColorDecomposeRecipe.hpp"
+#include "libslic3r/FilamentMixer.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
@@ -333,6 +334,38 @@ ColorMix::Method ColorMixDialog::method() const
     if (sel == 2) return ColorMix::Method::SubLayers;
     return ColorMix::choose_method(current_printer());
 }
+
+// Mixed filament swatches use the engine's prediction model (optical or pigment, as chosen in this
+// dialog), so the colour shown for a mix is the one the solver matched against the target.
+static std::string engine_mixed_display_color(const std::vector<std::string> &hexes, const std::vector<int> &weights)
+{
+    AppConfig *cfg = wxTheApp != nullptr ? wxGetApp().app_config : nullptr;
+    if (cfg == nullptr || wxGetApp().preset_bundle == nullptr)
+        return blend_color_multi(hexes, weights);
+    ColorMix::ModelParams mp;
+    mp.model = ColorMix::model_from_key(cfg->get(kSection, "model"));
+    if (mp.model == ColorMix::Model::Pigment)
+        return blend_color_multi(hexes, weights);
+    ColorMix::Method m = ColorMix::method_from_key(cfg->get(kSection, "method"));
+    mp.method = m == ColorMix::Method::Auto ? ColorMix::choose_method(ColorMixDialog::current_printer()) : m;
+    if (const auto *lh = wxGetApp().preset_bundle->prints.get_edited_preset().config.option<ConfigOptionFloat>("layer_height"))
+        mp.layer_height = lh->value;
+    std::vector<ColorMix::Filament> palette;
+    ColorMix::Recipe                r;
+    for (size_t i = 0; i < hexes.size(); ++i) {
+        ColorMix::Filament f;
+        if (!ColorMix::rgb_from_hex(hexes[i], f.color))
+            return blend_color_multi(hexes, weights);
+        // TD is saved per filament name, which a bare colour list does not carry: opacity only.
+        f.opacity = ColorMix::default_opacity("", "", hex_alpha(hexes[i]));
+        palette.push_back(f);
+        r.components.push_back(int(i));
+        r.weights.push_back(std::max(0, weights[i]));
+    }
+    return ColorMix::rgb_to_hex(ColorMix::predict(palette, r, mp));
+}
+
+static const bool s_engine_display_installed = (set_mixed_display_color_fn(&engine_mixed_display_color), true);
 
 std::vector<ColorMix::Filament> ColorMixDialog::palette() const
 {

@@ -4467,7 +4467,7 @@ static std::string blend_mixed_color(const std::vector<unsigned int> &comp_ids,
     hex_colors.reserve(comp_ids.size());
     for (unsigned int id : comp_ids)
         hex_colors.push_back((id >= 1 && id <= color_strs.size()) ? color_strs[id - 1] : "#808080");
-    return Slic3r::blend_color_multi(hex_colors, ratios);
+    return Slic3r::mixed_display_color(hex_colors, ratios);
 }
 
 void Sidebar::update_mixed_filament_list()

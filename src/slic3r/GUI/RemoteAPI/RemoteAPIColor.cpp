@@ -158,13 +158,13 @@ json recipe_json(const std::vector<unsigned> &comps, const std::vector<double> &
     return {{"components", c}, {"percentages", r}};
 }
 
-// Predicted colour of a slot recipe with the engine (pigment model), components are 1-based physical numbers.
+// Predicted colour of a slot recipe with the engine (the model chosen in the colour mix dialog), components are 1-based physical numbers.
 std::string predict_hex(const PhysInfo &p, const std::vector<unsigned> &comps, const std::vector<int> &pct)
 {
     std::vector<std::string> hexes;
     for (unsigned c : comps)
         hexes.push_back(c >= 1 && c <= p.color.size() ? p.color[c - 1] : "#808080");
-    return blend_color_multi(hexes, pct);
+    return mixed_display_color(hexes, pct);
 }
 
 json slot_json(const PhysInfo &p, size_t i)

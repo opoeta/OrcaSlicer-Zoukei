@@ -112,7 +112,7 @@ wxColour blend_n_colors(const std::vector<wxColour>& cols, const std::vector<dou
         // only relative magnitude matters.
         int_weights.push_back(static_cast<int>(std::lround(weights[i] * 10000.0)));
     }
-    wxColour blended(Slic3r::blend_color_multi(hex_colors, int_weights));
+    wxColour blended(Slic3r::mixed_display_color(hex_colors, int_weights));
     return blended.IsOk() ? blended : wxColour(128, 128, 128);
 }
 
@@ -505,7 +505,7 @@ void recompute_mixed_slot_colors(std::vector<wxColour>& colors,
         }
         if (any_invalid) { colors[i] = kFallback; continue; }
 
-        std::string hex = Slic3r::blend_color_multi(hex_colors, weights);
+        std::string hex = Slic3r::mixed_display_color(hex_colors, weights);
         wxColour blended(hex);
         if (!blended.IsOk()) blended = kFallback;
         colors[i] = wxColour(blended.Red(), blended.Green(), blended.Blue(), 255);

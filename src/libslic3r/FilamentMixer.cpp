@@ -121,6 +121,17 @@ std::string blend_color(const std::string& hex_a, const std::string& hex_b, floa
     return std::string(buf);
 }
 
+static MixedDisplayColorFn s_mixed_display_color_fn = nullptr;
+
+void set_mixed_display_color_fn(MixedDisplayColorFn fn) { s_mixed_display_color_fn = fn; }
+
+std::string mixed_display_color(const std::vector<std::string> &hex_colors, const std::vector<int> &weights)
+{
+    if (s_mixed_display_color_fn != nullptr && hex_colors.size() >= 2 && hex_colors.size() == weights.size())
+        return s_mixed_display_color_fn(hex_colors, weights);
+    return blend_color_multi(hex_colors, weights);
+}
+
 std::string blend_color_multi(const std::vector<std::string> &hex_colors,
                               const std::vector<int> &weights)
 {

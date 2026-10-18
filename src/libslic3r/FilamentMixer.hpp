@@ -88,6 +88,13 @@ std::string blend_color(const std::string& hex_a, const std::string& hex_b, floa
 std::string blend_color_multi(const std::vector<std::string> &hex_colors,
                               const std::vector<int> &weights);
 
+// The colour a mixed filament is shown with (sidebar, 3D view, chips, Remote API). It is
+// blend_color_multi() unless the GUI installed the colour-mixing engine's prediction model, so
+// the swatch shows the colour the solver picked the mix for.
+using MixedDisplayColorFn = std::string (*)(const std::vector<std::string> &hex_colors, const std::vector<int> &weights);
+void        set_mixed_display_color_fn(MixedDisplayColorFn fn);
+std::string mixed_display_color(const std::vector<std::string> &hex_colors, const std::vector<int> &weights);
+
 // Parse comma-separated 1-based component IDs, e.g. "1,3" → {1, 3}.
 std::vector<unsigned int> parse_mixed_components(const std::string &str);
 
