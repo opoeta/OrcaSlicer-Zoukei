@@ -1286,6 +1286,16 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
     const bool has_wall_bump = config->opt_bool("bump_wall_enabled");
     for (auto el : {"bump_wall_image", "bump_wall_thickness", "bump_wall_scale", "bump_wall_repeat", "bump_wall_projection", "bump_wall_point_distance", "bump_wall_max_angle"})
         toggle_line(el, has_wall_bump);
+    // NeoArachne Hybrid v2 / NeoStitch Interlock / NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): details only while the feature is on.
+    const bool has_neoarachne = config->opt_bool("neoarachne_hybrid");
+    for (auto el : {"neoarachne_overlap_pct", "neoarachne_min_bead_pct", "neoarachne_max_bead_pct"})
+        toggle_line(el, has_neoarachne);
+    const bool has_neostitch = config->opt_enum<NeoStitchTarget>("neostitch") != NeoStitchTarget::Disabled;
+    for (auto el : {"neostitch_depth", "neostitch_flat_length", "neostitch_ramp_length", "neostitch_period", "neostitch_flow", "neostitch_skip_layers", "neostitch_fill_margin"})
+        toggle_line(el, has_neostitch);
+    const bool has_neowave = config->opt_bool("neowave_roof");
+    for (auto el : {"neowave_roof_shape", "neowave_roof_order", "neowave_roof_reverse"})
+        toggle_line(el, has_neowave);
     const bool has_zbump = config->opt_bool("zbump_enabled");
     for (auto el : {"zbump_image", "zbump_height", "zbump_scale", "zbump_repeat", "zbump_offset_x", "zbump_offset_y", "zbump_edge_margin", "zbump_max_slope", "zbump_segment"})
         toggle_line(el, has_zbump);

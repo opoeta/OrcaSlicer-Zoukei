@@ -3194,6 +3194,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 return false;
             if (!model_volume1.fuzzy_skin_facets.equals(model_volume2.fuzzy_skin_facets))
                 return false;
+            // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): painted recipes change the fills.
+            if (!model_volume1.colorstitch_paint_facets.equals(model_volume2.colorstitch_paint_facets) ||
+                model_volume1.colorstitch_slot_to_profile_id != model_volume2.colorstitch_slot_to_profile_id)
+                return false;
             if (model_volume1.config.get() != model_volume2.config.get())
                 return false;
         }

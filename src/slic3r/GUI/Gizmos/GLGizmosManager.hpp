@@ -106,6 +106,7 @@ public:
         HeightAdaptiveEffects, // ported from OrcaFS-NeotkoCM (Neotko)
         AlignStack, // ported from OrcaFS-NeotkoCM (Neotko)
         SupportZones, // ported from OrcaFS-NeotkoCM (Neotko)
+        ColorStitchPainter, // ported from OrcaFS-NeotkoCM (Neotko)
         //SlaSupports,
         // BBS
         //FaceRecognition,

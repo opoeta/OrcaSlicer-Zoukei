@@ -37,6 +37,17 @@ public:
     int     wall_distribution_count          = 1;
     bool    is_top_or_bottom_layer           = false;
 
+    // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko). Every default keeps stock Arachne.
+    // keep_short_tails: skip removeSmallLines() so closure tails next to the classic outer wall survive.
+    bool    keep_short_tails                 = false;
+    // Wrap the beading chain with NeoArachne::NeoArachneBeadingStrategy (cap inner widening, pin outer, hysteresis).
+    bool    neoarachne_enabled               = false;
+    bool    neoarachne_pin_outer             = false;
+    bool    neoarachne_cap_widening          = false;
+    double  neoarachne_hysteresis_pct        = 0.0;
+    // Upper cap of a single bead in % of the nozzle (100..200). 0 = stock auto derivation.
+    float   max_bead_width_pct               = 0.f;
+
     coord_t wall_maximum_resolution = meshfix_maximum_resolution();
     coord_t wall_maximum_deviation  = meshfix_maximum_deviation();
 };

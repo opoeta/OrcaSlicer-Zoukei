@@ -450,6 +450,28 @@ static t_config_enum_values s_keys_map_PathBlendMode{
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(PathBlendMode)
 
+static t_config_enum_values s_keys_map_NeoStitchTarget {
+    { "disabled",  int(NeoStitchTarget::Disabled) },
+    { "outermost", int(NeoStitchTarget::Outermost) },
+    { "second",    int(NeoStitchTarget::SecondWall) },
+    { "third",     int(NeoStitchTarget::ThirdWall) },
+    { "innermost", int(NeoStitchTarget::Innermost) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NeoStitchTarget)
+
+static t_config_enum_values s_keys_map_NeoWaveRoofShape {
+    { "concentric", int(NeoWaveRoofShape::Concentric) },
+    { "wave",       int(NeoWaveRoofShape::Wave) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NeoWaveRoofShape)
+
+static t_config_enum_values s_keys_map_NeoWaveRoofOrder {
+    { "smart",     int(NeoWaveRoofOrder::Smart) },
+    { "zigzag",    int(NeoWaveRoofOrder::ZigZag) },
+    { "monotonic", int(NeoWaveRoofOrder::Monotonic) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NeoWaveRoofOrder)
+
 //BBS
 static t_config_enum_values s_keys_map_PrintSequence {
     { "by layer",     int(PrintSequence::ByLayer) },
@@ -5104,6 +5126,177 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Advanced: PathBlend settings as JSON, in the format of OrcaFS-NeotkoCM (start and end zones, period). When set it replaces the PathBlend settings.");
     def->mode = comDevelop;
     def->set_default_value(new ConfigOptionString(""));
+
+    // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko).
+    def = this->add("neoarachne_hybrid", coBool);
+    def->label = L("NeoArachne hybrid walls");
+    def->category = L("Quality");
+    def->tooltip = L("Experimental (ported from OrcaFS-NeotkoCM by Neotko). The classic generator prints only the outer wall and Arachne fills the interior: "
+                     "fixed-width inner beads plus integrated gap fill. Replaces the wall generator while on; spiral vase mode keeps its own. Off by default.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neoarachne_overlap_pct", coPercent);
+    def->label = L("NeoArachne outer overlap");
+    def->category = L("Quality");
+    def->tooltip = L("How much the first Arachne bead may overlap the classic outer wall. Raise to 5-15% only if a seam shows; high values blob.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(0));
+
+    def = this->add("neoarachne_min_bead_pct", coPercent);
+    def->label = L("NeoArachne minimum line width");
+    def->category = L("Quality");
+    def->tooltip = L("Thinnest bead the Arachne interior emits, in % of the nozzle diameter. Higher widens thin features (blob risk); 30-50% is recommended.");
+    def->sidetext = L("%");
+    def->min = 5;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(40));
+
+    def = this->add("neoarachne_max_bead_pct", coPercent);
+    def->label = L("NeoArachne maximum line width");
+    def->category = L("Quality");
+    def->tooltip = L("Ceiling of a single Arachne bead in % of the nozzle diameter. Lower (130-150%) gives more, narrower beads.");
+    def->sidetext = L("%");
+    def->min = 100;
+    def->max = 200;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(200));
+
+    // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko).
+    def = this->add("neostitch", coEnum);
+    def->label = L("NeoStitch interlock");
+    def->category = L("Strength");
+    def->tooltip = L("Experimental, untested in print upstream (ported from OrcaFS-NeotkoCM by Neotko). Interlocks consecutive layers of one wall without moving Z: "
+                     "along the wall each layer alternates notch segments (the wall deflects inward) and fill segments (the wall widens to plug the notch of the layer below), "
+                     "and the pattern flips every layer. Arachne walls only; skipped where fuzzy skin or bump mapping already works on the same wall.");
+    def->enum_keys_map = &ConfigOptionEnum<NeoStitchTarget>::get_enum_values();
+    def->enum_values.push_back("disabled");
+    def->enum_values.push_back("outermost");
+    def->enum_values.push_back("second");
+    def->enum_values.push_back("third");
+    def->enum_values.push_back("innermost");
+    def->enum_labels.push_back(L("Disabled"));
+    def->enum_labels.push_back(L("Outermost wall"));
+    def->enum_labels.push_back(L("Second wall"));
+    def->enum_labels.push_back(L("Third wall"));
+    def->enum_labels.push_back(L("Innermost wall"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<NeoStitchTarget>(NeoStitchTarget::Disabled));
+
+    def = this->add("neostitch_depth", coFloat);
+    def->label = L("Stitch depth");
+    def->category = L("Strength");
+    def->tooltip = L("How far a notch deflects the wall inward. 0 = automatic (the line width of the wall).");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
+    def = this->add("neostitch_flat_length", coFloat);
+    def->label = L("Stitch length");
+    def->category = L("Strength");
+    def->tooltip = L("Length of the flat plateau of each notch or fill segment.");
+    def->sidetext = L("mm");
+    def->min = 0.2;
+    def->max = 50;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(3.0));
+
+    def = this->add("neostitch_ramp_length", coFloat);
+    def->label = L("Stitch ramp length");
+    def->category = L("Strength");
+    def->tooltip = L("Length of the ramp into and out of each segment; it also smooths the change of pressure and flow.");
+    def->sidetext = L("mm");
+    def->min = 0.1;
+    def->max = 20;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
+    def = this->add("neostitch_period", coFloat);
+    def->label = L("Stitch period");
+    def->category = L("Strength");
+    def->tooltip = L("Distance between two notch / fill events along the wall.");
+    def->sidetext = L("mm");
+    def->min = 1;
+    def->max = 200;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10.0));
+
+    def = this->add("neostitch_flow", coPercent);
+    def->label = L("Stitch flow");
+    def->category = L("Strength");
+    def->tooltip = L("Scales the extra extrusion of the fill segments. 100% conserves the volume of the notch it plugs.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 200;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(100));
+
+    def = this->add("neostitch_skip_layers", coInt);
+    def->label = L("Stitch skip bottom layers");
+    def->category = L("Strength");
+    def->tooltip = L("Layers to skip above the first layer of the object before the interlock starts.");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(3));
+
+    def = this->add("neostitch_fill_margin", coFloat);
+    def->label = L("Stitch fill margin");
+    def->category = L("Strength");
+    def->tooltip = L("Shrinks each fill segment by this much per side against the notch it plugs, so the extra material lands inside the gap instead of bridging across it.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
+    // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko; wave-front algorithm by Janis A. Andersons).
+    def = this->add("neowave_roof", coBool);
+    def->label = L("NeoWave roof");
+    def->category = L("Support");
+    def->tooltip = L("Experimental (ported from OrcaFS-NeotkoCM by Neotko). Fills the top interface layers of the supports with a Wave-Huygens front pattern: long continuous "
+                     "paths that diffract around concavities instead of straight parallel lines. Off by default; the supports keep the interface pattern you chose.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neowave_roof_shape", coEnum);
+    def->label = L("NeoWave roof shape");
+    def->category = L("Support");
+    def->tooltip = L("Concentric collapses nested rings inward from the roof boundary. Wave sweeps open arcs across the region from one edge. Upstream prints show Wave closing cleanly where Concentric does not.");
+    def->enum_keys_map = &ConfigOptionEnum<NeoWaveRoofShape>::get_enum_values();
+    def->enum_values.push_back("concentric");
+    def->enum_values.push_back("wave");
+    def->enum_labels.push_back(L("Concentric"));
+    def->enum_labels.push_back(L("Wave"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<NeoWaveRoofShape>(NeoWaveRoofShape::Wave));
+
+    def = this->add("neowave_roof_order", coEnum);
+    def->label = L("NeoWave roof order");
+    def->category = L("Support");
+    def->tooltip = L("Print order of the same fronts. Smart hooks each front onto what is already printed (fewest long travels); ZigZag chains the fronts into one continuous path; Monotonic keeps every front separate.");
+    def->enum_keys_map = &ConfigOptionEnum<NeoWaveRoofOrder>::get_enum_values();
+    def->enum_values.push_back("smart");
+    def->enum_values.push_back("zigzag");
+    def->enum_values.push_back("monotonic");
+    def->enum_labels.push_back(L("Smart"));
+    def->enum_labels.push_back(L("ZigZag"));
+    def->enum_labels.push_back(L("Monotonic"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<NeoWaveRoofOrder>(NeoWaveRoofOrder::Smart));
+
+    def = this->add("neowave_roof_reverse", coBool);
+    def->label = L("Reverse NeoWave roof order");
+    def->category = L("Support");
+    def->tooltip = L("Flips the edge (Wave) or the ring (Concentric) the roof fill starts from.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     // BBS
     def = this->add("enable_arc_fitting", coBool);

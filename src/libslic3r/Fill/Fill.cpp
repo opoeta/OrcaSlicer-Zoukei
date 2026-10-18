@@ -1557,6 +1557,10 @@ void Layer::make_fills(const FillAdaptive::RegionOctrees* fill_octrees, FillLigh
 		// (used for the per-region speed/fan overrides at G-code emission).
 		auto &dst_entities = m_regions[surface_fill.region_id]->fills.entities;
 		const size_t wo_floor_dst_size_before = dst_entities.size();
+		// ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): a painted top surface is cut by recipe, one id per
+		// piece in painted_recipe (0 = unpainted). Stays empty, and the pieces untouched, without paint.
+		std::vector<int> painted_recipe;
+		sandwich_split_painted(*this, surface_fill.surface, params, surface_fill.expolygons, painted_recipe);
 		for (ExPolygon& expoly : surface_fill.expolygons) {
 
             // Orca: Reuse the body box and octree used for bridge anchoring, resetting them for each surface.
@@ -1592,7 +1596,8 @@ void Layer::make_fills(const FillAdaptive::RegionOctrees* fill_octrees, FillLigh
             // Sandwich (ported from OrcaFS-NeotkoCM, Neotko): a top surface of a region with a pass
             // stack becomes thin sub-layers printed after the layer body, so it is not filled here.
             // False for every region with the feature off.
-            if (sandwich_fill_surface(*this, *layerm, *f, params, surface_fill.surface))
+            if (sandwich_fill_surface(*this, *layerm, *f, params, surface_fill.surface,
+                    painted_recipe.empty() ? 0 : painted_recipe[size_t(&expoly - surface_fill.expolygons.data())]))
                 continue;
             // make fill
             const size_t zbump_first_entity = dst_entities.size();

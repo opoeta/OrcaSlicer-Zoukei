@@ -31,7 +31,13 @@ public:
         coord_t max_bead_count = 0,
         coord_t outer_wall_offset = 0,
         int inward_distributed_center_wall_count = 2,
-        double minimum_variable_line_width = 0.5
+        double minimum_variable_line_width = 0.5,
+        // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): wrap the chain (before the Limited
+        // strategy) with NeoArachneBeadingStrategy. Defaults keep stock behaviour.
+        bool   neoarachne_enabled = false,
+        bool   neoarachne_pin_outer = false,
+        bool   neoarachne_cap_widening = false,
+        double neoarachne_hysteresis_pct = 0.0
     );
 };
 

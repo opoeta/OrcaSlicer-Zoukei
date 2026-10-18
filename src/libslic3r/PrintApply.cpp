@@ -10,6 +10,7 @@
 #include "BeltTransform.hpp"
 #include "Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Gravity::active()
 #include "InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
+#include "ColorStitchPaint.hpp" // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
 #include "FilamentMixer.hpp"
 #include "Slicing.hpp"
 #include "libslic3r.h"
@@ -121,6 +122,10 @@ static inline void model_volume_list_copy_configs(ModelObject &model_object_dst,
         mv_dst.mmu_segmentation_facets.assign(mv_src.mmu_segmentation_facets);
         assert(mv_dst.fuzzy_skin_facets.id() == mv_src.fuzzy_skin_facets.id());
         mv_dst.fuzzy_skin_facets.assign(mv_src.fuzzy_skin_facets);
+        // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko).
+        mv_dst.colorstitch_paint_facets.assign(mv_src.colorstitch_paint_facets);
+        mv_dst.colorstitch_slot_to_profile_id   = mv_src.colorstitch_slot_to_profile_id;
+        mv_dst.colorstitch_profiles_fingerprint = mv_src.colorstitch_profiles_fingerprint;
         //FIXME what to do with the materials?
         // mv_dst.m_material_id = mv_src.m_material_id;
         ++ i_src;
@@ -1743,6 +1748,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         assert(model_object_status.status == ModelObjectStatus::Old || model_object_status.status == ModelObjectStatus::Moved);
         // Check whether a model part volume was added or removed, their transformations or order changed.
         // Only volume IDs, volume types, transformation matrices and their order are checked, configuration and other parameters are NOT checked.
+        // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): also refreshes the recipe fingerprint cached on the new volumes.
+        const bool colorstitch_paint_differ = model_colorstitch_paint_data_changed(model_object, model_object_new);
         bool solid_or_modifier_differ   = model_volume_list_changed(model_object, model_object_new, solid_or_modifier_types) ||
                                           model_mmu_segmentation_data_changed(model_object, model_object_new) ||
                                           (model_object_new.is_mm_painted() && num_extruders_changed) ||
@@ -1811,6 +1818,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 model_object.brim_points = model_object_new.brim_points;
                 update_apply_status(this->invalidate_all_steps());
             }
+            // ColorStitch Painter: painted recipes only change the top surface fills (copied below with the volumes).
+            if (colorstitch_paint_differ)
+                for (const PrintObjectStatus &print_object_status : print_objects_range)
+                    update_apply_status(print_object_status.print_object->invalidate_step(posInfill));
         }
         if (! solid_or_modifier_differ) {
             // Synchronize Object's config.

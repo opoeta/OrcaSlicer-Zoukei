@@ -155,6 +155,14 @@ set(lisbslic3r_sources
     Feature/FuzzySkin/FuzzySkin.hpp
     Feature/BumpMapping/BumpMapping.cpp
     Feature/BumpMapping/BumpMapping.hpp
+    Feature/NeoStitch/NeoStitch.cpp
+    Feature/NeoStitch/NeoStitch.hpp
+    NeoArachne/NeoArachneBeadingStrategy.cpp
+    NeoArachne/NeoArachneBeadingStrategy.hpp
+    NeoArachne/NeoArachneHybrid.cpp
+    NeoArachne/NeoArachneHybrid.hpp
+    Fill/FillWaveRoof.cpp
+    Fill/FillWaveRoof.hpp
     # Ported from OrcaFS-NeotkoCM (Neotko): Gravity / True Objects (Libre Mode)
     Feature/Gravity/GravityDebug.hpp
     Feature/Gravity/GravityFloor.cpp
@@ -227,6 +235,8 @@ set(lisbslic3r_sources
     # Ported from OrcaFS-NeotkoCM (Neotko): Sandwich / ColorStitch / PathBlend / NeoTower
     ColorStitch.cpp
     ColorStitch.hpp
+    ColorStitchPaint.cpp
+    ColorStitchPaint.hpp
     Fill/FillSandwich.cpp
     Fill/FillSandwich.hpp
     GCode/SandwichEmit.cpp

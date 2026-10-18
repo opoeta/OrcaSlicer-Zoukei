@@ -2038,6 +2038,8 @@ void ModelObject::convert_units(ModelObjectPtrs& new_objects, ConversionType con
             vol->seam_facets.assign(volume->seam_facets);
             vol->mmu_segmentation_facets.assign(volume->mmu_segmentation_facets);
             vol->fuzzy_skin_facets.assign(volume->fuzzy_skin_facets);
+            vol->colorstitch_paint_facets.assign(volume->colorstitch_paint_facets); // ColorStitch Painter
+            vol->colorstitch_slot_to_profile_id = volume->colorstitch_slot_to_profile_id;
 
             // Perform conversion only if the target "imperial" state is different from the current one.
             // This check supports conversion of "mixed" set of volumes, each with different "imperial" state.
@@ -2150,6 +2152,7 @@ void ModelVolume::reset_extra_facets()
     this->seam_facets.reset();
     this->mmu_segmentation_facets.reset();
     this->fuzzy_skin_facets.reset();
+    this->colorstitch_paint_facets.reset(); // ColorStitch Painter: not remapped across topology changes
     // Texture-displacement paint data has no remap-across-topology-change support yet (see
     // build_texture_displacement()'s documented limitation), so it must be dropped here rather
     // than left referring to a mesh that no longer matches it.
@@ -2314,6 +2317,8 @@ void ModelObject::split(ModelObjectPtrs* new_objects, const bool remap_paint)
                 COPY_FACETS(seam_facets);
                 COPY_FACETS(mmu_segmentation_facets);
                 COPY_FACETS(fuzzy_skin_facets);
+                COPY_FACETS(colorstitch_paint_facets); // ColorStitch Painter
+                new_vol->colorstitch_slot_to_profile_id = volume->colorstitch_slot_to_profile_id;
             } else if (saved_painting) {
                 // Geometry changed, attempt to remap them to the new mesh
                 new_vol->restore_painting(saved_painting);
@@ -3077,6 +3082,7 @@ void ModelVolume::assign_new_unique_ids_recursive()
     seam_facets.set_new_unique_id();
     mmu_segmentation_facets.set_new_unique_id();
     fuzzy_skin_facets.set_new_unique_id();
+    colorstitch_paint_facets.set_new_unique_id(); // ColorStitch Painter
     // As set_new_unique_id() already does: the undo/redo stack stores FacetsAnnotation contents keyed
     // by ObjectID, so a clone left sharing these ids with its source can be handed the source's mask
     // on an undo - after which a paint mask and the mesh it was recorded against no longer match.

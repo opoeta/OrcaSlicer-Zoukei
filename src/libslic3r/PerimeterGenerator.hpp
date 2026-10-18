@@ -124,6 +124,8 @@ public:
     std::optional<ExPolygons>                       fuzzy_supported_area;
     // Wall bump mapping (ported from OrcaFS-NeotkoCM, Neotko): per-object relief table, nullptr when off.
     const Feature::Bump::WallBumpTable*             wall_bump_table = nullptr;
+    // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): object centred bounds in mm, set only while the key is on.
+    BoundingBoxf3                                   neostitch_bounds;
     
 
     // Orca: 2D footprint of wave-overhang extrusions emitted by this generator

@@ -23,6 +23,7 @@
 #include "libslic3r/Config.hpp"
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/TextureDisplacement.hpp"
+#include "libslic3r/ColorStitchPaint.hpp" // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
 #include "libslic3r_version.h"
 
 #include "bbs_3mf.hpp"
@@ -856,6 +857,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             std::vector<std::string> custom_seam;
             std::vector<std::string> mmu_segmentation;
             std::vector<std::string> fuzzy_skin;
+            // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): stored like the texture masks below, only as
+            // far as the last painted triangle, so it stays empty for a file without that paint.
+            std::vector<std::string> colorstitch_paint;
             // One per texture displacement layer slot, indexed like `triangles` but stored only as far as the
             // slot's last painted triangle: empty when the slot has no paint, which is nearly every file.
             std::vector<std::string> texture_displacement[TEXTURE_DISPLACEMENT_MAX_LAYERS];
@@ -879,6 +883,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                colorstitch_paint.clear();
                 for (std::vector<std::string> &slot : texture_displacement)
                     slot.clear();
             }
@@ -4034,6 +4039,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             m_curr_object->geometry.custom_seam.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
             m_curr_object->geometry.mmu_segmentation.push_back(bbs_get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
             m_curr_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
+            if (const char *cs_paint = bbs_get_attribute_value_charptr(attributes, num_attributes, ColorStitchPaint::PaintAttr)) {
+                std::vector<std::string> &cs_mask = m_curr_object->geometry.colorstitch_paint; // ColorStitch Painter
+                cs_mask.resize(m_curr_object->geometry.triangles.size());
+                cs_mask.back() = cs_paint;
+            }
             for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
                 if (const char *paint = bbs_get_attribute_value_charptr(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot])) {
                     std::vector<std::string> &mask = m_curr_object->geometry.texture_displacement[slot];
@@ -5401,6 +5411,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     facets.shrink_to_fit();
                     facets.touch();
                 }
+                ColorStitchPaint::load_volume_paint(*volume, sub_object->geometry.colorstitch_paint, 0, triangles_count); // ColorStitch Painter
             }
 
             volume->set_type(volume_data->part_type);
@@ -5418,6 +5429,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->name = metadata.value;
                 else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
                     _apply_texture_displacement(*volume, metadata.value);
+                else if (metadata.key == ColorStitchPaint::SlotTableKey) // ColorStitch Painter
+                    volume->colorstitch_slot_to_profile_id = ColorStitchPaint::parse_slot_table(metadata.value);
                 //else if ((metadata.key == MODIFIER_KEY) && (metadata.value == "1"))
 				//	volume->set_type(ModelVolumeType::PARAMETER_MODIFIER);
 				//for old format
@@ -5596,6 +5609,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 facets.shrink_to_fit();
                 facets.touch();
             }
+            ColorStitchPaint::load_volume_paint(*volume, geometry.colorstitch_paint, volume_data.first_triangle_id, triangles_count); // ColorStitch Painter
             volume->set_type(volume_data.part_type);
 
             // apply the remaining volume's metadata
@@ -5604,6 +5618,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->name = metadata.value;
                 else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
                     _apply_texture_displacement(*volume, metadata.value);
+                else if (metadata.key == ColorStitchPaint::SlotTableKey) // ColorStitch Painter
+                    volume->colorstitch_slot_to_profile_id = ColorStitchPaint::parse_slot_table(metadata.value);
                 //else if ((metadata.key == MODIFIER_KEY) && (metadata.value == "1"))
 				//	volume->set_type(ModelVolumeType::PARAMETER_MODIFIER);
 				//for old format
@@ -5907,6 +5923,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             current_object->geometry.custom_seam.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
             current_object->geometry.mmu_segmentation.push_back(bbs_get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
             current_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
+            if (const char *cs_paint = bbs_get_attribute_value_charptr(attributes, num_attributes, ColorStitchPaint::PaintAttr)) {
+                std::vector<std::string> &cs_mask = current_object->geometry.colorstitch_paint; // ColorStitch Painter
+                cs_mask.resize(current_object->geometry.triangles.size());
+                cs_mask.back() = cs_paint;
+            }
             for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
                 if (const char *paint = bbs_get_attribute_value_charptr(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot])) {
                     std::vector<std::string> &mask = current_object->geometry.texture_displacement[slot];
@@ -7287,6 +7308,13 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     metadata_item_map[model.md_name[i]] = xml_escape(model.md_value[i]);
                 }
             }
+            // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): the recipe library (base64 JSON, NeotkoCM key).
+            // The value read from the source file is dropped first, so a library emptied since then is not written back.
+            if (!sub_model) {
+                metadata_item_map.erase(ColorStitchPaint::LibraryKey);
+                if (std::string library = ColorStitchPaint::library_to_metadata(); !library.empty())
+                    metadata_item_map[ColorStitchPaint::LibraryKey] = std::move(library);
+            }
 
             // store metadata info
             for (auto item : metadata_item_map) {
@@ -7370,6 +7398,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                     && (shared_volume->seam_facets.equals(volume->seam_facets))
                                     && (shared_volume->mmu_segmentation_facets.equals(volume->mmu_segmentation_facets))
                                     && (shared_volume->fuzzy_skin_facets.equals(volume->fuzzy_skin_facets))
+                                    && (shared_volume->colorstitch_paint_facets.equals(volume->colorstitch_paint_facets)) // ColorStitch Painter
                                     && same_texture_paint)
                                 {
                                     auto data = iter->second.first;
@@ -7783,6 +7812,16 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     output_buffer += CUSTOM_FUZZY_SKIN_ATTR;
                     output_buffer += "=\"";
                     output_buffer += fuzzy_skin_painting_data_string;
+                    output_buffer += "\"";
+                }
+
+                // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): paint slot of the triangle.
+                const std::string colorstitch_paint_string = volume->colorstitch_paint_facets.get_triangle_as_string(i);
+                if (!colorstitch_paint_string.empty()) {
+                    output_buffer += " ";
+                    output_buffer += ColorStitchPaint::PaintAttr;
+                    output_buffer += "=\"";
+                    output_buffer += colorstitch_paint_string;
                     output_buffer += "\"";
                 }
 
@@ -8391,6 +8430,10 @@ bool _BBS_3MF_Exporter::_add_model_config_file_to_archive(mz_zip_archive& archiv
                                 // Config serialization is C-style, not XML: escape active settings too, including tabs.
                                 stream << "      <" << METADATA_TAG << " "<< KEY_ATTR << "=\"" << stored_key << "\" " << VALUE_ATTR << "=\"" << xml_escape_double_quotes_attribute_value(value) << "\"/>\n";
                             }
+
+                            // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): slot -> recipe id table.
+                            if (const std::string cs_table = ColorStitchPaint::serialize_slot_table(volume->colorstitch_slot_to_profile_id); !cs_table.empty())
+                                stream << "      <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << ColorStitchPaint::SlotTableKey << "\" " << VALUE_ATTR << "=\"" << cs_table << "\"/>\n";
 
                             if (const std::optional<EmbossShape> &es = volume->emboss_shape; es.has_value()) {
                                 to_xml(stream, *es, *volume, archive, m_fullpath_sources);
@@ -9570,6 +9613,14 @@ bool load_bbs_3mf(const char* path, DynamicPrintConfig* config, ConfigSubstituti
     _BBS_3MF_Importer importer;
     bool res = importer.load_model_from_file(path, *model, *plate_data_list, *project_presets, *config, *config_substitutions, strategy, is_bbl_3mf, is_orca_3mf, *file_version, proFn, project, plate_id);
     importer.log_errors();
+    // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): merge the recipe library of the file.
+    if (res && model->model_info) {
+        auto cs_it = model->model_info->metadata_items.find(ColorStitchPaint::LibraryKey);
+        if (cs_it != model->model_info->metadata_items.end()) {
+            ColorStitchPaint::library_from_metadata(*model, cs_it->second);
+            model->model_info->metadata_items.erase(cs_it);
+        }
+    }
     //BBS: remove legacy project logic currently
     //handle_legacy_project_loaded(importer.version(), *config);
     return res;

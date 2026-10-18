@@ -7117,8 +7117,14 @@ void GCodeProcessor::process_filament_change(int id, int nozzle_id)
 
     // Resolve the destination nozzle: by explicit H<nozzle> id first, else the filament's first nozzle.
     std::optional<MultiNozzleUtils::NozzleInfo> target_nozzle_info = resolve_target_nozzle(*m_result.nozzle_group_result, id, nozzle_id);
-    if (!target_nozzle_info)
+    if (!target_nozzle_info) {
+        // Orca Zoukei: a filament the nozzle grouping never saw (Sandwich / ColorStitch tools are
+        // planned after the grouping, see ToolOrdering::plan_sandwich_sublayers) used to be dropped
+        // here, so the whole tail of the layer kept the body's extruder and colour in the preview.
+        // Fall back to the single-arg model, which tracks the tool from m_filament_maps.
+        process_filament_change(id);
         return;
+    }
 
     const int new_extruder_id          = target_nozzle_info->extruder_id;
     const int old_extruder_id          = prev_extruder_id;
@@ -7203,7 +7209,8 @@ void GCodeProcessor::process_filament_change(int id)
     assert(id < m_result.filaments_count);
     int prev_extruder_id = get_extruder_id(false);
     int prev_filament_id = get_filament_id(false);
-    int next_extruder_id = m_filament_maps[id];
+    // Orca Zoukei: a filament past the end of filament_map stays on the current extruder.
+    int next_extruder_id = size_t(id) < m_filament_maps.size() ? m_filament_maps[id] : std::max(prev_extruder_id, 0);
     int next_filament_id = id;
     float extra_time = 0;
     unsigned int filament_changes_delta = 0;

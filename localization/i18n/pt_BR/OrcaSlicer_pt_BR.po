@@ -39457,3 +39457,234 @@ msgstr "Zonas de suporte: só minhas zonas"
 
 msgid "Support zones: support style set to Snug"
 msgstr "Zonas de suporte: estilo de suporte definido como Ajustado"
+
+msgid "NeoArachne hybrid walls"
+msgstr "Paredes híbridas NeoArachne"
+
+msgid "Experimental (ported from OrcaFS-NeotkoCM by Neotko). The classic generator prints only the outer wall and Arachne fills the interior: fixed-width inner beads plus integrated gap fill. Replaces the wall generator while on; spiral vase mode keeps its own. Off by default."
+msgstr "Experimental (portado do OrcaFS-NeotkoCM, de Neotko). O gerador clássico imprime só a parede externa e o Arachne preenche o interior: cordões internos de largura fixa mais preenchimento de vãos integrado. Substitui o gerador de paredes enquanto ligado; o modo vaso espiral mantém o seu. Desligado por padrão."
+
+msgid "NeoArachne outer overlap"
+msgstr "Sobreposição externa do NeoArachne"
+
+msgid "How much the first Arachne bead may overlap the classic outer wall. Raise to 5-15% only if a seam shows; high values blob."
+msgstr "Quanto o primeiro cordão do Arachne pode se sobrepor à parede externa clássica. Suba para 5-15% só se aparecer uma emenda; valores altos formam bolhas."
+
+msgid "NeoArachne minimum line width"
+msgstr "Largura mínima de linha do NeoArachne"
+
+msgid "Thinnest bead the Arachne interior emits, in % of the nozzle diameter. Higher widens thin features (blob risk); 30-50% is recommended."
+msgstr "Cordão mais fino que o interior Arachne emite, em % do diâmetro do bico. Mais alto alarga detalhes finos (risco de bolhas); 30-50% é o recomendado."
+
+msgid "NeoArachne maximum line width"
+msgstr "Largura máxima de linha do NeoArachne"
+
+msgid "Ceiling of a single Arachne bead in % of the nozzle diameter. Lower (130-150%) gives more, narrower beads."
+msgstr "Teto de um único cordão Arachne em % do diâmetro do bico. Mais baixo (130-150%) dá mais cordões, mais estreitos."
+
+msgid "NeoStitch interlock"
+msgstr "Intertravamento NeoStitch"
+
+msgid "Experimental, untested in print upstream (ported from OrcaFS-NeotkoCM by Neotko). Interlocks consecutive layers of one wall without moving Z: along the wall each layer alternates notch segments (the wall deflects inward) and fill segments (the wall widens to plug the notch of the layer below), and the pattern flips every layer. Arachne walls only; skipped where fuzzy skin or bump mapping already works on the same wall."
+msgstr "Experimental, sem teste de impressão no projeto original (portado do OrcaFS-NeotkoCM, de Neotko). Trava camadas consecutivas de uma parede sem mexer no Z: ao longo da parede cada camada alterna trechos de entalhe (a parede cede para dentro) e trechos de preenchimento (a parede alarga para tapar o entalhe da camada de baixo), e o padrão inverte a cada camada. Só paredes Arachne; é ignorado onde a superfície felpuda ou o mapeamento de relevo já atua na mesma parede."
+
+msgid "Outermost wall"
+msgstr "Parede mais externa"
+
+msgid "Second wall"
+msgstr "Segunda parede"
+
+msgid "Third wall"
+msgstr "Terceira parede"
+
+msgid "Innermost wall"
+msgstr "Parede mais interna"
+
+msgid "Stitch depth"
+msgstr "Profundidade da costura"
+
+msgid "How far a notch deflects the wall inward. 0 = automatic (the line width of the wall)."
+msgstr "Quanto um entalhe desvia a parede para dentro. 0 = automático (a largura de linha da parede)."
+
+msgid "Stitch length"
+msgstr "Comprimento da costura"
+
+msgid "Length of the flat plateau of each notch or fill segment."
+msgstr "Comprimento do trecho plano de cada entalhe ou preenchimento."
+
+msgid "Stitch ramp length"
+msgstr "Comprimento da rampa da costura"
+
+msgid "Length of the ramp into and out of each segment; it also smooths the change of pressure and flow."
+msgstr "Comprimento da rampa de entrada e saída de cada trecho; também suaviza a variação de pressão e fluxo."
+
+msgid "Stitch period"
+msgstr "Período da costura"
+
+msgid "Distance between two notch / fill events along the wall."
+msgstr "Distância entre dois eventos de entalhe / preenchimento ao longo da parede."
+
+msgid "Stitch flow"
+msgstr "Fluxo da costura"
+
+msgid "Scales the extra extrusion of the fill segments. 100% conserves the volume of the notch it plugs."
+msgstr "Escala a extrusão extra dos trechos de preenchimento. 100% conserva o volume do entalhe que ele tapa."
+
+msgid "Stitch skip bottom layers"
+msgstr "Costura: pular camadas inferiores"
+
+msgid "Layers to skip above the first layer of the object before the interlock starts."
+msgstr "Camadas a pular acima da primeira camada do objeto antes de o intertravamento começar."
+
+msgid "Stitch fill margin"
+msgstr "Margem de preenchimento da costura"
+
+msgid "Shrinks each fill segment by this much per side against the notch it plugs, so the extra material lands inside the gap instead of bridging across it."
+msgstr "Encurta cada trecho de preenchimento desta quantia por lado em relação ao entalhe que ele tapa, para o material extra cair dentro do vão em vez de fazer ponte por cima."
+
+msgid "NeoWave roof"
+msgstr "Teto NeoWave"
+
+msgid "Experimental (ported from OrcaFS-NeotkoCM by Neotko). Fills the top interface layers of the supports with a Wave-Huygens front pattern: long continuous paths that diffract around concavities instead of straight parallel lines. Off by default; the supports keep the interface pattern you chose."
+msgstr "Experimental (portado do OrcaFS-NeotkoCM, de Neotko). Preenche as camadas de interface superiores dos suportes com um padrão de frentes de onda Wave-Huygens: caminhos longos e contínuos que contornam as concavidades em vez de linhas paralelas retas. Desligado por padrão; os suportes mantêm o padrão de interface escolhido."
+
+msgid "NeoWave roof shape"
+msgstr "Forma do teto NeoWave"
+
+msgid "Concentric collapses nested rings inward from the roof boundary. Wave sweeps open arcs across the region from one edge. Upstream prints show Wave closing cleanly where Concentric does not."
+msgstr "Concêntrico fecha anéis aninhados para dentro a partir do contorno do teto. Wave varre arcos abertos pela região a partir de uma borda. As impressões do projeto original mostram o Wave fechando limpo onde o Concêntrico não fecha."
+
+msgid "Wave"
+msgstr "Onda"
+
+msgid "NeoWave roof order"
+msgstr "Ordem do teto NeoWave"
+
+msgid "Print order of the same fronts. Smart hooks each front onto what is already printed (fewest long travels); ZigZag chains the fronts into one continuous path; Monotonic keeps every front separate."
+msgstr "Ordem de impressão das mesmas frentes. Smart engata cada frente no que já foi impresso (menos deslocamentos longos); ZigZag encadeia as frentes em um caminho contínuo; Monotonic mantém cada frente separada."
+
+msgid "Smart"
+msgstr "Inteligente"
+
+msgid "ZigZag"
+msgstr "Zigue-zague"
+
+msgid "Reverse NeoWave roof order"
+msgstr "Inverter a ordem do teto NeoWave"
+
+msgid "Flips the edge (Wave) or the ring (Concentric) the roof fill starts from."
+msgstr "Inverte a borda (Wave) ou o anel (Concêntrico) por onde o preenchimento do teto começa."
+
+msgid "Some faces are painted with a ColorStitch recipe that no longer exists. They print without the effect. Paint them again with a saved recipe."
+msgstr "Algumas faces estão pintadas com uma receita ColorStitch que não existe mais. Elas são impressas sem o efeito. Pinte-as de novo com uma receita salva."
+
+msgid "ColorStitch Painter"
+msgstr "Pintor ColorStitch"
+
+msgid "Entering ColorStitch Painter"
+msgstr "Entrando no Pintor ColorStitch"
+
+msgid "Leaving ColorStitch Painter"
+msgstr "Saindo do Pintor ColorStitch"
+
+msgid "ColorStitch painting editing"
+msgstr "Edição da pintura ColorStitch"
+
+msgid "Erase ColorStitch paint"
+msgstr "Apagar pintura ColorStitch"
+
+msgid "Paint ColorStitch recipe"
+msgstr "Pintar receita ColorStitch"
+
+msgid "Pick or create a recipe first."
+msgstr "Escolha ou crie uma receita primeiro."
+
+msgid "All 32 paint slots of this object are in use. Free a recipe in \"In use on this object\" first."
+msgstr "Os 32 espaços de pintura deste objeto estão em uso. Libere uma receita em \"Em uso neste objeto\" primeiro."
+
+msgid "Free ColorStitch paint slot"
+msgstr "Liberar espaço de pintura ColorStitch"
+
+msgid "Recipe"
+msgstr "Receita"
+
+msgid "This object has no Sandwich, ColorStitch or PathBlend settings to capture (Surface colour page)."
+msgstr "Este objeto não tem ajustes de Sandwich, ColorStitch ou PathBlend para capturar (página Cor da superfície)."
+
+msgid "Recipe captured. Paint it on the faces that should carry it; the object settings themselves are unchanged."
+msgstr "Receita capturada. Pinte-a nas faces que devem recebê-la; os ajustes do objeto não mudam."
+
+msgid "copy"
+msgstr "cópia"
+
+msgid "This recipe is painted on %d object(s). Delete it and erase that paint?"
+msgstr "Esta receita está pintada em %d objeto(s). Excluí-la e apagar essa pintura?"
+
+msgid "Delete ColorStitch recipe"
+msgstr "Excluir receita ColorStitch"
+
+msgid "Edit ColorStitch recipe"
+msgstr "Editar receita ColorStitch"
+
+msgid "Smart fill: the flat face under the cursor"
+msgstr "Preenchimento inteligente: a face plana sob o cursor"
+
+msgid "Recipes"
+msgstr "Receitas"
+
+msgid "No saved recipe yet. Create one, or capture the Sandwich settings of this object."
+msgstr "Nenhuma receita salva ainda. Crie uma ou capture os ajustes de Sandwich deste objeto."
+
+msgid "From object"
+msgstr "Do objeto"
+
+msgid "A new recipe with one Solid pass."
+msgstr "Uma receita nova com uma passada Sólida."
+
+msgid "Saves the Sandwich / ColorStitch / PathBlend settings of this object (Surface colour page) as a recipe."
+msgstr "Salva os ajustes de Sandwich / ColorStitch / PathBlend deste objeto (página Cor da superfície) como receita."
+
+msgid "Duplicate"
+msgstr "Duplicar"
+
+msgid "Natural"
+msgstr "Natural"
+
+msgid "ColorStitch"
+msgstr "ColorStitch"
+
+msgid "PathBlend"
+msgstr "PathBlend"
+
+msgid "Stripes"
+msgstr "Listras"
+
+msgid "Top surface passes (bottom to top)"
+msgstr "Passadas da superfície superior (de baixo para cima)"
+
+msgid "Cap"
+msgstr "Tampa"
+
+msgid "Share"
+msgstr "Parcela"
+
+msgid "Add pass"
+msgstr "Adicionar passada"
+
+msgid "A PathBlend pass takes the whole layer: the other passes are not printed."
+msgstr "Uma passada PathBlend ocupa a camada inteira: as outras passadas não são impressas."
+
+msgid "In use on this object"
+msgstr "Em uso neste objeto"
+
+msgid "Missing recipe"
+msgstr "Receita ausente"
+
+msgid "Use"
+msgstr "Usar"
+
+msgid "Free"
+msgstr "Liberar"
+
+msgid "Click a face to paint the active recipe. Shift + click erases. Recipes print on top surfaces only."
+msgstr "Clique numa face para pintar a receita ativa. Shift + clique apaga. As receitas só são impressas nas superfícies superiores."

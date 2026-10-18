@@ -1,5 +1,6 @@
 #include "Feature/HeightAdaptive/HeightCurve.hpp"
 #include "Feature/BumpMapping/BumpMapping.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
+#include "NeoArachne/NeoArachneHybrid.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "Flow.hpp"
 #include "Config.hpp"
 #include "ExPolygon.hpp"
@@ -214,7 +215,18 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
         }
     }
 
-    if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)
+    // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): object centred bounds, only while the key is on.
+    if (this->layer()->object()->config().neostitch.value != NeoStitchTarget::Disabled) {
+        const Vec3crd &obj_size = this->layer()->object()->size();
+        g.neostitch_bounds.min = Vec3d(-unscale_(obj_size.x()) / 2.0, -unscale_(obj_size.y()) / 2.0, 0.0);
+        g.neostitch_bounds.max = Vec3d( unscale_(obj_size.x()) / 2.0,  unscale_(obj_size.y()) / 2.0,  unscale_(obj_size.z()));
+        g.neostitch_bounds.defined = true;
+    }
+
+    if (this->layer()->object()->config().neoarachne_hybrid.value && !spiral_mode)
+        // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): classic outer wall + Arachne interior.
+        NeoArachne::run_hybrid(g);
+    else if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)
         g.process_arachne();
     else
         g.process_classic();

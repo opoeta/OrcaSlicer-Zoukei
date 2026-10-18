@@ -9,6 +9,7 @@
 #include "Polyline.hpp"
 #include "Print.hpp"
 #include "BeltTransform.hpp"
+#include "ColorStitchPaint.hpp" // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
 
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
@@ -839,6 +840,12 @@ void PrintObject::infill()
 
     if (this->set_started(posInfill)) {
         m_print->set_status(35, L("Generating infill toolpath"));
+
+        // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): the painted recipes, read by make_fills. Null without paint.
+        m_colorstitch_paint = ColorStitchPaintIndex::build(*this);
+        if (m_colorstitch_paint && m_colorstitch_paint->orphan_facets > 0)
+            this->active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL,
+                L("Some faces are painted with a ColorStitch recipe that no longer exists. They print without the effect. Paint them again with a saved recipe."));
 
         BOOST_LOG_TRIVIAL(debug) << "Filling layers in parallel - start";
         tbb::parallel_for(
@@ -1866,6 +1873,27 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "zbump_segment") {
             // Z bump (ported from OrcaFS-NeotkoCM, Neotko): modulates the top fill paths.
             steps.emplace_back(posInfill);
+        } else if (opt_key == "neoarachne_hybrid"
+                   || opt_key == "neoarachne_overlap_pct"
+                   || opt_key == "neoarachne_min_bead_pct"
+                   || opt_key == "neoarachne_max_bead_pct"
+                   || opt_key == "neostitch"
+                   || opt_key == "neostitch_depth"
+                   || opt_key == "neostitch_flat_length"
+                   || opt_key == "neostitch_ramp_length"
+                   || opt_key == "neostitch_period"
+                   || opt_key == "neostitch_flow"
+                   || opt_key == "neostitch_skip_layers"
+                   || opt_key == "neostitch_fill_margin") {
+            // NeoArachne Hybrid v2 / NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): both act in the wall generator.
+            steps.emplace_back(posPerimeters);
+            steps.emplace_back(posSupportMaterial);
+        } else if (opt_key == "neowave_roof"
+                   || opt_key == "neowave_roof_shape"
+                   || opt_key == "neowave_roof_order"
+                   || opt_key == "neowave_roof_reverse") {
+            // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): the support interface toolpaths.
+            steps.emplace_back(posSupportMaterial);
         } else if (opt_key == "bridge_expansion_extra") {
             // Bridging infill extra expansion: consumed in LayerRegion::process_external_surfaces() (posPrepareInfill).
             steps.emplace_back(posPrepareInfill);

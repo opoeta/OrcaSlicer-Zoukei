@@ -67,6 +67,7 @@ class SupportLayer;
 class TreeSupportData;
 class TreeSupport;
 class ExtrusionLayers;
+struct ColorStitchPaintIndex; // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
 namespace MultiNozzleUtils { class NozzleGroupResultBase; class LayeredNozzleGroupResult; }
 
 #define MAX_OUTER_NOZZLE_DIAMETER   4
@@ -394,6 +395,9 @@ public:
     // Gravity is active. Derived geometry, never serialized.
     const std::vector<Polygons>& gravity_floor() const { return m_gravity_floor; }
     std::vector<Polygons>&       gravity_floor()       { return m_gravity_floor; }
+    // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): snapshot of the painted recipes, built by infill() for
+    // make_fills. Null when nothing is painted.
+    const ColorStitchPaintIndex* colorstitch_paint() const { return m_colorstitch_paint.get(); }
 
     template<typename PolysType>
     static void remove_bridges_from_contacts(
@@ -698,6 +702,7 @@ private:
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
     std::vector<Polygons>                   m_gravity_floor; // Libre Mode / True Objects, see gravity_floor()
+    std::shared_ptr<const ColorStitchPaintIndex> m_colorstitch_paint; // ColorStitch Painter, see colorstitch_paint()
     LayerPtrs                               m_belt_truncated_layers;
     // Fills removed by belt_drop_unclaimed_fills(), owned by this vector until
     // restored or until clear_layers() deletes them. An entity is in exactly one

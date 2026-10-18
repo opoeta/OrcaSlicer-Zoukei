@@ -21,6 +21,7 @@
 #include "slic3r/GUI/Gizmos/GLGizmoHeightAdaptiveEffects.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoAlignStack.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "slic3r/GUI/Zoukei/GLGizmoSupportZones.hpp" // Support Zones, ported from OrcaFS-NeotkoCM (Neotko)
+#include "slic3r/GUI/Zoukei/GLGizmoColorStitchPainter.hpp" // ColorStitch Painter, ported from OrcaFS-NeotkoCM (Neotko)
 #include "slic3r/GUI/Gizmos/GLGizmoCut.hpp"
 //#include "slic3r/GUI/Gizmos/GLGizmoFaceDetector.hpp"
 //#include "slic3r/GUI/Gizmos/GLGizmoHollow.hpp"
@@ -229,6 +230,9 @@ void GLGizmosManager::switch_gizmos_icon_filename()
         case (EType::SupportZones):
             gizmo->set_icon_filename(m_is_dark ? "toolbar_support_zones_dark.svg" : "toolbar_support_zones.svg");
             break;
+        case (EType::ColorStitchPainter):
+            gizmo->set_icon_filename(m_is_dark ? "toolbar_colorstitch_painter_dark.svg" : "toolbar_colorstitch_painter.svg");
+            break;
         }
 
     }
@@ -278,6 +282,7 @@ bool GLGizmosManager::init()
     m_gizmos.emplace_back(new GLGizmoHeightAdaptiveEffects(m_parent, m_is_dark ? "toolbar_height_adaptive_effects_dark.svg" : "toolbar_height_adaptive_effects.svg", EType::HeightAdaptiveEffects));
     m_gizmos.emplace_back(new GLGizmoAlignStack(m_parent, m_is_dark ? "toolbar_align_stack_dark.svg" : "toolbar_align_stack.svg", EType::AlignStack));
     m_gizmos.emplace_back(new GLGizmoSupportZones(m_parent, m_is_dark ? "toolbar_support_zones_dark.svg" : "toolbar_support_zones.svg", EType::SupportZones));
+    m_gizmos.emplace_back(new GLGizmoColorStitchPainter(m_parent, m_is_dark ? "toolbar_colorstitch_painter_dark.svg" : "toolbar_colorstitch_painter.svg", EType::ColorStitchPainter));
     //m_gizmos.emplace_back(new GLGizmoSlaSupports(m_parent, "sla_supports.svg", sprite_id++));
     //m_gizmos.emplace_back(new GLGizmoFaceDetector(m_parent, "face recognition.svg", sprite_id++));
     //m_gizmos.emplace_back(new GLGizmoHollow(m_parent, "hollow.svg", sprite_id++));
@@ -502,7 +507,8 @@ void GLGizmosManager::set_hover_id(int id)
 
 void GLGizmosManager::update_section_view()
 {
-    if (m_current != FdmSupports && m_current != Seam && m_current != MmSegmentation && m_current != FuzzySkin && m_current != BrimEars)
+    if (m_current != FdmSupports && m_current != Seam && m_current != MmSegmentation && m_current != FuzzySkin && m_current != BrimEars &&
+        m_current != ColorStitchPainter)
         return;
 
     CommonGizmosDataObjects::ObjectClipper* clipper = m_common_gizmos_data ? m_common_gizmos_data->object_clipper() : nullptr;
@@ -611,6 +617,8 @@ bool GLGizmosManager::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_p
         return dynamic_cast<GLGizmoFuzzySkin*>(m_gizmos[FuzzySkin].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == TextureDisplacement)
         return dynamic_cast<GLGizmoTextureDisplacement*>(m_gizmos[TextureDisplacement].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
+    else if (m_current == ColorStitchPainter)
+        return dynamic_cast<GLGizmoColorStitchPainter*>(m_gizmos[ColorStitchPainter].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == MeshBoolean)
         return dynamic_cast<GLGizmoMeshBoolean*>(m_gizmos[MeshBoolean].get())->gizmo_event(action, mouse_position, shift_down, alt_down, control_down);
     else if (m_current == BrimEars)
@@ -625,6 +633,7 @@ bool GLGizmosManager::is_paint_gizmo()
            m_current == EType::MmSegmentation ||
            m_current == EType::FuzzySkin ||
            m_current == EType::TextureDisplacement ||
+           m_current == EType::ColorStitchPainter ||
            m_current == EType::Seam;
 }
 
@@ -726,7 +735,8 @@ bool GLGizmosManager::on_mouse_wheel(const wxMouseEvent &evt)
 {
     bool processed = false;
 
-    if (/*m_current == SlaSupports || m_current == Hollow ||*/ m_current == FdmSupports || m_current == Seam || m_current == MmSegmentation || m_current == FuzzySkin || m_current == BrimEars) {
+    if (/*m_current == SlaSupports || m_current == Hollow ||*/ m_current == FdmSupports || m_current == Seam || m_current == MmSegmentation || m_current == FuzzySkin || m_current == BrimEars ||
+        m_current == ColorStitchPainter) {
         float rot = (float)evt.GetWheelRotation() / (float)evt.GetWheelDelta();
         if (gizmo_event((rot > 0.f ? SLAGizmoEventType::MouseWheelUp : SLAGizmoEventType::MouseWheelDown), Vec2d::Zero(), evt.ShiftDown(), evt.AltDown()
             // BBS

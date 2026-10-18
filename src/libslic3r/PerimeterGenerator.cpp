@@ -10,6 +10,7 @@
 #include "ExtrusionEntityCollection.hpp"
 #include "Feature/FuzzySkin/FuzzySkin.hpp"
 #include "Feature/BumpMapping/BumpMapping.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
+#include "Feature/NeoStitch/NeoStitch.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "Polygon.hpp"
 #include "Polyline.hpp"
 #include "Point.hpp"
@@ -423,6 +424,9 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
         // Bump mapping (ported from OrcaFS-NeotkoCM, Neotko): image relief on the walls. No-op while the table is null.
         if (perimeter_generator.wall_bump_table != nullptr)
             Feature::Bump::apply_wall_bump(extrusion, perimeter_generator, is_contour, total_loops);
+        // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): notch / fill pattern on the chosen wall. No-op while the key is off.
+        if (perimeter_generator.object_config->neostitch.value != NeoStitchTarget::Disabled)
+            Feature::NeoStitch::apply_neostitch(extrusion, perimeter_generator, is_contour, total_loops);
 
         ExtrusionPaths paths;
         // detect overhanging/bridging perimeters

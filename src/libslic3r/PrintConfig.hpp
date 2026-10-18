@@ -278,6 +278,11 @@ enum class ColorStitchEasing { Linear, EaseIn, EaseOut, SCurve, Gamma, HardStep 
 enum class ColorStitchWeaveType { Plain, Twill22, Twill31, Satin5 };
 enum class PathBlendMode { Half, Full };
 
+// NeoStitch Interlock and NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko).
+enum class NeoStitchTarget { Disabled, Outermost, SecondWall, ThirdWall, Innermost };
+enum class NeoWaveRoofShape { Concentric, Wave };
+enum class NeoWaveRoofOrder { Smart, ZigZag, Monotonic };
+
 // IMEX: physical bed corner where tool T0 sits. Determines how tool indices
 // map to bed zones (front = lower Y near operator, rear = higher Y).
 enum class ImexToolLayout {
@@ -861,6 +866,9 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchPatternMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchEasing)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchWeaveType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PathBlendMode)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoStitchTarget)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoWaveRoofShape)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoWaveRoofOrder)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1557,6 +1565,25 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                        pathblend_ramp_end_mm))
     ((ConfigOptionInt,                          pathblend_fill_angle))
     ((ConfigOptionString,                       pathblend_top))
+    // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): classic outer wall + Arachne interior. Off by default.
+    ((ConfigOptionBool,                         neoarachne_hybrid))
+    ((ConfigOptionPercent,                      neoarachne_overlap_pct))
+    ((ConfigOptionPercent,                      neoarachne_min_bead_pct))
+    ((ConfigOptionPercent,                      neoarachne_max_bead_pct))
+    // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): notch / fill pattern along one wall. Off by default.
+    ((ConfigOptionEnum<NeoStitchTarget>,        neostitch))
+    ((ConfigOptionFloat,                        neostitch_depth))
+    ((ConfigOptionFloat,                        neostitch_flat_length))
+    ((ConfigOptionFloat,                        neostitch_ramp_length))
+    ((ConfigOptionFloat,                        neostitch_period))
+    ((ConfigOptionPercent,                      neostitch_flow))
+    ((ConfigOptionInt,                          neostitch_skip_layers))
+    ((ConfigOptionFloat,                        neostitch_fill_margin))
+    // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): wave-front fill of the support roof. Off by default.
+    ((ConfigOptionBool,                         neowave_roof))
+    ((ConfigOptionEnum<NeoWaveRoofShape>,       neowave_roof_shape))
+    ((ConfigOptionEnum<NeoWaveRoofOrder>,       neowave_roof_order))
+    ((ConfigOptionBool,                         neowave_roof_reverse))
 )
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.

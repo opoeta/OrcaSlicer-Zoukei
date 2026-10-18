@@ -13,7 +13,9 @@
 #include "FillSandwich.hpp"
 
 #include "FillBase.hpp"
+#include "../ClipperUtils.hpp"
 #include "../ColorStitch.hpp"
+#include "../ColorStitchPaint.hpp"
 #include "../ExtrusionEntity.hpp"
 #include "../ExtrusionEntityCollection.hpp"
 #include "../Geometry.hpp"
@@ -94,22 +96,79 @@ void scale_to_band(ExtrusionEntityCollection &coll, double ratio)
 
 } // namespace
 
-bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, const FillParams &params, const Surface &surface)
+bool sandwich_split_painted(const Layer &layer, const Surface &surface, const FillParams &params, ExPolygons &expolygons,
+                            std::vector<int> &recipe_of)
+{
+    const PrintObject           *po    = layer.object();
+    const ColorStitchPaintIndex *index = po != nullptr ? po->colorstitch_paint() : nullptr;
+    if (index == nullptr || expolygons.empty())
+        return false;
+    if (params.extrusion_role != erTopSolidInfill || surface.is_bridge())
+        return false;
+    if (po->layers().empty() || po->layers().front() == &layer)
+        return false; // as the Sandwich: never on the first object layer
+    // The painted top faces of this layer top out inside its slab (slicing frame).
+    const double half = 0.5 * layer.height;
+    std::vector<std::pair<int, ExPolygons>> prints = index->footprints(layer.slice_z - half, layer.slice_z + half);
+    if (prints.empty())
+        return false;
+
+    // Pieces thinner than about two lines are not worth a recipe: they stay with the rest.
+    const double spacing  = std::max(0.1, double(params.flow.spacing()));
+    const double min_area = 4.0 * scale_(spacing) * scale_(spacing);
+    ExPolygons       rest = expolygons;
+    ExPolygons       out;
+    std::vector<int> recipes;
+    for (const std::pair<int, ExPolygons> &fp : prints) {
+        if (rest.empty())
+            break;
+        ExPolygons piece = intersection_ex(rest, fp.second);
+        piece.erase(std::remove_if(piece.begin(), piece.end(), [min_area](const ExPolygon &e) { return e.area() < min_area; }), piece.end());
+        if (piece.empty())
+            continue;
+        rest = diff_ex(rest, piece);
+        for (ExPolygon &e : piece) {
+            out.push_back(std::move(e));
+            recipes.push_back(fp.first);
+        }
+    }
+    if (out.empty())
+        return false;
+    const double sliver = 0.25 * scale_(spacing) * scale_(spacing);
+    for (ExPolygon &e : rest)
+        if (e.area() >= sliver) {
+            out.push_back(std::move(e));
+            recipes.push_back(0);
+        }
+    expolygons = std::move(out);
+    recipe_of  = std::move(recipes);
+    return true;
+}
+
+bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, const FillParams &params, const Surface &surface,
+                           int painted_profile)
 {
     const PrintObject *po = layer.object();
     if (po == nullptr)
         return false;
+    // ColorStitch Painter: a painted piece uses its recipe (config with the recipe keys + Top stack).
+    const ColorStitchPaintIndex::Recipe *painted = nullptr;
+    if (painted_profile > 0) {
+        painted = po->colorstitch_paint() != nullptr ? po->colorstitch_paint()->recipe(painted_profile) : nullptr;
+        if (painted == nullptr)
+            return false;
+    }
     // The Sandwich keys are per object (PrintObjectConfig). Cheap gates first: with the feature
     // off nothing below runs.
-    const PrintObjectConfig &cfg = po->config();
-    if (!SurfacePassStack::config_has_sandwich(cfg))
+    const PrintObjectConfig &cfg = painted != nullptr ? painted->config : po->config();
+    if (painted == nullptr && !SurfacePassStack::config_has_sandwich(cfg))
         return false;
     if (params.extrusion_role != erTopSolidInfill || surface.is_bridge())
         return false;
     if (po->layers().empty() || po->layers().front() == &layer)
         return false; // NeotkoCM: never on the first object layer (no tool changes on layer 0)
 
-    SurfacePassStack stack = SurfacePassStack::resolve(cfg);
+    SurfacePassStack stack = painted != nullptr ? painted->top : SurfacePassStack::resolve(cfg);
     if (!stack.any_effect())
         return false;
 

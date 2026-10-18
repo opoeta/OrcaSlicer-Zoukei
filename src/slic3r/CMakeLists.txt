@@ -87,6 +87,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/GravitySnap.hpp
     GUI/Zoukei/GLGizmoSupportZones.cpp
     GUI/Zoukei/GLGizmoSupportZones.hpp
+    GUI/Zoukei/GLGizmoColorStitchPainter.cpp
+    GUI/Zoukei/GLGizmoColorStitchPainter.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp

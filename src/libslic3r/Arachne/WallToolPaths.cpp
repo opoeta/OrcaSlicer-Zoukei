@@ -528,8 +528,13 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
 
     const coord_t wall_transition_length = scaled<coord_t>(this->m_params.wall_transition_length);
 	
-	const double wall_split_middle_threshold = std::clamp(2. * unscaled<double>(this->min_bead_width) / external_perimeter_extrusion_width - 1., 0.01, 0.99); // For an uneven nr. of lines: When to split the middle wall into two.
-    const double wall_add_middle_threshold   = std::clamp(unscaled<double>(this->min_bead_width) / perimeter_extrusion_width, 0.01, 0.99); // For an even nr. of lines: When to add a new middle in between the innermost two walls.
+	// NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): max_bead_width_pct is a CEILING on the auto derived
+	// thresholds (0 = no ceiling = stock behaviour).
+	const double na_max_ceiling = (m_params.max_bead_width_pct > 0.f)
+	    ? std::clamp(double(m_params.max_bead_width_pct) / 100.0 - 1.0, 0.0, 1.0)
+	    : std::numeric_limits<double>::infinity();
+	const double wall_split_middle_threshold = std::min(std::clamp(2. * unscaled<double>(this->min_bead_width) / external_perimeter_extrusion_width - 1., 0.01, 0.99), na_max_ceiling); // For an uneven nr. of lines: When to split the middle wall into two.
+    const double wall_add_middle_threshold   = std::min(std::clamp(unscaled<double>(this->min_bead_width) / perimeter_extrusion_width, 0.01, 0.99), na_max_ceiling); // For an even nr. of lines: When to add a new middle in between the innermost two walls.
     
     const int wall_distribution_count = this->m_params.wall_distribution_count;
     const size_t max_bead_count = (inset_count < std::numeric_limits<coord_t>::max() / 2) ? 2 * inset_count : std::numeric_limits<coord_t>::max();
@@ -546,7 +551,12 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
             wall_add_middle_threshold,
             max_bead_count,
             wall_0_inset,
-            wall_distribution_count
+            wall_distribution_count,
+            0.5,
+            m_params.neoarachne_enabled,
+            m_params.neoarachne_pin_outer,
+            m_params.neoarachne_cap_widening,
+            m_params.neoarachne_hysteresis_pct
         );
     const coord_t transition_filter_dist   = scaled<coord_t>(100.f);
     const coord_t allowed_filter_deviation = wall_transition_filter_deviation;
@@ -564,7 +574,8 @@ const std::vector<VariableWidthLines> &WallToolPaths::generate()
 
     stitchToolPaths(toolpaths, this->bead_width_x);
 
-    removeSmallLines(toolpaths);
+    if (!m_params.keep_short_tails)
+        removeSmallLines(toolpaths);
 
     separateOutInnerContour();
 

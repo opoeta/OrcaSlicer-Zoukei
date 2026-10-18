@@ -165,6 +165,7 @@
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/LifecycleEvents.hpp"
+#include "libslic3r/SurfaceEffectProfile.hpp" // ColorStitch Painter recipe library, ported from OrcaFS-NeotkoCM (Neotko)
 #include "libslic3r/Format/STL.hpp"
 #include "libslic3r/Format/DRC.hpp"
 #include "libslic3r/Format/STEP.hpp"
@@ -11418,6 +11419,8 @@ void Plater::priv::reset(bool apply_presets_change, bool reload_presets)
     m_has_pending_published   = false;
     m_pending_published_keys.clear();
     m_pending_material_keys.clear();
+    // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): the recipe library belongs to the project.
+    SurfaceEffectProfileManager::get().clear();
 
     set_project_filename("");
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " call set_project_filename: empty";
@@ -22812,6 +22815,9 @@ void Plater::clear_before_change_mesh(int obj_idx)
         mv->seam_facets.reset();
         mv->mmu_segmentation_facets.reset();
         mv->fuzzy_skin_facets.reset();
+        // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): its paint is indexed by triangle too.
+        paint_removed |= !mv->colorstitch_paint_facets.empty();
+        mv->colorstitch_paint_facets.reset();
     }
     if (paint_removed)
         notify_painting_removed();

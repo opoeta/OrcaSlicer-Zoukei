@@ -2888,6 +2888,13 @@ void TabPrint::build()
         optgroup->append_single_option_line("wall_maximum_resolution", "quality_settings_wall_generator#maximum-wall-resolution");
         optgroup->append_single_option_line("wall_maximum_deviation", "quality_settings_wall_generator#maximum-wall-deviation");
 
+        // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): classic outer wall + Arachne interior.
+        optgroup = page->new_optgroup(L("NeoArachne hybrid walls"), L"param_wall_generator");
+        optgroup->append_single_option_line("neoarachne_hybrid");
+        optgroup->append_single_option_line("neoarachne_overlap_pct");
+        optgroup->append_single_option_line("neoarachne_min_bead_pct");
+        optgroup->append_single_option_line("neoarachne_max_bead_pct");
+
         optgroup = page->new_optgroup(L("Walls and surfaces"), L"param_wall_surface");
         optgroup->append_single_option_line("wall_sequence", "quality_settings_wall_and_surfaces#walls-printing-order");
         optgroup->append_single_option_line("is_infill_first", "quality_settings_wall_and_surfaces#print-infill-first");
@@ -2946,6 +2953,17 @@ void TabPrint::build()
         optgroup->append_single_option_line("wall_loops", "strength_settings_walls#wall-loops");
         optgroup->append_single_option_line("alternate_extra_wall", "strength_settings_walls#alternate-extra-wall");
         optgroup->append_single_option_line("detect_thin_wall", "strength_settings_walls#detect-thin-wall");
+
+        // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): notch / fill pattern along one wall.
+        optgroup = page->new_optgroup(L("NeoStitch interlock"), L"param_wall");
+        optgroup->append_single_option_line("neostitch");
+        optgroup->append_single_option_line("neostitch_depth");
+        optgroup->append_single_option_line("neostitch_flat_length");
+        optgroup->append_single_option_line("neostitch_ramp_length");
+        optgroup->append_single_option_line("neostitch_period");
+        optgroup->append_single_option_line("neostitch_flow");
+        optgroup->append_single_option_line("neostitch_skip_layers");
+        optgroup->append_single_option_line("neostitch_fill_margin");
 
         optgroup = page->new_optgroup(L("Top/bottom shells"), L"param_shell");
 
@@ -3146,6 +3164,13 @@ void TabPrint::build()
         optgroup->append_single_option_line("bridge_no_support", "support_settings_advanced#dont-support-bridges");
         optgroup->append_single_option_line("max_bridge_length", "support_settings_advanced");
         optgroup->append_single_option_line("independent_support_layer_height", "support_settings_advanced#independent-support-layer-height");
+
+        // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): Wave-Huygens front fill of the support roof.
+        optgroup = page->new_optgroup(L("NeoWave roof"), L"param_advanced");
+        optgroup->append_single_option_line("neowave_roof");
+        optgroup->append_single_option_line("neowave_roof_shape");
+        optgroup->append_single_option_line("neowave_roof_order");
+        optgroup->append_single_option_line("neowave_roof_reverse");
 
         optgroup = page->new_optgroup(L("Tree supports"), L"param_support_tree");
         optgroup->append_single_option_line("tree_support_tip_diameter", "support_settings_tree#tip-diameter");

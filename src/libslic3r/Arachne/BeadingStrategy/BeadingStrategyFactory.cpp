@@ -14,6 +14,7 @@
 #include "OuterWallInsetBeadingStrategy.hpp"
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/Arachne/BeadingStrategy/BeadingStrategy.hpp"
+#include "libslic3r/NeoArachne/NeoArachneBeadingStrategy.hpp"
 
 namespace Slic3r::Arachne {
 
@@ -29,7 +30,11 @@ BeadingStrategyPtr BeadingStrategyFactory::makeStrategy(const coord_t preferred_
                                                         const coord_t max_bead_count,
                                                         const coord_t outer_wall_offset,
                                                         const int     inward_distributed_center_wall_count,
-                                                        const double  minimum_variable_line_ratio)
+                                                        const double  minimum_variable_line_ratio,
+                                                        const bool    neoarachne_enabled,
+                                                        const bool    neoarachne_pin_outer,
+                                                        const bool    neoarachne_cap_widening,
+                                                        const double  neoarachne_hysteresis_pct)
 {
     // Handle a special case when there is just one external perimeter.
     // Because big differences in bead width for inner and other perimeters cause issues with current beading strategies.
@@ -51,6 +56,12 @@ BeadingStrategyPtr BeadingStrategyFactory::makeStrategy(const coord_t preferred_
         ret = std::make_unique<OuterWallInsetBeadingStrategy>(outer_wall_offset, std::move(ret));
     }
 
+    // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): meta-strategy wrapped before the Limited one
+    // (which injects 0-width marker walls that nothing else should touch). Off by default.
+    if (neoarachne_enabled) {
+        ret = std::make_unique<NeoArachne::NeoArachneBeadingStrategy>(preferred_bead_width_outer, neoarachne_hysteresis_pct,
+                                                                      neoarachne_pin_outer, neoarachne_cap_widening, std::move(ret));
+    }
     // Apply the LimitedBeadingStrategy last, since that adds a 0-width marker wall which other beading strategies shouldn't touch.
     BOOST_LOG_TRIVIAL(trace) << "Applying the Limited Beading meta-strategy with maximum bead count = " << max_bead_count << ".";
     ret = std::make_unique<LimitedBeadingStrategy>(max_bead_count, std::move(ret));

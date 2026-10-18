@@ -1382,6 +1382,11 @@ static std::vector<std::string> s_Preset_print_options{
     "interlayer_colormix_min_length", "interlayer_colormix_min_surface_lines",
     "multipass_path_gradient", "pathblend_mode", "pathblend_filament_ramp", "pathblend_filament_cap",
     "pathblend_floor_mm", "pathblend_ramp_end_mm", "pathblend_fill_angle", "pathblend_top",
+    // NeoArachne Hybrid v2, NeoStitch Interlock, NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko)
+    "neoarachne_hybrid", "neoarachne_overlap_pct", "neoarachne_min_bead_pct", "neoarachne_max_bead_pct",
+    "neostitch", "neostitch_depth", "neostitch_flat_length", "neostitch_ramp_length", "neostitch_period", "neostitch_flow",
+    "neostitch_skip_layers", "neostitch_fill_margin",
+    "neowave_roof", "neowave_roof_shape", "neowave_roof_order", "neowave_roof_reverse",
     "multipass_prime_volume",
     "infill_combination",
     "infill_combination_max_layer_height", /*"adaptive_layer_height",*/

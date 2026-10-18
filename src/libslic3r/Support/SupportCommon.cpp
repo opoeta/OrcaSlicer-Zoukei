@@ -8,6 +8,7 @@
 #include "../Geometry.hpp"
 #include "../Point.hpp"
 #include "../InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
+#include "../Fill/FillWaveRoof.hpp" // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko)
 
 #include <cmath>
 #include <boost/container/static_vector.hpp>
@@ -1739,6 +1740,25 @@ void generate_support_toolpaths(
                         (raft_contact ? &support_params.raft_interface_flow :
                          interface_as_base ? &support_params.support_material_flow : &support_params.support_material_interface_flow)
                             ->with_height(float(layer_ex.layer->height));
+                    // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): the top contact / interface layers of the
+                    // supports get the Wave-Huygens front fill. Off by default. If the wave engine returns nothing
+                    // for a region the normal interface fill below runs, so a roof is never left empty.
+                    if (config.neowave_roof.value && !raft_contact && !interface_as_base && !bottom_interface && !layer_ex.layer->bridging) {
+                        FillWaveRoofParams wave_params;
+                        wave_params.flow          = interface_flow;
+                        wave_params.role          = ExtrusionRole::erSupportMaterialInterface;
+                        wave_params.shape         = config.neowave_roof_shape.value == NeoWaveRoofShape::Concentric ? WaveRoofShape::Concentric : WaveRoofShape::Wave;
+                        wave_params.pattern       = config.neowave_roof_order.value == NeoWaveRoofOrder::ZigZag ? WaveRoofPattern::ZigZag :
+                                                    config.neowave_roof_order.value == NeoWaveRoofOrder::Monotonic ? WaveRoofPattern::Monotonic : WaveRoofPattern::Smart;
+                        wave_params.reverse_order = config.neowave_roof_reverse.value;
+                        ExtrusionPaths wave_paths = FillWaveRoof().generate(union_safety_offset_ex(layer_ex.polygons_to_extrude()), wave_params);
+                        if (! wave_paths.empty()) {
+                            layer_ex.extrusions.reserve(layer_ex.extrusions.size() + wave_paths.size());
+                            for (ExtrusionPath &wave_path : wave_paths)
+                                layer_ex.extrusions.emplace_back(new ExtrusionPath(std::move(wave_path)));
+                            return;
+                        }
+                    }
                     filler->angle = interface_as_base ?
                             // If zero interface layers are configured, use the same angle as for the base layers.
                             angles[support_layer_id % angles.size()] :
