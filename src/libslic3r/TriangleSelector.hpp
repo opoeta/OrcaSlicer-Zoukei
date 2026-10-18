@@ -113,6 +113,14 @@ public:
         virtual bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const = 0;
         virtual bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const = 0;
 
+        // NEOTKO_PAINTERPRO_TAG — select_triangle_recursive() short-circuits "all 3 vertices
+        // inside => paint whole triangle, skip subdivision". That implication only holds for
+        // CONVEX cursor shapes (circle, sphere, capsule, rectangle, height range). A concave
+        // screen polygon (F4) can poke a notch into a triangle's interior while all 3 of its
+        // vertices stay inside — PolygonProjectionCursor overrides this to false so the
+        // selection falls back to boundary-aware subdivision in that case.
+        virtual bool all_vertices_inside_implies_whole_triangle_inside() const { return true; }
+
         static bool is_facet_visible(const Cursor &cursor, int facet_idx, const std::vector<Vec3f> &face_normals);
 
     protected:
@@ -266,6 +274,120 @@ public:
         }
     };
 
+    // NEOTKO_PAINTERPRO_TAG — Painter Pro Mode F4, Sesion A (docs/FUTURE/PAINTER_PROMODE_PLAN.md):
+    // masks a screen-space axis-aligned rectangle instead of a 3D radius. Reuses SinglePointCursor's
+    // uniform/non-uniform scaling dance for `dir` (facet visibility only) but does its own camera
+    // projection for is_mesh_point_inside/is_edge_inside_cursor, since a rectangle spanning much of
+    // the screen can't be approximated as "distance to a single ray" the way Circle/Sphere are.
+    class RectangleProjectionCursor : public SinglePointCursor
+    {
+    public:
+        RectangleProjectionCursor() = delete;
+        ~RectangleProjectionCursor() override = default;
+
+        // camera_pos_mesh / camera_target_mesh: raw mesh-local points (same convention as
+        // source_/center_ elsewhere) — a point at the camera and a second point one unit further
+        // along the view direction, used only to derive `dir` for the facet-visibility test.
+        // view_projection_matrix: camera projection * view, world space -> clip space.
+        // rect_min/rect_max: screen-space rectangle bounds in pixels (Y down, matches mouse coords).
+        explicit RectangleProjectionCursor(const Vec3f &camera_pos_mesh, const Vec3f &camera_target_mesh,
+                                            const Matrix4d &view_projection_matrix, const std::array<int, 4> &viewport,
+                                            const Vec2f &rect_min, const Vec2f &rect_max,
+                                            const Transform3d &trafo_, const ClippingPlane &clipping_plane_)
+            : SinglePointCursor(camera_target_mesh, camera_pos_mesh, 1.f, trafo_, clipping_plane_)
+            , m_view_projection_matrix(view_projection_matrix)
+            , m_viewport(viewport)
+            , m_rect_min(rect_min)
+            , m_rect_max(rect_max)
+        {}
+
+        static std::unique_ptr<Cursor> cursor_factory(const Vec3f &camera_pos_mesh, const Vec3f &camera_target_mesh,
+                                                       const Matrix4d &view_projection_matrix, const std::array<int, 4> &viewport,
+                                                       const Vec2f &rect_min, const Vec2f &rect_max,
+                                                       const Transform3d &trafo_matrix, const ClippingPlane &clipping_plane)
+        {
+            return std::make_unique<TriangleSelector::RectangleProjectionCursor>(camera_pos_mesh, camera_target_mesh,
+                view_projection_matrix, viewport, rect_min, rect_max, trafo_matrix, clipping_plane);
+        }
+
+        bool is_mesh_point_inside(const Vec3f &point) const override;
+        // True when the rectangle sits entirely inside the projected triangle (no vertex inside,
+        // no edge crossing — the "swallowed by one huge facet" case): tested by checking the
+        // rectangle's corners against the projected triangle.
+        bool is_pointer_in_triangle(const Vec3f &p1, const Vec3f &p2, const Vec3f &p3) const override;
+        bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const override;
+        bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
+        {
+            return TriangleSelector::Cursor::is_facet_visible(*this, facet_idx, face_normals);
+        }
+
+    private:
+        bool project_to_screen(const Vec3f &mesh_point, Vec2f &out_screen) const;
+
+        Matrix4d            m_view_projection_matrix;
+        std::array<int, 4>  m_viewport;
+        Vec2f               m_rect_min;
+        Vec2f               m_rect_max;
+    };
+
+    // NEOTKO_PAINTERPRO_TAG — Painter Pro Mode F4, Sesion B (docs/FUTURE/PAINTER_PROMODE_PLAN.md):
+    // same idea as RectangleProjectionCursor but for an arbitrary closed polygon instead of a 4
+    // corner box. Kept as an independent sibling (not a refactor of RectangleProjectionCursor,
+    // which already shipped and is build-verified) to avoid touching working code.
+    class PolygonProjectionCursor : public SinglePointCursor
+    {
+    public:
+        PolygonProjectionCursor() = delete;
+        ~PolygonProjectionCursor() override = default;
+
+        // polygon: screen-space vertices in pixels (Y down, matches mouse coords), closed
+        // implicitly (last vertex connects back to the first). Must have >= 3 points.
+        explicit PolygonProjectionCursor(const Vec3f &camera_pos_mesh, const Vec3f &camera_target_mesh,
+                                          const Matrix4d &view_projection_matrix, const std::array<int, 4> &viewport,
+                                          std::vector<Vec2f> polygon,
+                                          const Transform3d &trafo_, const ClippingPlane &clipping_plane_)
+            : SinglePointCursor(camera_target_mesh, camera_pos_mesh, 1.f, trafo_, clipping_plane_)
+            , m_view_projection_matrix(view_projection_matrix)
+            , m_viewport(viewport)
+            , m_polygon(std::move(polygon))
+        {
+            assert(m_polygon.size() >= 3);
+        }
+
+        static std::unique_ptr<Cursor> cursor_factory(const Vec3f &camera_pos_mesh, const Vec3f &camera_target_mesh,
+                                                       const Matrix4d &view_projection_matrix, const std::array<int, 4> &viewport,
+                                                       std::vector<Vec2f> polygon,
+                                                       const Transform3d &trafo_matrix, const ClippingPlane &clipping_plane)
+        {
+            return std::make_unique<TriangleSelector::PolygonProjectionCursor>(camera_pos_mesh, camera_target_mesh,
+                view_projection_matrix, viewport, std::move(polygon), trafo_matrix, clipping_plane);
+        }
+
+        bool is_mesh_point_inside(const Vec3f &point) const override;
+        // True when the polygon's boundary reaches into the projected triangle without being
+        // caught by the vertex/edge tests: any polygon vertex inside the triangle (a notch or a
+        // whole small polygon swallowed by one huge facet) or any polygon edge crossing a
+        // triangle edge. Consulted both when seeding select_patch() and — critically — by the
+        // all-3-vertices-inside guard below, which is what resolves concave notches.
+        bool is_pointer_in_triangle(const Vec3f &p1, const Vec3f &p2, const Vec3f &p3) const override;
+        bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const override;
+        bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
+        {
+            return TriangleSelector::Cursor::is_facet_visible(*this, facet_idx, face_normals);
+        }
+        // A concave polygon can cut a notch through a triangle whose 3 vertices are all inside —
+        // see the base-class comment. Makes select_triangle_recursive() double-check with
+        // is_pointer_in_triangle() before painting a "fully inside" triangle without subdividing.
+        bool all_vertices_inside_implies_whole_triangle_inside() const override { return false; }
+
+    private:
+        bool project_to_screen(const Vec3f &mesh_point, Vec2f &out_screen) const;
+
+        Matrix4d            m_view_projection_matrix;
+        std::array<int, 4>  m_viewport;
+        std::vector<Vec2f>  m_polygon;
+    };
+
     struct TriangleBitStreamMapping
     {
         // Index of the triangle to which we assign the bitstream containing splitting information.
@@ -334,6 +456,11 @@ public:
     // Set a limit to the edge length, below which the edge will not be split by select_patch().
     // Called by select_patch() internally. Made public for debugging purposes, see TriangleSelectorGUI::render_debug().
     void set_edge_limit(float edge_limit);
+
+    // Ported from OrcaFS-NeotkoCM (Neotko): Pro Mode "brush precision". Divides the edge_limit that
+    // select_patch() derives from the cursor radius, so the mesh subdivides more finely at the
+    // boundary of a stroke. 1.f = stock behaviour.
+    void set_precision_factor(float factor);
 
     // Create new object on a TriangleMesh. The referenced mesh must
     // stay valid, a ptr to it is saved and used.
@@ -547,6 +674,7 @@ protected:
     std::unique_ptr<Cursor> m_cursor;
     // Zero indicates an uninitialized state.
     float m_old_cursor_radius_sqr = 0;
+    float m_precision_factor = 1.f; // see set_precision_factor()
 
     // Private functions:
 private:

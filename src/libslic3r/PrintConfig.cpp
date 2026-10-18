@@ -4486,6 +4486,48 @@ void PrintConfigDef::init_fff_params()
     def->mode    = comAdvanced;
     def->set_default_value(new ConfigOptionBool(0));
 
+    // Ported from OrcaFS-NeotkoCM (Neotko): Height Adaptive Effects curves. Hidden blob keys (no Tab widget),
+    // written per object by the Height Adaptive Effects gizmo. Empty = off.
+    def = this->add("neotko_hae_infill_width", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_outer_wall_width", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_inner_wall_width", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_fuzzy_thickness", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_fuzzy_point_distance", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_fuzzy_scale", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_fuzzy_octaves", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_hae_fuzzy_persistence", coString);
+    def->label = L("Height adaptive effect curve");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
     // BBS
     def = this->add("enable_arc_fitting", coBool);
     def->label = L("Arc fitting");
@@ -5135,6 +5177,19 @@ void PrintConfigDef::init_fff_params()
     def->category = L("Advanced");
     def->mode     = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0.));
+
+    // Ported from OrcaFS-NeotkoCM (Neotko): painted-surface depth. Forces this many layers of solid
+    // infill under (top) / over (bottom) a painted surface, following the painted silhouette.
+    def           = this->add("mmu_segmented_region_surface_depth", coInt);
+    def->label    = L("Surface depth of painted regions");
+    def->tooltip  = L("Extends a painted top/bottom surface this many layers into the object as "
+                    "solid infill of the painted color, following the painted silhouette. "
+                    "Zero disables this feature.");
+    def->min      = 0;
+    def->max      = 20;
+    def->category = L("Advanced");
+    def->mode     = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
 
     def           = this->add("interlocking_beam", coBool);
     def->label    = L("Use beam interlocking");
@@ -6506,6 +6561,14 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
     
+    // Expert G-code Reprocessor (ported from OrcaFS-NeotkoCM, Neotko): internal JSON rule list edited
+    // from GCodeReprocessorDialog, consumed post-slice in BackgroundSlicingProcess::finalize_gcode().
+    def = this->add("expert_gcode_reprocessor_rules", coString);
+    def->label = L("Expert G-code Reprocessor Rules (internal)");
+    def->tooltip = L("Internal JSON blob storing G-code Reprocessor rules. Not meant to be edited directly.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
     def = this->add("post_process", coStrings);
     def->label = L("Post-processing Scripts");
     def->tooltip = L("If you want to process the output G-code through custom scripts, "

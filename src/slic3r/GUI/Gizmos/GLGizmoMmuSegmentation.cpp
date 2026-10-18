@@ -72,6 +72,10 @@ void GLGizmoMmuSegmentation::on_opening()
 
 void GLGizmoMmuSegmentation::on_shutdown()
 {
+    m_rectangle_mask_active = false;
+    m_polygon_mask_active   = false;
+    m_polygon_points.clear();
+    m_polygon_dragged_vertex = -1;
     m_parent.use_slope(false);
     m_parent.toggle_model_objects_visibility(true);
 }
@@ -660,6 +664,23 @@ void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bott
         }
     }
 
+    // Ported from OrcaFS-NeotkoCM (Neotko): Painter Pro Mode. A new tool icon cancels the masks;
+    // the masks win over the tool selected above (it is applied every frame).
+    if (old_tool != m_current_tool) {
+        m_rectangle_mask_active = false;
+        m_polygon_mask_active   = false;
+        m_polygon_points.clear();
+        m_polygon_dragged_vertex = -1;
+    }
+    ImGui::Separator();
+    if (ImGui::CollapsingHeader(_u8L("Pro Mode").c_str()))
+        render_pro_mode_section(sliders_left_width, sliders_width, slider_icon_width);
+    if (m_rectangle_mask_active)
+        m_tool_type = ToolType::RECTANGLE;
+    else if (m_polygon_mask_active)
+        m_tool_type = ToolType::POLYGON;
+    render_mask_overlay();
+
     ImGui::Separator();
 
     render_tooltip_button(x, y);
@@ -695,6 +716,65 @@ void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bott
     ImGuiWrapper::pop_toolbar_style();
 }
 
+
+// Ported from OrcaFS-NeotkoCM (Neotko): Painter Pro Mode section - brush precision, surface depth and the
+// rectangle / polygon masks. (Paint perimeters only, extra walls and per-colour tables are not ported.)
+void GLGizmoMmuSegmentation::render_pro_mode_section(float sliders_left_width, float sliders_width, float slider_icon_width)
+{
+    const float drag_left_width = ImGui::GetStyle().WindowPadding.x + sliders_width - m_imgui->get_style_scaling() * 8;
+
+    // Brush precision: finer triangle subdivision at the paint boundary.
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(_L("Precision"));
+    ImGui::SameLine(sliders_left_width);
+    ImGui::PushItemWidth(sliders_width);
+    m_imgui->bbl_slider_float_style("##precision_factor", &m_precision_factor, PrecisionFactorMin, PrecisionFactorMax, "%.0fx", 1.0f, true);
+    ImGui::SameLine(drag_left_width + sliders_left_width);
+    ImGui::PushItemWidth(1.5f * slider_icon_width);
+    ImGui::BBLDragFloat("##precision_factor_input", &m_precision_factor, 0.5f, PrecisionFactorMin, PrecisionFactorMax, "%.0fx");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", _u8L("Subdivides the mesh more finely while painting, reducing the staircase look at the edge of a stroke. "
+            "Higher values cost more memory/CPU on dense meshes.").c_str());
+
+    // Surface depth: stored in the object's own config (mmu_segmented_region_surface_depth).
+    ModelObject *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    int surface_depth = (mo && mo->config.has("mmu_segmented_region_surface_depth")) ? mo->config.opt_int("mmu_segmented_region_surface_depth") : 0;
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(_L("Surface depth"));
+    ImGui::SameLine(sliders_left_width);
+    ImGui::PushItemWidth(sliders_width);
+    if (ImGui::InputInt("##mmu_surface_depth", &surface_depth, 1, 1) && mo) {
+        surface_depth = std::clamp(surface_depth, 0, 20);
+        wxGetApp().plater()->take_snapshot("Painter: surface depth");
+        if (surface_depth > 0)
+            mo->config.set_key_value("mmu_segmented_region_surface_depth", new ConfigOptionInt(surface_depth));
+        else
+            mo->config.erase("mmu_segmented_region_surface_depth");
+        wxGetApp().plater()->update();
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", _u8L("Extends a painted top/bottom surface this many layers into the object as solid infill of the "
+            "painted color, following the painted silhouette. 0 = disabled.").c_str());
+
+    // Screen-space masks, mutually exclusive.
+    if (ImGui::Checkbox(_u8L("Rectangle mask").c_str(), &m_rectangle_mask_active)) {
+        m_polygon_mask_active = false;
+        m_polygon_points.clear();
+        m_polygon_dragged_vertex = -1;
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", _u8L("Drag a rectangle on screen to paint every visible facet under it with the selected filament. "
+            "Only front-facing triangles are painted.").c_str());
+
+    if (ImGui::Checkbox(_u8L("Polygon mask").c_str(), &m_polygon_mask_active)) {
+        m_rectangle_mask_active = false;
+        m_polygon_points.clear();
+        m_polygon_dragged_vertex = -1;
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", _u8L("Click to place the vertices of a polygon; click the first vertex again (3 or more placed) to close it "
+            "and paint every visible facet inside. Drag a vertex to move it. Right-click cancels.").c_str());
+}
 
 void GLGizmoMmuSegmentation::update_model_object()
 {

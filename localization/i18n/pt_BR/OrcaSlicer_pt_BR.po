@@ -38424,3 +38424,255 @@ msgstr "Texto livre guardado no perfil de processo."
 
 msgid "Use it to record what the profile is for."
 msgstr "Use para registrar a finalidade do perfil."
+
+msgid "Expert G-code Reprocessor"
+msgstr "Reprocessador de G-code (Expert)"
+
+msgid "Edit layer-ranged and per-tool G-code rewrite rules applied on export"
+msgstr "Editar regras de reescrita do G-code por faixa de camadas e por ferramenta, aplicadas na exportacao"
+
+msgid "G-code rule"
+msgstr "Regra de G-code"
+
+msgid "Speed override (M220, %)"
+msgstr "Sobrescrever velocidade (M220, %)"
+
+msgid "Flow override (M221, %)"
+msgstr "Sobrescrever fluxo (M221, %)"
+
+msgid "Fan override (M106, PWM 0-255)"
+msgstr "Sobrescrever ventoinha (M106, PWM 0-255)"
+
+msgid "Z offset (SET_GCODE_OFFSET Z, mm)"
+msgstr "Deslocamento Z (SET_GCODE_OFFSET Z, mm)"
+
+msgid "Rule type"
+msgstr "Tipo de regra"
+
+msgid "Global (whole layer range)"
+msgstr "Global (toda a faixa de camadas)"
+
+msgid "By tool (only while the tool is active)"
+msgstr "Por ferramenta (somente enquanto a ferramenta estiver ativa)"
+
+msgid "Tool (T index, 0-based)"
+msgstr "Ferramenta (indice T, base 0)"
+
+msgid "From layer"
+msgstr "Da camada"
+
+msgid "Until the end of the print"
+msgstr "Ate o fim da impressao"
+
+msgid "To layer"
+msgstr "Ate a camada"
+
+msgid "Avoid wipe tower G-code"
+msgstr "Evitar G-code da torre de limpeza"
+
+msgid "Rewrites the exported G-code by layer range and, optionally, only while a given tool is active. Rules apply when the G-code is exported (no re-slice needed). Expert use only: verify the result before printing."
+msgstr "Reescreve o G-code exportado por faixa de camadas e, opcionalmente, somente enquanto uma ferramenta estiver ativa. As regras valem na exportacao do G-code (sem refatiar). Somente para uso avancado: confira o resultado antes de imprimir."
+
+msgid "Reprocessor enabled"
+msgstr "Reprocessador ativado"
+
+msgid "Rule"
+msgstr "Regra"
+
+msgid "No wipe tower"
+msgstr "Sem torre de limpeza"
+
+msgid "Add rule..."
+msgstr "Adicionar regra..."
+
+msgid "Edit..."
+msgstr "Editar..."
+
+msgid "By tool"
+msgstr "Por ferramenta"
+
+msgid "end"
+msgstr "fim"
+
+msgid "Align & Stack"
+msgstr "Alinhar e empilhar"
+
+msgid "#1 stays where it is."
+msgstr "O #1 fica onde está."
+
+msgid "#2 is the one that moves."
+msgstr "O #2 é o que se move."
+
+msgid "Swap"
+msgstr "Trocar"
+
+msgid "Click an object: it becomes #1 (stays). Click another: #2 (moves)."
+msgstr "Clique em um objeto: ele vira o #1 (fica parado). Clique em outro: #2 (se move)."
+
+msgid "Place against"
+msgstr "Encostar em"
+
+msgid "Align flush"
+msgstr "Alinhar rente"
+
+msgid "Left side of #1 (X-)."
+msgstr "Lado esquerdo do #1 (X-)."
+
+msgid "Right side of #1 (X+)."
+msgstr "Lado direito do #1 (X+)."
+
+msgid "Front side of #1 (Y-)."
+msgstr "Frente do #1 (Y-)."
+
+msgid "Back side of #1 (Y+)."
+msgstr "Fundo do #1 (Y+)."
+
+msgid "On top"
+msgstr "Em cima"
+
+msgid "Top of #1 (Z+). In Place mode it rests on #1 with the Z gap."
+msgstr "Topo do #1 (Z+). No modo Encostar, apoia no #1 com a folga em Z."
+
+msgid "Center XY"
+msgstr "Centralizar XY"
+
+msgid "Center #2 on #1 in X and Y."
+msgstr "Centraliza o #2 no #1 em X e Y."
+
+msgid "Center Z"
+msgstr "Centralizar Z"
+
+msgid "Center #2 on #1 in Z."
+msgstr "Centraliza o #2 no #1 em Z."
+
+msgid "Drop to bed"
+msgstr "Descer até a mesa"
+
+msgid "Drop #2 onto the bed (Z = 0)."
+msgstr "Desce o #2 até a mesa (Z = 0)."
+
+msgid "Z gap (mm)"
+msgstr "Folga em Z (mm)"
+
+msgid "Pro Mode"
+msgstr "Modo Pro"
+
+msgid "Subdivides the mesh more finely while painting, reducing the staircase look at the edge of a stroke. Higher values cost more memory/CPU on dense meshes."
+msgstr "Subdivide a malha com mais finura ao pintar, reduzindo o serrilhado na borda do traço. Valores altos custam mais memória/CPU em malhas densas."
+
+msgid "Surface depth"
+msgstr "Profundidade da superfície"
+
+msgid "Extends a painted top/bottom surface this many layers into the object as solid infill of the painted color, following the painted silhouette. 0 = disabled."
+msgstr "Estende uma superfície pintada do topo/base por este número de camadas para dentro do objeto, como preenchimento sólido da cor pintada, seguindo a silhueta pintada. 0 = desligado."
+
+msgid "Rectangle mask"
+msgstr "Máscara retangular"
+
+msgid "Drag a rectangle on screen to paint every visible facet under it with the selected filament. Only front-facing triangles are painted."
+msgstr "Arraste um retângulo na tela para pintar com o filamento selecionado todas as faces visíveis sob ele. Só os triângulos voltados para a câmera são pintados."
+
+msgid "Polygon mask"
+msgstr "Máscara poligonal"
+
+msgid "Click to place the vertices of a polygon; click the first vertex again (3 or more placed) to close it and paint every visible facet inside. Drag a vertex to move it. Right-click cancels."
+msgstr "Clique para colocar os vértices de um polígono; clique de novo no primeiro vértice (com 3 ou mais) para fechá-lo e pintar todas as faces visíveis dentro. Arraste um vértice para movê-lo. Botão direito cancela."
+
+msgid "Surface depth of painted regions"
+msgstr "Profundidade da superfície das regiões pintadas"
+
+msgid "Extends a painted top/bottom surface this many layers into the object as solid infill of the painted color, following the painted silhouette. Zero disables this feature."
+msgstr "Estende uma superfície pintada do topo/base por este número de camadas para dentro do objeto, como preenchimento sólido da cor pintada, seguindo a silhueta pintada. Zero desliga o recurso."
+
+msgid "Precision Adaptive Layer Height"
+msgstr "Altura de camada adaptativa de precisao"
+
+msgid "Select a single object to edit its layer height curve."
+msgstr "Selecione um unico objeto para editar a curva de altura de camada."
+
+msgid "Click to add a point, drag to move it, right-click to delete it. The bottom point is the fixed first layer and the top point can only move in height."
+msgstr "Clique para adicionar um ponto, arraste para mover, clique com o botao direito para excluir. O ponto inferior e a primeira camada fixa e o ponto superior so se move em altura."
+
+msgid "The object's height changed: the saved curve has been stretched to the new height. Layer heights are untouched; only the Z of each point moved."
+msgstr "A altura do objeto mudou: a curva salva foi esticada para a nova altura. As alturas de camada nao mudaram; so o Z de cada ponto."
+
+msgid "Min layer height"
+msgstr "Altura minima de camada"
+
+msgid "Max layer height"
+msgstr "Altura maxima de camada"
+
+msgid "Tension per segment"
+msgstr "Tensao por segmento"
+
+msgid "(0 = straight, 1 = smooth)"
+msgstr "(0 = reta, 1 = suave)"
+
+msgid "Height Adaptive Effects"
+msgstr "Efeitos adaptativos por altura"
+
+msgid "Select a single object to edit its height adaptive effects."
+msgstr "Selecione um unico objeto para editar seus efeitos adaptativos por altura."
+
+msgid "Draw a curve over the object's real layer bands (the horizontal lines) to change a setting with height. An object with no curve prints exactly as before."
+msgstr "Desenhe uma curva sobre as camadas reais do objeto (as linhas horizontais) para variar uma configuracao com a altura. Um objeto sem curva imprime exatamente como antes."
+
+msgid "Sparse infill width"
+msgstr "Largura do preenchimento esparso"
+
+msgid "Outer wall width"
+msgstr "Largura da parede externa"
+
+msgid "Inner wall width"
+msgstr "Largura da parede interna"
+
+msgid "Fuzzy skin noise scale"
+msgstr "Escala do ruido da pele felpuda"
+
+msgid "Fuzzy skin noise octaves"
+msgstr "Oitavas do ruido da pele felpuda"
+
+msgid "Ramp"
+msgstr "Rampa"
+
+msgid "Integer setting: always steps."
+msgstr "Configuracao inteira: sempre em degraus."
+
+msgid "Click: add point. Drag: move. Right-click: delete."
+msgstr "Clique: adicionar ponto. Arraste: mover. Botao direito: excluir."
+
+msgid "At least two points are needed for the curve to take effect."
+msgstr "Sao necessarios ao menos dois pontos para a curva ter efeito."
+
+msgid "The curve scales fuzzy skin where it is enabled; it does not switch it on. Fuzzy skin thickness reaching 0 turns fuzzy skin off for that layer."
+msgstr "A curva ajusta a pele felpuda onde ela esta ativada; nao a liga. Espessura chegando a 0 desliga a pele felpuda naquela camada."
+
+msgid "Smoothness"
+msgstr "Suavidade"
+
+msgid "Bands"
+msgstr "Faixas"
+
+msgid "Staircase"
+msgstr "Escada"
+
+msgid "Turns the ramp into layer-aligned bands, keeping its shape."
+msgstr "Transforma a rampa em faixas alinhadas as camadas, mantendo o formato."
+
+msgid "Line shift per layer"
+msgstr "Deslocamento da linha por camada"
+
+msgid "The shortest band is under 4 layers: the jump costs more than it gives."
+msgstr "A faixa mais curta tem menos de 4 camadas: o salto custa mais do que rende."
+
+msgid "Open Z points"
+msgstr "Abrir pontos Z"
+
+msgid "Refresh layers"
+msgstr "Atualizar camadas"
+
+msgid "Re-read the layer bands after changing the layer height profile."
+msgstr "Rele as faixas de camadas apos mudar o perfil de altura de camada."
+
+msgid "Z is measured from the bottom of the object."
+msgstr "Z e medido a partir da base do objeto."

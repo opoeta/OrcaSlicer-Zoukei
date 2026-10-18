@@ -1,4 +1,5 @@
 #include "MainFrame.hpp"
+#include "GCodeReprocessorDialog.hpp"
 
 #include <wx/event.h>
 #include "slic3r/GUI/Event.hpp"
@@ -3158,6 +3159,11 @@ void MainFrame::init_menubar_as_editor()
         append_menu_item(export_menu, wxID_ANY, _L("Export toolpaths as OBJ") + dots, _L("Export toolpaths as OBJ"),
             [this](wxCommandEvent&) { if (m_plater != nullptr) m_plater->export_toolpaths_to_obj(); }, "menu_export_toolpaths", nullptr,
             [this]() {return can_export_toolpaths(); }, this);
+
+        // Expert G-code Reprocessor (ported from OrcaFS-NeotkoCM, Neotko): layer-ranged / per-tool G-code rewrite rules.
+        append_menu_item(export_menu, wxID_ANY, _L("Expert G-code Reprocessor") + dots, _L("Edit layer-ranged and per-tool G-code rewrite rules applied on export"),
+            [this](wxCommandEvent&) { GCodeReprocessorDialog dlg(this); dlg.ShowModal(); }, "menu_export_gcode", nullptr,
+            []() {return true; }, this);
 
         append_menu_item(
             export_menu, wxID_ANY, _L("Export Preset Bundle") + dots /* + "\t" + ctrl + "E"*/, _L("Export current configuration to files"),

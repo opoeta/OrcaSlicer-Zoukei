@@ -2376,6 +2376,10 @@ Response Controller::dispatch(const Request &req)
             // Orca Zoukei colour / filament / model-ops endpoints (own translation units).
             Response zr;
             if (dispatch_color(req, zr)) return zr;
+            if (dispatch_support(req, zr)) return zr;
+            if (dispatch_project(req, zr)) return zr;
+            if (dispatch_paint(req, zr)) return zr;
+            if (dispatch_layers(req, zr)) return zr;
         }
         if (is("GET", "/api/v1/status"))        return handle_status();
         if (is("GET", "/api/v1/config"))        return handle_get_config(t);

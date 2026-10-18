@@ -336,7 +336,8 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "use_3mf"
     };
 
-    static std::unordered_set<std::string> steps_ignore;
+    // Expert G-code Reprocessor rules are applied post-slice on a copy of the finished G-code: no re-slice needed.
+    static std::unordered_set<std::string> steps_ignore = { "expert_gcode_reprocessor_rules" };
 
     std::vector<PrintStep> steps;
     std::vector<PrintObjectStep> osteps;

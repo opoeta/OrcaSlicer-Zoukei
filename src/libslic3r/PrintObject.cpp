@@ -665,6 +665,11 @@ void PrintObject::prepare_infill()
     this->discover_horizontal_shells();
     m_print->throw_if_canceled();
 
+    // Ported from OrcaFS-NeotkoCM (Neotko): after the standard shell classification, force solid infill
+    // under/over painted surfaces up to the configured surface depth.
+    this->apply_painted_surface_depth();
+    m_print->throw_if_canceled();
+
 #ifdef SLIC3R_DEBUG_SLICE_PROCESSING
     for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
         for (const Layer *layer : m_layers) {
@@ -1550,6 +1555,7 @@ bool PrintObject::invalidate_state_by_config_options(
                opt_key == "layer_height"
             || opt_key == "mmu_segmented_region_max_width"
             || opt_key == "mmu_segmented_region_interlocking_depth"
+            || opt_key == "mmu_segmented_region_surface_depth"
             || opt_key == "raft_layers"
             || opt_key == "raft_contact_distance"
             || opt_key == "slice_closing_radius"
@@ -1768,6 +1774,12 @@ bool PrintObject::invalidate_state_by_config_options(
             if (old_expansion->value <= 0. || new_expansion->value <= 0.)
                 steps.emplace_back(posPerimeters);
             steps.emplace_back(posPrepareInfill);
+        } else if (opt_key == "neotko_hae_infill_width"
+                || opt_key == "neotko_hae_outer_wall_width"
+                || opt_key == "neotko_hae_inner_wall_width") {
+            // Ported from OrcaFS-NeotkoCM: width curves feed perimeters (gap fill clip, wall flow) and infill.
+            steps.emplace_back(posPerimeters);
+            steps.emplace_back(posPrepareInfill);
         } else if (opt_key == "internal_solid_infill_line_width") {
             // This value is used for calculating perimeter - infill overlap, thus perimeters need to be recalculated.
             steps.emplace_back(posPerimeters);
@@ -1778,6 +1790,11 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "inner_wall_filament_id"
             || opt_key == "fuzzy_skin"
             || opt_key == "fuzzy_skin_thickness"
+            || opt_key == "neotko_hae_fuzzy_thickness"
+            || opt_key == "neotko_hae_fuzzy_point_distance"
+            || opt_key == "neotko_hae_fuzzy_scale"
+            || opt_key == "neotko_hae_fuzzy_octaves"
+            || opt_key == "neotko_hae_fuzzy_persistence"
             || opt_key == "fuzzy_skin_point_distance"
             || opt_key == "fuzzy_skin_first_layer"
             || opt_key == "fuzzy_skin_mode"
@@ -4886,6 +4903,52 @@ void PrintObject::clip_fill_surfaces()
         m_print->throw_if_canceled();
     }
 }
+
+// Ported from OrcaFS-NeotkoCM (Neotko) - painted-surface depth.
+// Forces solid infill under a painted top surface (and over a painted bottom surface) up to
+// mmu_segmented_region_surface_depth layers, following the painted silhouette. The per-layer mask was
+// captured during MMU segmentation (segmentation_top_and_bottom_layers()) and is intersected here ONLY
+// against stInternal fill surfaces: areas already solid (top shells, vertical shells, ...) are not
+// stInternal, so nothing is overwritten, and stPenultimateInternalSolid is never touched.
+void PrintObject::apply_painted_surface_depth()
+{
+    if (m_painted_depth_solid_mask.empty()
+        || std::none_of(m_painted_depth_solid_mask.begin(), m_painted_depth_solid_mask.end(),
+                        [](const ExPolygons &ex) { return !ex.empty(); }))
+        return;
+
+    const size_t num_layers = std::min(m_layers.size(), m_painted_depth_solid_mask.size());
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers),
+        [this](const tbb::blocked_range<size_t> &range) {
+            for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                m_print->throw_if_canceled();
+                const ExPolygons &mask = m_painted_depth_solid_mask[layer_idx];
+                if (mask.empty())
+                    continue;
+                for (LayerRegion *layerm : m_layers[layer_idx]->regions()) {
+                    Polygons internal_pg = to_polygons(layerm->fill_surfaces.filter_by_type(stInternal));
+                    if (internal_pg.empty())
+                        continue;
+                    ExPolygons new_solid = intersection_ex(mask, internal_pg);
+                    if (new_solid.empty())
+                        continue;
+                    // Same backup + rebuild idiom as discover_horizontal_shells(): every surface type
+                    // other than stInternal / stInternalSolid is restored untouched.
+                    SurfaceCollection backup = std::move(layerm->fill_surfaces);
+                    ExPolygons remaining_internal = diff_ex(internal_pg, new_solid);
+                    Polygons solid_pg = to_polygons(std::move(new_solid));
+                    polygons_append(solid_pg, to_polygons(backup.filter_by_type(stInternalSolid)));
+                    ExPolygons internal_solid = union_ex(solid_pg);
+                    layerm->fill_surfaces.clear();
+                    for (Surface &surface : backup.surfaces)
+                        if (surface.surface_type != stInternal && surface.surface_type != stInternalSolid)
+                            layerm->fill_surfaces.surfaces.emplace_back(std::move(surface));
+                    layerm->fill_surfaces.append(remaining_internal, stInternal);
+                    layerm->fill_surfaces.append(internal_solid, stInternalSolid);
+                }
+            }
+        });
+} // void PrintObject::apply_painted_surface_depth()
 
 void PrintObject::discover_horizontal_shells()
 {

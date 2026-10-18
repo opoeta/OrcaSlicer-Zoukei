@@ -273,6 +273,9 @@ protected:
         SMART_FILL,
         // BBS
         GAP_FILL,
+        // Ported from OrcaFS-NeotkoCM (Neotko): Painter Pro Mode screen-space masks.
+        RECTANGLE,
+        POLYGON,
     };
 
     struct ProjectedMousePosition
@@ -293,6 +296,25 @@ protected:
     bool     m_triangle_splitting_enabled = true;
     ToolType m_tool_type                  = ToolType::BRUSH;
     float    m_smart_fill_angle           = 30.f;
+
+    // Ported from OrcaFS-NeotkoCM (Neotko) - Painter Pro Mode. Brush precision: divides the edge
+    // limit used when subdividing the mesh (1 = stock). Applied to the selectors before each stroke.
+    float m_precision_factor = 1.f;
+    static constexpr float PrecisionFactorMin = 1.f;
+    static constexpr float PrecisionFactorMax = 8.f;
+    // RECTANGLE tool: screen-space corners (canvas pixels) while the button is held.
+    bool  m_rect_dragging = false;
+    Vec2d m_rect_start_corner { Vec2d::Zero() };
+    Vec2d m_rect_end_corner { Vec2d::Zero() };
+    // POLYGON tool: vertices placed so far (canvas pixels); vertex being dragged, or -1.
+    std::vector<Vec2d> m_polygon_points;
+    int   m_polygon_dragged_vertex = -1;
+    static constexpr float PolygonCloseRadiusPx = 10.f;
+    void apply_rectangle_mask(EnforcerBlockerType new_state);
+    void apply_polygon_mask(EnforcerBlockerType new_state);
+    void apply_screen_mask(EnforcerBlockerType new_state, bool polygon);
+    // Draws the in-progress rectangle / polygon with ImGui (needs an ImGui frame: call from the panel).
+    void render_mask_overlay() const;
 
     bool     m_paint_on_overhangs_only          = false;
     float    m_highlight_by_angle_threshold_deg = 0.f;

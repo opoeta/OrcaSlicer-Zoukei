@@ -20,6 +20,7 @@
 #include "BuildVolume.hpp"
 #include "TexturePainting.hpp"
 #include "Format/AssimpImport.hpp"
+#include "Format/S3DFactory.hpp" // ported from OrcaFS-NeotkoCM (Neotko)
 #include "ClipperUtils.hpp"
 #include "Exception.hpp"
 #include "ModelArrange.hpp"
@@ -478,6 +479,9 @@ Model Model::read_from_file(const std::string&                                  
         delete_temp_file(temp_stl);
     }
 #endif
+    // Simplify3D .factory importer (v4.x/v5.x, world-space), ported from OrcaFS-NeotkoCM (Neotko)
+    else if (boost::algorithm::iends_with(input_file, ".factory"))
+        result = load_s3d_factory(input_file, model);
     else
         throw Slic3r::RuntimeError(_L("Unknown file format: input file must have .stl, .obj, or .amf(.xml) extension."));
 

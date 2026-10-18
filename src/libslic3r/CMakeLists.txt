@@ -153,6 +153,8 @@ set(lisbslic3r_sources
     FaceDetector.hpp
     Feature/FuzzySkin/FuzzySkin.cpp
     Feature/FuzzySkin/FuzzySkin.hpp
+    Feature/HeightAdaptive/HeightCurve.cpp
+    Feature/HeightAdaptive/HeightCurve.hpp
     Feature/Interlocking/InterlockingGenerator.cpp
     Feature/Interlocking/InterlockingGenerator.hpp
     Feature/Interlocking/VoxelUtils.cpp
@@ -232,6 +234,8 @@ set(lisbslic3r_sources
     format.hpp
     Format/OBJ.cpp
     Format/OBJ.hpp
+    Format/S3DFactory.cpp
+    Format/S3DFactory.hpp
     Format/AssimpImport.hpp
     Format/AssimpImport.cpp
     Format/ResourcePathUtils.hpp
@@ -271,6 +275,8 @@ set(lisbslic3r_sources
     GCode/ExtrusionProcessor.hpp
     GCode/FanMover.cpp
     GCode/FanMover.hpp
+    GCode/ExpertGCodeReprocessor.cpp
+    GCode/ExpertGCodeReprocessor.hpp
     GCode/GCodeProcessor.cpp
     GCode/GCodeProcessor.hpp
     GCode/ElegooGCodeProcessorHelper.cpp

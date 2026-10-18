@@ -102,6 +102,9 @@ public:
         Assembly,
         Simplify,
         BrimEars,
+        PrecisionALH,          // ported from OrcaFS-NeotkoCM (Neotko)
+        HeightAdaptiveEffects, // ported from OrcaFS-NeotkoCM (Neotko)
+        AlignStack, // ported from OrcaFS-NeotkoCM (Neotko)
         //SlaSupports,
         // BBS
         //FaceRecognition,

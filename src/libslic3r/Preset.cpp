@@ -1360,6 +1360,8 @@ static std::vector<std::string> s_Preset_print_options{
     "gcode_add_line_number",
     "enable_arc_fitting",
     "precise_z_height",
+    "neotko_hae_infill_width", "neotko_hae_outer_wall_width", "neotko_hae_inner_wall_width", "neotko_hae_fuzzy_thickness",
+    "neotko_hae_fuzzy_point_distance", "neotko_hae_fuzzy_scale", "neotko_hae_fuzzy_octaves", "neotko_hae_fuzzy_persistence",
     "infill_combination",
     "infill_combination_max_layer_height", /*"adaptive_layer_height",*/
     "support_bottom_interface_spacing",
@@ -1477,6 +1479,7 @@ static std::vector<std::string> s_Preset_print_options{
     "hole_to_polyhole_max_edges",
     "mmu_segmented_region_max_width",
     "mmu_segmented_region_interlocking_depth",
+    "mmu_segmented_region_surface_depth",
     "small_area_infill_flow_compensation",
     "small_area_infill_flow_compensation_model",
     "enable_wrapping_detection",

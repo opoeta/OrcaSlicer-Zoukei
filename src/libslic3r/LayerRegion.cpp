@@ -1,3 +1,4 @@
+#include "Feature/HeightAdaptive/HeightCurve.hpp"
 #include "Flow.hpp"
 #include "Config.hpp"
 #include "ExPolygon.hpp"
@@ -52,6 +53,31 @@ Flow LayerRegion::flow(FlowRole role) const
 
 Flow LayerRegion::flow(FlowRole role, double layer_height) const
 {
+    // Ported from OrcaFS-NeotkoCM (Neotko): Height Adaptive Effects - line width by height (sparse infill,
+    // outer wall, inner wall). Per-object absolute-mm curve overriding the region width at the point of
+    // consumption; skipped on the first layer. Empty curve => stock flow, byte-identical output.
+    if (m_layer->id() != 0) {
+        const PrintObjectConfig &oc = m_layer->object()->config();
+        const std::string *curve_str = nullptr;
+        switch (role) {
+        case frInfill:            curve_str = &oc.neotko_hae_infill_width.value;     break;
+        case frPerimeter:         curve_str = &oc.neotko_hae_inner_wall_width.value; break;
+        case frExternalPerimeter: curve_str = &oc.neotko_hae_outer_wall_width.value; break;
+        default: break;
+        }
+        if (curve_str != nullptr && ! curve_str->empty()) {
+            const auto curve = HeightAdaptive::HeightCurve::parse(*curve_str, HeightAdaptive::Interp::Stepped);
+            if (! curve.empty()) {
+                Flow base = m_region->flow(*m_layer->object(), role, layer_height, false);
+                const double w = curve.at(m_layer->slice_z, double(base.width()));
+                if (w > 0.) {
+                    const PrintObject &po = *m_layer->object();
+                    const float nozzle_diameter = float(nozzle_diameter_for_filament(po.print()->config(), m_region->extruder(role), po.print()->is_BBL_printer()));
+                    return Flow::new_from_config_width(role, ConfigOptionFloatOrPercent(w, false), nozzle_diameter, float(layer_height));
+                }
+            }
+        }
+    }
     return m_region->flow(*m_layer->object(), role, layer_height, m_layer->id() == 0);
 }
 

@@ -25,6 +25,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
+#include "libslic3r/Feature/HeightAdaptive/HeightCurve.hpp"
 #include "FuzzySkin.hpp"
 
 #include "libnoise/noise.h"
@@ -438,18 +439,54 @@ void group_region_by_fuzzify(PerimeterGenerator& g)
         SurfacesPtr     surfaces;
     };
 
+    // Ported from OrcaFS-NeotkoCM (Neotko): Height Adaptive Effects - fuzzy skin parameters by height.
+    // Per-object absolute-value curves (smooth), resolved once per layer. Empty curve => region value untouched.
+    auto parse_curve = [&g](const std::string &blob) {
+        HeightAdaptive::HeightCurve c(HeightAdaptive::Interp::Smooth);
+        if (g.object_config != nullptr && ! blob.empty())
+            c = HeightAdaptive::HeightCurve::parse(blob, HeightAdaptive::Interp::Smooth);
+        return c;
+    };
+    static const std::string empty_blob;
+    const bool has_oc = g.object_config != nullptr;
+    const HeightAdaptive::HeightCurve hae_fuzzy       = parse_curve(has_oc ? g.object_config->neotko_hae_fuzzy_thickness.value : empty_blob);
+    const HeightAdaptive::HeightCurve hae_point_dist  = parse_curve(has_oc ? g.object_config->neotko_hae_fuzzy_point_distance.value : empty_blob);
+    const HeightAdaptive::HeightCurve hae_scale       = parse_curve(has_oc ? g.object_config->neotko_hae_fuzzy_scale.value : empty_blob);
+    const HeightAdaptive::HeightCurve hae_octaves     = parse_curve(has_oc ? g.object_config->neotko_hae_fuzzy_octaves.value : empty_blob);
+    const HeightAdaptive::HeightCurve hae_persistence = parse_curve(has_oc ? g.object_config->neotko_hae_fuzzy_persistence.value : empty_blob);
+
     std::vector<ConfigSurfaces> regions;
     regions.reserve(g.compatible_regions->size());
     for (auto region : *g.compatible_regions) {
         const auto&           region_config = region->region().config();
-        const FuzzySkinConfig cfg{region_config.fuzzy_skin,
-                                  scaled<coord_t>(region_config.fuzzy_skin_thickness.value),
-                                  scaled<coord_t>(region_config.fuzzy_skin_point_distance.value),
+        FuzzySkinType hae_type        = region_config.fuzzy_skin.value;
+        double        hae_thickness   = region_config.fuzzy_skin_thickness.value;
+        double        hae_point_d     = region_config.fuzzy_skin_point_distance.value;
+        double        hae_noise_scale = region_config.fuzzy_skin_scale.value;
+        int           hae_noise_oct   = region_config.fuzzy_skin_octaves.value;
+        double        hae_noise_pers  = region_config.fuzzy_skin_persistence.value;
+        if (! hae_fuzzy.empty()) {
+            hae_thickness = std::max(0., hae_fuzzy.at(g.slice_z, hae_thickness));
+            // Thickness 0 switches fuzzy skin off for the layer (a zero-amplitude fuzzy would still resample every wall).
+            if (hae_thickness < 0.005)
+                hae_type = FuzzySkinType::None;
+        }
+        if (! hae_point_dist.empty())
+            hae_point_d = std::max(0.01, hae_point_dist.at(g.slice_z, hae_point_d));
+        if (! hae_scale.empty())
+            hae_noise_scale = std::max(0.01, hae_scale.at(g.slice_z, hae_noise_scale));
+        if (! hae_octaves.empty())
+            hae_noise_oct = std::max(1, int(std::lround(hae_octaves.at(g.slice_z, double(hae_noise_oct)))));
+        if (! hae_persistence.empty())
+            hae_noise_pers = std::clamp(hae_persistence.at(g.slice_z, hae_noise_pers), 0., 1.);
+        const FuzzySkinConfig cfg{hae_type,
+                                  scaled<coord_t>(hae_thickness),
+                                  scaled<coord_t>(hae_point_d),
                                   region_config.fuzzy_skin_first_layer,
                                   region_config.fuzzy_skin_noise_type,
-                                  region_config.fuzzy_skin_scale,
-                                  region_config.fuzzy_skin_octaves,
-                                  region_config.fuzzy_skin_persistence,
+                                  hae_noise_scale,
+                                  hae_noise_oct,
+                                  hae_noise_pers,
                                   region_config.fuzzy_skin_mode,
                                   region_config.fuzzy_skin_ripples_per_layer,
                                   region_config.fuzzy_skin_ripple_offset,

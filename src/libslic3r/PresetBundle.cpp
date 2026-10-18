@@ -168,7 +168,9 @@ static std::vector<std::string> s_project_options {
     "filament_mixed_gradient",
     "filament_mixed_gradient_range",
     "filament_mixed_gradient_curve",
-    "filament_mixed_gradient_per_part"
+    "filament_mixed_gradient_per_part",
+    // Expert G-code Reprocessor rules (JSON), ported from OrcaFS-NeotkoCM (Neotko); project-level, saved in 3mf.
+    "expert_gcode_reprocessor_rules"
 };
 
 // Project options applied when loading a "published" 3MF project: s_project_options minus the

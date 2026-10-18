@@ -1,3 +1,4 @@
+#include "Feature/HeightAdaptive/HeightCurve.hpp"
 #include "PerimeterGenerator.hpp"
 #include "Arachne/utils/ExtrusionLine.hpp"
 #include "Arachne/utils/ExtrusionJunction.hpp"
@@ -892,6 +893,17 @@ void PerimeterGenerator::split_top_surfaces(const ExPolygons &orig_polygons, ExP
     //set the clip to the external wall but go back inside by infill_extrusion_width/2 to be sure the extrusion won't go outside even with a 100% overlap.
     double infill_spacing_unscaled = this->config->sparse_infill_line_width.get_abs_value(nozzle_diameter);
     if (infill_spacing_unscaled == 0) infill_spacing_unscaled = Flow::auto_extrusion_width(frInfill, nozzle_diameter);
+    // Ported from OrcaFS-NeotkoCM (Neotko): Height Adaptive Effects. Same sparse infill width curve as
+    // LayerRegion::flow(), so gap fill and infill agree on the width of this layer. Empty curve => untouched.
+    if (this->object_config != nullptr && ! this->object_config->neotko_hae_infill_width.value.empty() && this->layer_id > 0) {
+        const auto hae_width = HeightAdaptive::HeightCurve::parse(
+            this->object_config->neotko_hae_infill_width.value, HeightAdaptive::Interp::Stepped);
+        if (! hae_width.empty()) {
+            const double w = hae_width.at(this->slice_z, infill_spacing_unscaled);
+            if (w > 0.)
+                infill_spacing_unscaled = w;
+        }
+    }
     fill_clip = offset_ex(orig_polygons, double(ext_perimeter_spacing / 2.) - scale_(infill_spacing_unscaled / 2.));
     // ExPolygons oldLast = last;
 

@@ -1242,7 +1242,8 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                                                                                       const std::vector<ExPolygons>                                   &input_expolygons,
                                                                                       const std::function<ModelVolumeFacetsInfo(const ModelVolume &)> &extract_facets_info,
                                                                                       const size_t                                                     num_facets_states,
-                                                                                      const std::function<void()>                                     &throw_on_cancel_callback)
+                                                                                      const std::function<void()>                                     &throw_on_cancel_callback,
+                                                                                      std::vector<ExPolygons>                                         *painted_depth_solid_mask_out = nullptr)
 {
     BOOST_LOG_TRIVIAL(debug) << "Print object segmentation - Segmentation of top and bottom layers in parallel - Begin";
     const size_t num_layers    = input_expolygons.size();
@@ -1254,6 +1255,15 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
         const PrintRegionConfig &config = print_object.printing_region(i).config();
         max_top_layers    = std::max(max_top_layers, config.top_shell_layers.value);
         max_bottom_layers = std::max(max_bottom_layers, config.bottom_shell_layers.value);
+    }
+
+    // Ported from OrcaFS-NeotkoCM (Neotko): painted-surface depth. Depth D means D extra solid layers
+    // past the painted surface; the projection loops below cover distances 1..B-1 for a bound B, hence D + 1.
+    const int surface_depth = painted_depth_solid_mask_out != nullptr ?
+        std::clamp(print_object.config().mmu_segmented_region_surface_depth.value, 0, 20) : 0;
+    if (surface_depth > 0) {
+        max_top_layers    = std::max(max_top_layers, surface_depth + 1);
+        max_bottom_layers = std::max(max_bottom_layers, surface_depth + 1);
     }
 
     // Project upwards pointing painted triangles over top surfaces,
@@ -1388,6 +1398,8 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
     using ShellProjections = std::vector<std::pair<size_t, ExPolygons>>;  // (target layer, projection)
     std::vector<std::vector<ShellProjections>> shell_triangles_by_color_bottom(num_facets_states, std::vector<ShellProjections>(num_layers));
     std::vector<std::vector<ShellProjections>> shell_triangles_by_color_top(num_facets_states, std::vector<ShellProjections>(num_layers));
+    // Surface depth: projections within the depth zone, per source layer (each layer writes only its own slot).
+    std::vector<ShellProjections> depth_projections(surface_depth > 0 ? num_layers : 0);
 
     struct LayerColorStat {
         // Number of regions for a queried color.
@@ -1433,11 +1445,13 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
 
     tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), [&num_layers, &num_facets_states, &layer_color_stat, &top_raw, &triangles_by_color_top,
                                                                   &throw_on_cancel_callback, &input_expolygons, &bottom_raw, &triangles_by_color_bottom,
-                                                                  &shell_triangles_by_color_top, &shell_triangles_by_color_bottom](const tbb::blocked_range<size_t> &range) {
+                                                                  &shell_triangles_by_color_top, &shell_triangles_by_color_bottom, &depth_projections, surface_depth](const tbb::blocked_range<size_t> &range) {
         for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++ layer_idx) {
             for (size_t color_idx = 0; color_idx < num_facets_states; ++color_idx) {
                 throw_on_cancel_callback();
                 LayerColorStat stat = layer_color_stat(layer_idx, color_idx);
+                const int effective_top_shells    = surface_depth > 0 ? std::max(stat.top_shell_layers, surface_depth + 1) : stat.top_shell_layers;
+                const int effective_bottom_shells = surface_depth > 0 ? std::max(stat.bottom_shell_layers, surface_depth + 1) : stat.bottom_shell_layers;
                 if (std::vector<Polygons> &top = top_raw[color_idx]; ! top.empty() && ! top[layer_idx].empty())
                     if (ExPolygons top_ex = union_ex(top[layer_idx]); ! top_ex.empty()) {
                         // Clean up thin projections. They are not printable anyways.
@@ -1446,14 +1460,20 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                             append(triangles_by_color_top[color_idx][layer_idx], top_ex);
                             float offset = 0.f;
                             ExPolygons layer_slices_trimmed = input_expolygons[layer_idx];
-                            for (int last_idx = int(layer_idx) - 1; last_idx > std::max(int(layer_idx - stat.top_shell_layers), int(0)); --last_idx) {
+                            for (int last_idx = int(layer_idx) - 1; last_idx > std::max(int(layer_idx - effective_top_shells), int(0)); --last_idx) {
                                 //BBS: offset width should be 2*spacing to avoid too narrow area which has overlap of wall line
                                 //offset -= stat.extrusion_width ;
                                 offset -= (stat.extrusion_spacing + stat.extrusion_width);
+                                // Surface depth: inside the depth zone project the silhouette STRAIGHT down (one fixed
+                                // wall-clearance inset) instead of the accumulated erode, which would make a pyramid.
+                                const bool  in_depth_zone = surface_depth > 0 && int(layer_idx) - last_idx <= surface_depth;
+                                const float used_offset   = in_depth_zone ? -(stat.extrusion_spacing + stat.extrusion_width) : offset;
                                 layer_slices_trimmed = intersection_ex(layer_slices_trimmed, input_expolygons[last_idx]);
-                                ExPolygons last = opening_ex(intersection_ex(top_ex, offset_ex(layer_slices_trimmed, offset)), stat.small_region_threshold);
+                                ExPolygons last = opening_ex(intersection_ex(top_ex, offset_ex(layer_slices_trimmed, used_offset)), stat.small_region_threshold);
                                 if (last.empty())
                                     break;
+                                if (in_depth_zone && color_idx > 0)
+                                    depth_projections[layer_idx].emplace_back(size_t(last_idx), last);
                                 shell_triangles_by_color_top[color_idx][layer_idx].emplace_back(size_t(last_idx), std::move(last));
                             }
                         }
@@ -1466,14 +1486,18 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
                             append(triangles_by_color_bottom[color_idx][layer_idx], bottom_ex);
                             float offset = 0.f;
                             ExPolygons layer_slices_trimmed = input_expolygons[layer_idx];
-                            for (size_t last_idx = layer_idx + 1; last_idx < std::min(layer_idx + stat.bottom_shell_layers, num_layers); ++last_idx) {
+                            for (size_t last_idx = layer_idx + 1; last_idx < std::min(layer_idx + effective_bottom_shells, num_layers); ++last_idx) {
                                 //BBS: offset width should be 2*spacing to avoid too narrow area which has overlap of wall line
                                 //offset -= stat.extrusion_width;
                                 offset -= (stat.extrusion_spacing + stat.extrusion_width);
+                                const bool  in_depth_zone = surface_depth > 0 && int(last_idx) - int(layer_idx) <= surface_depth;
+                                const float used_offset   = in_depth_zone ? -(stat.extrusion_spacing + stat.extrusion_width) : offset;
                                 layer_slices_trimmed = intersection_ex(layer_slices_trimmed, input_expolygons[last_idx]);
-                                ExPolygons last = opening_ex(intersection_ex(bottom_ex, offset_ex(layer_slices_trimmed, offset)), stat.small_region_threshold);
+                                ExPolygons last = opening_ex(intersection_ex(bottom_ex, offset_ex(layer_slices_trimmed, used_offset)), stat.small_region_threshold);
                                 if (last.empty())
                                     break;
+                                if (in_depth_zone && color_idx > 0)
+                                    depth_projections[layer_idx].emplace_back(last_idx, last);
                                 shell_triangles_by_color_bottom[color_idx][layer_idx].emplace_back(last_idx, std::move(last));
                             }
                         }
@@ -1481,6 +1505,17 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
             }
         }
     });
+
+    // Surface depth: collapse the projections into one mask per target layer (used later to force solid infill).
+    if (painted_depth_solid_mask_out != nullptr) {
+        painted_depth_solid_mask_out->assign(num_layers, ExPolygons());
+        for (size_t layer_idx = 0; layer_idx < depth_projections.size(); ++layer_idx)
+            for (auto &[target, projection] : depth_projections[layer_idx])
+                append((*painted_depth_solid_mask_out)[target], std::move(projection));
+        for (ExPolygons &layer_mask : *painted_depth_solid_mask_out)
+            if (!layer_mask.empty())
+                layer_mask = union_ex(layer_mask);
+    }
 
     // Gather the shell projections per target layer, walking the source layers in order.
     std::vector<std::vector<ExPolygons>> shell_top_by_layer(num_facets_states, std::vector<ExPolygons>(num_layers));
@@ -2025,7 +2060,8 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
                                                               const float                                                      segmentation_interlocking_depth,
                                                               const bool                                                       segmentation_interlocking_beam,
                                                               const IncludeTopAndBottomLayers                                  include_top_and_bottom_layers,
-                                                              const std::function<void()>                                     &throw_on_cancel_callback)
+                                                              const std::function<void()>                                     &throw_on_cancel_callback,
+                                                              std::vector<ExPolygons>                                         *painted_depth_solid_mask_out)
 {
     const size_t                          num_layers    = print_object.layers().size();
     std::vector<std::vector<ExPolygons>>  segmented_regions(num_layers);
@@ -2241,7 +2277,7 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
     // The first index is extruder number (includes default extruder), and the second one is layer number
     std::vector<std::vector<ExPolygons>> top_and_bottom_layers;
     if (include_top_and_bottom_layers == IncludeTopAndBottomLayers::Yes) {
-        top_and_bottom_layers = segmentation_top_and_bottom_layers(print_object, input_expolygons, extract_facets_info, num_facets_states, throw_on_cancel_callback);
+        top_and_bottom_layers = segmentation_top_and_bottom_layers(print_object, input_expolygons, extract_facets_info, num_facets_states, throw_on_cancel_callback, painted_depth_solid_mask_out);
         throw_on_cancel_callback();
     }
 
@@ -2261,7 +2297,8 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
 }
 
 // Returns multi-material segmentation based on painting in multi-material segmentation gizmo
-std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback) {
+std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback,
+                                                                             std::vector<ExPolygons> *painted_depth_solid_mask_out) {
     const size_t num_facets_states  = print_object.print()->config().filament_colour.size() + 1;
     const float  max_width          = float(print_object.config().mmu_segmented_region_max_width.value);
     const float  interlocking_depth = float(print_object.config().mmu_segmented_region_interlocking_depth.value);
@@ -2271,7 +2308,7 @@ std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(con
         return {mv.mmu_segmentation_facets, mv.is_mm_painted(), false};
     };
 
-    return segmentation_by_painting(print_object, extract_facets_info, num_facets_states, max_width, interlocking_depth, interlocking_beam, IncludeTopAndBottomLayers::Yes, throw_on_cancel_callback);
+    return segmentation_by_painting(print_object, extract_facets_info, num_facets_states, max_width, interlocking_depth, interlocking_beam, IncludeTopAndBottomLayers::Yes, throw_on_cancel_callback, painted_depth_solid_mask_out);
 }
 
 // Returns fuzzy skin segmentation based on painting in fuzzy skin segmentation gizmo

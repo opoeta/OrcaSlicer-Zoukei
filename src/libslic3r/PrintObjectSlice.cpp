@@ -1062,10 +1062,10 @@ void PrintObject::slice()
 }
 
 template<typename ThrowOnCancel>
-static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
+static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel, std::vector<ExPolygons> *painted_depth_solid_mask_out)
 {
     // Returns MM segmentation based on painting in MM segmentation gizmo
-    std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel);
+    std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel, painted_depth_solid_mask_out);
     assert(segmentation.size() == print_object.layer_count());
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
@@ -1398,6 +1398,9 @@ void PrintObject::slice_volumes()
 
     this->apply_conical_overhang();
 
+    // Always reset; refilled below only when MMU painting is present (no stale surface-depth mask).
+    m_painted_depth_solid_mask.clear();
+
     // Is any ModelVolume multi-material painted?
     if (const auto& volumes = this->model_object()->volumes;
         m_print->config().filament_diameter.size() > 1 && // BBS
@@ -1414,7 +1417,7 @@ void PrintObject::slice_volumes()
         }
 
         BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
-        apply_mm_segmentation(*this, [print]() { print->throw_if_canceled(); });
+        apply_mm_segmentation(*this, [print]() { print->throw_if_canceled(); }, &m_painted_depth_solid_mask);
     }
 
     // Is any ModelVolume fuzzy skin painted?

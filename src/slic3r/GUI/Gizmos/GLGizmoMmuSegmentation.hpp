@@ -124,6 +124,9 @@ protected:
     // BBS
     wchar_t                           m_current_tool = 0;
     bool                              m_detect_geometry_edge = true;
+    // Ported from OrcaFS-NeotkoCM (Neotko): Painter Pro Mode (precision, masks, surface depth).
+    bool                              m_rectangle_mask_active = false;
+    bool                              m_polygon_mask_active   = false;
     
     // Filament remap feature
     std::vector<size_t>               m_extruder_remap;      // index → target extruder index
@@ -144,6 +147,7 @@ private:
     //BBS: add logic to distinguish the first_time_update and later_update
     void update_from_model_object(bool first_update = false) override;
     void tool_changed(wchar_t old_tool, wchar_t new_tool);
+    void render_pro_mode_section(float sliders_left_width, float sliders_width, float slider_icon_width);
 
     void on_opening() override;
     void on_shutdown() override;

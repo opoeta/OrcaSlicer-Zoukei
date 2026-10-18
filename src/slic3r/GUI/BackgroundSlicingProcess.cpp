@@ -1,4 +1,5 @@
 #include "BackgroundSlicingProcess.hpp"
+#include "libslic3r/GCode/ExpertGCodeReprocessor.hpp"
 #include "GUI_App.hpp"
 #include "GUI.hpp"
 #include "MainFrame.hpp"
@@ -851,8 +852,39 @@ void BackgroundSlicingProcess::finalize_gcode()
     // so neither touches the original file the G-code viewer keeps memory-mapped.
     bool post_processed = run_post_process_scripts(output_path, true, "File", export_path, m_fff_print->full_print_config());
 
-    auto remove_post_processed_temp_file = [post_processed, &output_path]() {
-        if (post_processed)
+    // Expert G-code Reprocessor (ported from OrcaFS-NeotkoCM, Neotko). Layer-ranged / per-tool rewrite of the
+    // finished G-code. Never rewrites m_temp_output_path in place (the G-code viewer maps it and correlates
+    // it with m_gcode_result by line number): always works on a private copy.
+    bool libre_reprocessed = false;
+    if (m_gcode_result != nullptr && m_fff_print->full_print_config().has("expert_gcode_reprocessor_rules")
+        && !m_fff_print->full_print_config().opt_string("expert_gcode_reprocessor_rules").empty()) {
+        std::string reprocessor_path = output_path;
+        bool have_private_copy = post_processed;
+        if (!have_private_copy) {
+            reprocessor_path = output_path + ".egr";
+            std::string copy_error;
+            have_private_copy = (copy_file(output_path, reprocessor_path, copy_error) == CopyFileResult::SUCCESS);
+            if (!have_private_copy)
+                BOOST_LOG_TRIVIAL(error) << "ExpertGCodeReprocessor: failed to copy " << output_path << " to " << reprocessor_path << ": " << copy_error;
+        }
+        if (have_private_copy) {
+            try {
+                if (run_expert_gcode_reprocessor(reprocessor_path, m_fff_print->full_print_config(), *m_gcode_result)) {
+                    output_path = reprocessor_path;
+                    libre_reprocessed = true;
+                } else if (reprocessor_path != output_path) {
+                    try { boost::filesystem::remove(reprocessor_path); } catch (...) {}
+                }
+            } catch (const std::exception &ex) {
+                BOOST_LOG_TRIVIAL(error) << "ExpertGCodeReprocessor failed: " << ex.what();
+                if (reprocessor_path != output_path)
+                    try { boost::filesystem::remove(reprocessor_path); } catch (...) {}
+            }
+        }
+    }
+
+    auto remove_post_processed_temp_file = [post_processed, libre_reprocessed, &output_path]() {
+        if (post_processed || libre_reprocessed)
             try {
                 boost::filesystem::remove(output_path);
             } catch (const std::exception& ex) {

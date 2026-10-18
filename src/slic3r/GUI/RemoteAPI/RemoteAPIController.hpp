@@ -53,6 +53,11 @@ private:
     // Orca Zoukei: colour / filament / model endpoints (RemoteAPIColor.cpp, RemoteAPIModelOps.cpp ...).
     // Returns false when the request is not one of theirs.
     bool dispatch_color(const Request &req, Response &out);
+    // Orca Zoukei groups G1-G4 (RemoteAPISupport/Project/Paint/Layers.cpp); same contract.
+    bool dispatch_support(const Request &req, Response &out);
+    bool dispatch_project(const Request &req, Response &out);
+    bool dispatch_paint(const Request &req, Response &out);
+    bool dispatch_layers(const Request &req, Response &out);
 
     Response handle_status();
     Response handle_get_config(const std::string &target);

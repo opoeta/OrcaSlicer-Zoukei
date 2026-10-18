@@ -19,6 +19,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Widgets/FilamentLoad.cpp
     GUI/Widgets/FilamentLoad.hpp
     GUI/AboutDialog.cpp
+    GUI/GCodeReprocessorDialog.cpp
+    GUI/GCodeReprocessorDialog.hpp
     GUI/AboutDialog.hpp
     GUI/AmsMappingPopup.cpp
     GUI/AmsMappingPopupUpdate.cpp
@@ -200,6 +202,12 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoBase.hpp
     GUI/Gizmos/GLGizmoBrimEars.cpp
     GUI/Gizmos/GLGizmoBrimEars.hpp
+    GUI/Gizmos/GLGizmoPrecisionALH.cpp
+    GUI/Gizmos/GLGizmoPrecisionALH.hpp
+    GUI/Gizmos/GLGizmoHeightAdaptiveEffects.cpp
+    GUI/Gizmos/GLGizmoHeightAdaptiveEffects.hpp
+    GUI/Gizmos/GLGizmoAlignStack.cpp
+    GUI/Gizmos/GLGizmoAlignStack.hpp
     GUI/Gizmos/GLGizmoCut.cpp
     GUI/Gizmos/GLGizmoCut.hpp
     GUI/Gizmos/GLGizmoEmboss.cpp
@@ -302,6 +310,12 @@ set(SLIC3R_GUI_SOURCES
     GUI/RemoteAPI/RemoteAPIController.cpp
     GUI/RemoteAPI/RemoteAPIController.hpp
     GUI/RemoteAPI/RemoteAPIColor.cpp
+    GUI/RemoteAPI/RemoteAPIUtil.cpp
+    GUI/RemoteAPI/RemoteAPIUtil.hpp
+    GUI/RemoteAPI/RemoteAPISupport.cpp
+    GUI/RemoteAPI/RemoteAPIProject.cpp
+    GUI/RemoteAPI/RemoteAPIPaint.cpp
+    GUI/RemoteAPI/RemoteAPILayers.cpp
     GUI/I18N.cpp
     GUI/I18N.hpp
     GUI/DragDropPanel.cpp

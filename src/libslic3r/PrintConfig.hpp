@@ -1311,6 +1311,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,               layer_height))
     ((ConfigOptionFloat,               mmu_segmented_region_max_width))
     ((ConfigOptionFloat,               mmu_segmented_region_interlocking_depth))
+    ((ConfigOptionInt,                 mmu_segmented_region_surface_depth))
     ((ConfigOptionFloat,               raft_contact_distance))
     ((ConfigOptionFloat,               raft_expansion))
     ((ConfigOptionPercent,             raft_first_layer_density))
@@ -1454,6 +1455,17 @@ PRINT_CONFIG_CLASS_DEFINE(
     // Serialized as compact "phys:slot,phys:slot" (1-based filament slots, matches UI).
     // Empty string means "use first_filament_for_physical_head defaults everywhere".
     ((ConfigOptionString,              imex_head_filament_map))
+    // Ported from OrcaFS-NeotkoCM (Neotko): Height Adaptive Effects. One serialized Z->value curve per effect
+    // ("[mode|]z:value[:tension]|...", see Feature/HeightAdaptive/HeightCurve.hpp). Hidden keys written by the
+    // Height Adaptive Effects gizmo. Empty = effect off (output unchanged).
+    ((ConfigOptionString,              neotko_hae_infill_width))
+    ((ConfigOptionString,              neotko_hae_outer_wall_width))
+    ((ConfigOptionString,              neotko_hae_inner_wall_width))
+    ((ConfigOptionString,              neotko_hae_fuzzy_thickness))
+    ((ConfigOptionString,              neotko_hae_fuzzy_point_distance))
+    ((ConfigOptionString,              neotko_hae_fuzzy_scale))
+    ((ConfigOptionString,              neotko_hae_fuzzy_octaves))
+    ((ConfigOptionString,              neotko_hae_fuzzy_persistence))
 )
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.
@@ -2116,6 +2128,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,               ooze_prevention))
     ((ConfigOptionString,             filename_format))
     ((ConfigOptionStrings,            post_process))
+    // Expert G-code Reprocessor rule list (JSON), ported from OrcaFS-NeotkoCM (Neotko). Internal, no Tab.
+    ((ConfigOptionString,             expert_gcode_reprocessor_rules))
     ((ConfigOptionStrings,            slicing_pipeline_plugin))
     ((ConfigOptionString,             print_plugin_config_overrides))
     ((ConfigOptionString,             printer_model))

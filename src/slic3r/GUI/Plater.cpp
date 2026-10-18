@@ -9560,6 +9560,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
         const bool type_3mf = std::regex_match(path.string(), pattern_3mf);
         // const bool type_zip_amf = !type_3mf && std::regex_match(path.string(), pattern_zip_amf);
         const bool type_any_amf = !type_3mf && std::regex_match(path.string(), pattern_any_amf);
+        // Simplify3D .factory (ported from OrcaFS-NeotkoCM, Neotko): world-space parts, always assembled.
+        const bool type_factory = boost::algorithm::iends_with(path.string(), ".factory");
         // const bool type_prusa   = std::regex_match(path.string(), pattern_prusa);
 
         Slic3r::Model model;
@@ -10516,7 +10518,11 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
 
              // Remote API loads must not block on a modal; keep the solids as separate
              // objects (the dialog's No answer) and let the client decide.
-             if (!is_project_file && model.looks_like_multipart_object()
+             // .factory parts share one world-space layout: keep them as one assembled object (no dialog).
+             if (type_factory && model.objects.size() >= 2) {
+                model.convert_multipart_object(filaments_cnt);
+             }
+             else if (!is_project_file && model.looks_like_multipart_object()
                  && !RemoteAPI::Controller::api_ui_task_active()) {
                MessageDialog msg_dlg(q, _L("This file contains several objects positioned at multiple heights.\nInstead of considering them as multiple objects, should \nthe file be loaded as a single object with multiple parts\?") + "\n",
                     _L("Multi-part object detected"), wxICON_WARNING | wxYES | wxNO);
@@ -10545,7 +10551,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
 
         int model_idx = 0;
         for (ModelObject *model_object : model.objects) {
-            if (!type_3mf && !type_any_amf)
+            if (!type_3mf && !type_any_amf && !(type_factory && !model_object->instances.empty()))
                 model_object->center_around_origin(false);
 
             // BBS

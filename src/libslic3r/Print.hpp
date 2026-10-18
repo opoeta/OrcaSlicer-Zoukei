@@ -647,6 +647,8 @@ private:
     void bridge_over_infill();
     void clip_fill_surfaces();
     void discover_horizontal_shells();
+    // Ported from OrcaFS-NeotkoCM (Neotko): solid infill under/over painted surfaces (mmu_segmented_region_surface_depth).
+    void apply_painted_surface_depth();
     // Orca: wave-overhang floor-layer authority — runs after all surface-classification
     // passes to authoritatively set surface types within the wave shadow (N=0 => all
     // stInternal; N>=1 => N layers of uniform stInternalSolid above each wave strip).
@@ -715,6 +717,9 @@ private:
     bool                    				m_typed_slices = false;
 
     FillAdaptive::RegionOctrees             m_adaptive_fill_octrees;
+    // One entry per layer: the painted top/bottom silhouette projected up to mmu_segmented_region_surface_depth
+    // layers into the object. Filled by MMU segmentation (posSlice), consumed by apply_painted_surface_depth().
+    std::vector<ExPolygons>                 m_painted_depth_solid_mask;
     std::vector<BoundingBox>                m_separated_body_bboxes;
     FillLightning::GeneratorPtr m_lightning_generator;
     TpmsRadialFields m_tpms_radial_fields;
