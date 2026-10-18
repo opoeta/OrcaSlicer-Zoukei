@@ -1,0 +1,1336 @@
+{
+  "layer_height": {
+    "notes": [
+      "Thinner layers hide layer lines and improve curved surfaces, but print time grows almost in proportion.",
+      "Thicker layers print faster and bond more strongly between layers, but show visible steps."
+    ],
+    "recommend": "Recommended: 20% to 70% of the nozzle diameter."
+  },
+  "initial_layer_print_height": {
+    "notes": [
+      "A thicker first layer tolerates an uneven bed and sticks more reliably.",
+      "A thinner first layer gives a smoother, more precise bottom surface but needs a well-leveled bed."
+    ],
+    "recommend": "Recommended: 0.2 mm for a 0.4 mm nozzle."
+  },
+  "line_width": {
+    "notes": [
+      "Wider lines are stronger and print faster, but lose fine detail and sharp corners.",
+      "Narrower lines resolve small features better but need more passes and take longer."
+    ],
+    "recommend": "Recommended: 100% to 125% of the nozzle diameter."
+  },
+  "initial_layer_line_width": {
+    "notes": [
+      "A wider first-layer line squishes into the bed for better adhesion.",
+      "Too wide a line can cause elephant foot or over-extrusion on the first layer."
+    ],
+    "recommend": "Recommended: 120% to 150% of the nozzle diameter."
+  },
+  "outer_wall_line_width": {
+    "notes": [
+      "Narrower outer walls give sharper details and a more accurate outer dimension.",
+      "Wider outer walls hide minor defects and print faster."
+    ],
+    "recommend": "Recommended: 100% of the nozzle diameter, or slightly less for detail."
+  },
+  "inner_wall_line_width": {
+    "notes": [
+      "Wider inner walls add strength and speed; narrower ones fit tight geometry better.",
+      "Inner walls are hidden, so width matters for strength rather than looks."
+    ],
+    "recommend": "Recommended: 100% to 125% of the nozzle diameter."
+  },
+  "top_surface_line_width": {
+    "notes": [
+      "Narrower lines give a smoother, finer top surface at the cost of time.",
+      "Wider lines cover large flat areas faster but can leave visible ridges."
+    ],
+    "recommend": "Recommended: 90% to 100% of the nozzle diameter."
+  },
+  "sparse_infill_line_width": {
+    "notes": [
+      "Wider infill lines print much faster and add strength with fewer passes.",
+      "Very wide lines can bulge into the walls and need more cooling."
+    ],
+    "recommend": "Recommended: 120% to 150% of the nozzle diameter."
+  },
+  "internal_solid_infill_line_width": {
+    "notes": [
+      "Wider lines speed up solid layers hidden inside the part.",
+      "Narrower lines leave fewer gaps but take longer."
+    ]
+  },
+  "support_line_width": {
+    "notes": [
+      "Wider support lines print faster and are sturdier.",
+      "Narrower lines give finer interface layers and cleaner support contact."
+    ]
+  },
+  "seam_position": {
+    "notes": [
+      "Aligned places seams in a neat line that is easy to sand or hide.",
+      "Random scatters seams so no single line is visible, but the surface looks slightly uneven.",
+      "Nearest and Back suit parts where one side must stay clean."
+    ]
+  },
+  "staggered_inner_seams": {
+    "notes": [
+      "Offsets inner wall seams from the outer one so seam weak points do not stack.",
+      "Slightly improves strength and hides seams better on the outer wall."
+    ]
+  },
+  "seam_gap": {
+    "notes": [
+      "A larger gap reduces seam blobs but can leave a small visible notch.",
+      "A smaller gap closes the loop better but risks a bulge at the seam."
+    ],
+    "recommend": "Recommended: 10% of the nozzle diameter, or 0 on a well-tuned machine."
+  },
+  "seam_slope_type": {
+    "notes": [
+      "Scarf seams ramp the wall in and out to make the seam almost invisible on smooth walls.",
+      "Works best on round or vertical walls and needs good pressure advance tuning."
+    ]
+  },
+  "seam_slope_start_height": {
+    "notes": [
+      "Lower values start the ramp closer to the layer bottom, giving a gentler transition.",
+      "Higher values make the seam steeper and the overlap shorter."
+    ],
+    "recommend": "Recommended: 0% to 50% of the layer height."
+  },
+  "seam_slope_min_length": {
+    "notes": [
+      "Longer scarf ramps blend the seam better and reduce visible marks.",
+      "Very long ramps take more time and can bulge when flow is not tuned."
+    ],
+    "recommend": "Recommended: 10 mm to 20 mm."
+  },
+  "seam_slope_steps": {
+    "notes": [
+      "More steps make the ramp smoother but produce more G-code moves.",
+      "Fewer steps are lighter on the controller but give a coarser slope."
+    ]
+  },
+  "scarf_joint_flow_ratio": {
+    "notes": [
+      "Lower values reduce material at the ramp to avoid bulging at the seam.",
+      "Raise it slightly if the seam shows a gap or an underfilled notch."
+    ],
+    "recommend": "Recommended: 1.0, adjusted in steps of 0.02."
+  },
+  "wipe_on_loops": {
+    "notes": [
+      "Moves the nozzle inward at the end of a wall loop to wipe off the seam blob.",
+      "Reduces seam zits at almost no time cost."
+    ]
+  },
+  "wipe_before_external_loop": {
+    "notes": [
+      "Wipes the nozzle into the part before the outer wall to hide the seam start.",
+      "Helps with outer-wall zits but can slightly shift the seam position."
+    ]
+  },
+  "slice_closing_radius": {
+    "notes": [
+      "Higher values merge tiny gaps and cracks in the model into one solid region.",
+      "Too high a value can fill in details that should stay open."
+    ],
+    "recommend": "Recommended: 0.049 mm, the default."
+  },
+  "resolution": {
+    "notes": [
+      "Lower values keep curves accurate but create larger G-code and slower slicing.",
+      "Higher values simplify the model, which can facet curves and drop fine detail."
+    ],
+    "recommend": "Recommended: 0.012 mm for most prints."
+  },
+  "enable_arc_fitting": {
+    "notes": [
+      "Replaces many short segments with G2/G3 arcs, which shrinks G-code and smooths motion.",
+      "Requires firmware that supports arc commands; leave it off otherwise."
+    ]
+  },
+  "xy_hole_compensation": {
+    "notes": [
+      "Positive values enlarge holes and negative values shrink them to correct printed size.",
+      "Print a test part with known holes and measure before adjusting."
+    ],
+    "recommend": "Recommended: -0.1 mm to 0.1 mm."
+  },
+  "xy_contour_compensation": {
+    "notes": [
+      "Positive values grow the outer contour and negative values shrink it to correct dimensions.",
+      "Use it when parts consistently print larger or smaller than designed."
+    ],
+    "recommend": "Recommended: -0.1 mm to 0.1 mm."
+  },
+  "elefant_foot_compensation": {
+    "notes": [
+      "Shrinks the first layer inward to counter the flared bottom edge called elephant foot.",
+      "Too much leaves a visible groove at the base."
+    ],
+    "recommend": "Recommended: 0.1 mm to 0.3 mm, only if elephant foot appears."
+  },
+  "precise_outer_wall": {
+    "notes": [
+      "Adjusts wall spacing so the outer surface matches the model dimensions more closely.",
+      "Improves dimensional accuracy for parts that must fit together."
+    ]
+  },
+  "precise_z_height": {
+    "notes": [
+      "Adjusts the last layer heights so the print reaches the exact model height.",
+      "May produce a slightly thinner top layer instead of an off-height part."
+    ]
+  },
+  "hole_to_polyhole": {
+    "notes": [
+      "Converts round holes to polygons whose flats sit inside the true circle, so printed holes match the nominal diameter.",
+      "Improves fit for bolts and pins in small holes."
+    ]
+  },
+  "ironing_type": {
+    "notes": [
+      "Ironing passes a hot, low-flow nozzle over the top surface to melt and flatten it.",
+      "Gives a glossy, smooth top at the cost of extra print time.",
+      "Top surfaces only is usually enough; use Topmost only for the final layer."
+    ]
+  },
+  "ironing_flow": {
+    "notes": [
+      "Higher flow fills tiny gaps better but can leave excess material and rough streaks.",
+      "Lower flow gives a lighter polish and less risk of blobs."
+    ],
+    "recommend": "Recommended: 10% to 15%."
+  },
+  "ironing_spacing": {
+    "notes": [
+      "Smaller spacing gives a smoother finish but increases ironing time.",
+      "Larger spacing is faster but may leave ridges between passes."
+    ],
+    "recommend": "Recommended: 0.1 mm to 0.15 mm."
+  },
+  "ironing_speed": {
+    "notes": [
+      "Slower ironing melts the surface more evenly.",
+      "Very high speeds leave streaks and do little smoothing."
+    ],
+    "recommend": "Recommended: 15 mm/s to 30 mm/s."
+  },
+  "wall_generator": {
+    "notes": [
+      "Arachne varies line width to fill thin and tapered walls without gaps, giving stronger parts.",
+      "Classic keeps constant line width and is more predictable and slightly faster to slice."
+    ]
+  },
+  "wall_sequence": {
+    "notes": [
+      "Inner-then-outer hides inner-wall flaws and is more accurate for overhangs.",
+      "Outer-then-inner gives cleaner outer surfaces but can show inner-wall pressure marks.",
+      "Inner-outer-inner balances the two for tight dimensional accuracy."
+    ]
+  },
+  "print_flow_ratio": {
+    "notes": [
+      "Scales extrusion for the whole process on top of the filament flow ratio.",
+      "Use small steps only; tune the filament flow ratio first."
+    ]
+  },
+  "only_one_wall_first_layer": {
+    "notes": [
+      "Prints a single wall on the first layer so more of the layer is solid infill.",
+      "Improves bed adhesion and first-layer surface quality on thin parts."
+    ]
+  },
+  "only_one_wall_top": {
+    "notes": [
+      "Uses one wall on top surface layers to leave more room for top infill.",
+      "Gives a smoother top finish but slightly weaker top edges."
+    ]
+  },
+  "reduce_crossing_wall": {
+    "notes": [
+      "Routes travel moves around walls to avoid crossing them and leaving marks.",
+      "Can lengthen travel paths and add time on complex parts."
+    ]
+  },
+  "max_travel_detour_distance": {
+    "notes": [
+      "Sets how far a travel may detour to avoid crossing walls.",
+      "Higher values avoid more crossings but lengthen travel."
+    ],
+    "recommend": "Recommended: 0 for no limit, or about 5 mm to 10 mm."
+  },
+  "bridge_flow": {
+    "notes": [
+      "Lower flow thins the bridge strand so it sags less.",
+      "Too low causes gaps and snapped strands; too high causes sagging."
+    ],
+    "recommend": "Recommended: 0.8 to 1.0."
+  },
+  "thick_bridges": {
+    "notes": [
+      "Prints bridges with round, full-nozzle-diameter strands that span gaps more reliably.",
+      "Improves bridge strength but may leave a rougher underside."
+    ]
+  },
+  "detect_overhang_wall": {
+    "notes": [
+      "Detects overhanging walls and slows them down so they print cleanly.",
+      "Required for the overhang speed and fan settings to apply."
+    ]
+  },
+  "make_overhang_printable": {
+    "notes": [
+      "Modifies the model slope so overhangs print without supports.",
+      "Changes the geometry slightly, so avoid it on precision parts."
+    ]
+  },
+  "extra_perimeters_on_overhangs": {
+    "notes": [
+      "Adds extra wall passes over overhangs to build a better base for the next layer.",
+      "Raises print time and material on parts with many overhangs."
+    ]
+  },
+  "overhang_reverse": {
+    "notes": [
+      "Alternates wall direction on overhang layers so curled edges are pushed back inward.",
+      "Works best with strong cooling on the overhang."
+    ]
+  },
+  "wall_loops": {
+    "notes": [
+      "More walls make the part stronger and stiffer than extra infill does.",
+      "Each extra wall adds print time and material."
+    ],
+    "recommend": "Recommended: 2 to 4 walls for functional parts."
+  },
+  "alternate_extra_wall": {
+    "notes": [
+      "Adds an extra wall on every other layer to fill gaps between infill and walls.",
+      "Improves strength and top surface support at a small time cost."
+    ]
+  },
+  "detect_thin_wall": {
+    "notes": [
+      "Detects walls thinner than two lines and prints them as a single pass.",
+      "Prevents gaps and missing thin features but may add slight extrusion variance."
+    ]
+  },
+  "top_shell_layers": {
+    "notes": [
+      "More top layers give a stronger, more sealed top and better coverage over sparse infill.",
+      "Each extra layer adds print time."
+    ],
+    "recommend": "Recommended: 4 to 6 layers at 0.2 mm layer height."
+  },
+  "top_shell_thickness": {
+    "notes": [
+      "Sets a minimum top thickness; the slicer uses whichever is greater, this or the layer count.",
+      "Mostly useful at very thin layer heights, where the layer count alone is too thin."
+    ],
+    "recommend": "Recommended: 0.8 mm to 1.2 mm."
+  },
+  "top_surface_pattern": {
+    "notes": [
+      "Monotonic gives the smoothest look by keeping all lines in one direction.",
+      "Concentric and Hilbert curve suit decorative tops but may leave seams or take longer."
+    ]
+  },
+  "bottom_shell_layers": {
+    "notes": [
+      "More bottom layers make the base stronger and give better bed contact.",
+      "Each extra layer adds print time and material."
+    ],
+    "recommend": "Recommended: 3 to 5 layers at 0.2 mm layer height."
+  },
+  "bottom_shell_thickness": {
+    "notes": [
+      "Sets a minimum bottom thickness, overriding the layer count when it is greater.",
+      "Useful at thin layer heights, where a few layers are not enough."
+    ],
+    "recommend": "Recommended: 0.6 mm to 1.0 mm."
+  },
+  "bottom_surface_pattern": {
+    "notes": [
+      "Controls the fill pattern of the visible bottom surface.",
+      "Monotonic gives a cleaner bottom finish; rectilinear prints faster."
+    ]
+  },
+  "sparse_infill_density": {
+    "notes": [
+      "Higher density adds strength and top support but increases time, weight and material.",
+      "Most strength comes from walls; density above 40% rarely pays off."
+    ],
+    "recommend": "Recommended: 10% to 20% for decorative parts, 25% to 40% for functional parts."
+  },
+  "sparse_infill_pattern": {
+    "notes": [
+      "Grid and cubic give strong, uniform support; lines and zig-zag print faster.",
+      "Gyroid is isotropic but slower to slice; lightning saves the most material on display parts."
+    ]
+  },
+  "infill_direction": {
+    "notes": [
+      "Sets the angle of the infill lines in the XY plane.",
+      "Aligning infill to the load direction can improve strength."
+    ],
+    "recommend": "Recommended: 45 degrees, the default."
+  },
+  "infill_anchor": {
+    "notes": [
+      "Sets how far infill lines may extend along the wall to anchor to it.",
+      "Longer anchors improve adhesion but add extrusion on the wall."
+    ]
+  },
+  "infill_anchor_max": {
+    "notes": [
+      "Caps the anchor length so short infill lines are not connected to long extra segments.",
+      "Lower values give cleaner infill but weaker bonding to walls."
+    ]
+  },
+  "infill_wall_overlap": {
+    "notes": [
+      "More overlap bonds infill to walls better but can show through the outer wall.",
+      "Less overlap prevents bulges and ghosting on thin walls."
+    ],
+    "recommend": "Recommended: 10% to 25%."
+  },
+  "top_bottom_infill_wall_overlap": {
+    "notes": [
+      "More overlap bonds skin to walls better but can cause bulges at edges.",
+      "Less overlap gives cleaner edges with slightly weaker bonding."
+    ]
+  },
+  "bridge_angle": {
+    "notes": [
+      "Forces a bridge direction instead of letting the slicer choose.",
+      "Align it to span the shortest gap for the best support."
+    ],
+    "recommend": "Recommended: 0 for automatic detection."
+  },
+  "infill_combination": {
+    "notes": [
+      "Prints infill every few layers using thicker lines, saving time.",
+      "Reduces detail inside the part; walls and top layers are unchanged."
+    ]
+  },
+  "ensure_vertical_shell_thickness": {
+    "notes": [
+      "Adds solid infill near sloped surfaces to keep the shell thick.",
+      "Prevents thin spots and pillowing, at some extra material."
+    ]
+  },
+  "minimum_sparse_infill_area": {
+    "notes": [
+      "Areas smaller than this get solid infill instead of sparse infill.",
+      "Raising it removes tiny sparse pockets that print poorly."
+    ],
+    "recommend": "Recommended: 15 mm2."
+  },
+  "gap_fill_target": {
+    "notes": [
+      "Chooses where thin gaps are filled: everywhere, only between walls, or nowhere.",
+      "Filling gaps adds strength but may leave visible lines on thin features."
+    ]
+  },
+  "initial_layer_speed": {
+    "notes": [
+      "Slower first layers stick better and tolerate a less-perfect bed.",
+      "Raising it saves little time and risks poor adhesion."
+    ],
+    "recommend": "Recommended: 20 mm/s to 50 mm/s."
+  },
+  "initial_layer_infill_speed": {
+    "notes": [
+      "Controls infill speed on the first layer only.",
+      "Raising it saves time on large parts, but keep it moderate for adhesion."
+    ]
+  },
+  "initial_layer_travel_speed": {
+    "notes": [
+      "Faster travel on the first layer reduces oozing time over the bed.",
+      "Too fast can knock loose parts that have not stuck yet."
+    ]
+  },
+  "slow_down_layers": {
+    "notes": [
+      "Number of initial layers printed at a ramped-up speed rather than full speed.",
+      "Higher values give a gentler transition from first layer to normal speed."
+    ]
+  },
+  "outer_wall_speed": {
+    "notes": [
+      "Slower outer walls improve surface quality and dimensional accuracy.",
+      "Faster outer walls save time but show ringing and layer inconsistency."
+    ],
+    "recommend": "Recommended: 40% to 60% of the inner wall speed."
+  },
+  "inner_wall_speed": {
+    "notes": [
+      "Inner walls are hidden, so they can run faster than the outer wall to save time.",
+      "Too fast can hurt layer bonding and strength."
+    ]
+  },
+  "small_perimeter_speed": {
+    "notes": [
+      "Slows small holes and features, which cool too little and overheat at normal speed.",
+      "Improves accuracy on tiny circles."
+    ],
+    "recommend": "Recommended: 50% of the wall speed."
+  },
+  "sparse_infill_speed": {
+    "notes": [
+      "Infill is hidden, so it can run fast, limited mainly by flow rate and vibration.",
+      "Too fast risks under-extrusion and weak infill."
+    ]
+  },
+  "internal_solid_infill_speed": {
+    "notes": [
+      "Controls the speed of solid layers hidden inside the part.",
+      "Lower speeds support top layers better; higher speeds save time."
+    ]
+  },
+  "top_surface_speed": {
+    "notes": [
+      "Slower top surfaces give a smoother finish with fewer ridges.",
+      "Higher speeds save time but can leave roughness."
+    ],
+    "recommend": "Recommended: 60 mm/s to 100 mm/s."
+  },
+  "support_speed": {
+    "notes": [
+      "Faster supports save time since their quality matters little.",
+      "Too fast can make supports fragile and break during printing."
+    ]
+  },
+  "support_interface_speed": {
+    "notes": [
+      "Slower interfaces give a smoother surface under the supported part.",
+      "Raising it saves time but may roughen the supported surface."
+    ]
+  },
+  "enable_overhang_speed": {
+    "notes": [
+      "Slows walls over overhangs by the overhang percentage so the extrusion cools and holds shape.",
+      "Improves overhang quality at the cost of print time."
+    ]
+  },
+  "bridge_speed": {
+    "notes": [
+      "Slower bridges sag less and keep strands tight, given good cooling.",
+      "Faster bridges stretch strands thin and may snap them."
+    ],
+    "recommend": "Recommended: 25 mm/s to 50 mm/s."
+  },
+  "internal_bridge_speed": {
+    "notes": [
+      "Controls the speed of bridges over sparse infill, which are usually short.",
+      "Slower values reduce sagging into the infill."
+    ]
+  },
+  "travel_speed": {
+    "notes": [
+      "Faster travel cuts time and ooze, as the nozzle spends less time over the print.",
+      "Too fast causes vibration, skipped steps or ringing marks."
+    ],
+    "recommend": "Recommended: 150 mm/s to 500 mm/s, depending on the printer."
+  },
+  "default_acceleration": {
+    "notes": [
+      "Lower acceleration reduces ringing and improves quality but increases print time.",
+      "Higher acceleration saves time on large, simple parts."
+    ]
+  },
+  "outer_wall_acceleration": {
+    "notes": [
+      "A low value on outer walls reduces ringing and keeps edges sharp.",
+      "Costs time only on visible surfaces."
+    ]
+  },
+  "inner_wall_acceleration": {
+    "notes": [
+      "Inner walls can accelerate harder than the outer wall since they are not visible.",
+      "Too high may affect outer wall quality through vibration."
+    ]
+  },
+  "bridge_acceleration": {
+    "notes": [
+      "Lower acceleration keeps bridge strands straighter and avoids breaking them."
+    ]
+  },
+  "sparse_infill_acceleration": {
+    "notes": [
+      "Higher acceleration speeds up hidden infill but shakes the printer.",
+      "Keep it within what the machine can handle without marking the walls."
+    ]
+  },
+  "internal_solid_infill_acceleration": {
+    "notes": [
+      "Higher acceleration shortens solid-layer time inside the part."
+    ]
+  },
+  "initial_layer_acceleration": {
+    "notes": [
+      "A low value on the first layer improves adhesion and avoids dislodging the part."
+    ]
+  },
+  "top_surface_acceleration": {
+    "notes": [
+      "A low value on top surfaces reduces ringing and gives a smoother finish."
+    ]
+  },
+  "travel_acceleration": {
+    "notes": [
+      "Higher travel acceleration shortens non-printing moves.",
+      "Too high can shake the printer and cause layer shifts."
+    ]
+  },
+  "default_junction_deviation": {
+    "notes": [
+      "Higher values allow faster cornering but cause bulging and ringing at corners.",
+      "Lower values slow corners for cleaner edges."
+    ],
+    "recommend": "Recommended: 0.01 mm to 0.05 mm."
+  },
+  "default_jerk": {
+    "notes": [
+      "Higher jerk allows quicker direction changes but increases vibration and ringing.",
+      "Lower jerk slows corners and gives cleaner walls."
+    ]
+  },
+  "outer_wall_jerk": {
+    "notes": [
+      "A lower value on outer walls reduces corner artifacts and ringing."
+    ]
+  },
+  "max_volumetric_extrusion_rate_slope": {
+    "notes": [
+      "Smooths sudden changes in extrusion rate so flow ramps up and down gradually.",
+      "Reduces pressure artifacts at speed changes; heavy smoothing can slow some moves."
+    ]
+  },
+  "enable_support": {
+    "notes": [
+      "Adds temporary structures under overhangs so they do not droop or collapse.",
+      "Costs time and material and leaves marks where supports touch the part."
+    ],
+    "recommend": "Recommended: on for overhangs steeper than about 45 degrees."
+  },
+  "support_type": {
+    "notes": [
+      "Normal supports are fast and reliable on simple shapes.",
+      "Tree supports use less material and leave fewer marks on organic models."
+    ]
+  },
+  "support_style": {
+    "notes": [
+      "Controls how the support structure is built, trading stability against material and removal effort.",
+      "Snug and slim styles save material; grid and default styles are sturdier."
+    ]
+  },
+  "support_threshold_angle": {
+    "notes": [
+      "Overhangs steeper than this angle get supports; a lower value adds more support.",
+      "Raise it to save supports on surfaces that print fine unsupported."
+    ],
+    "recommend": "Recommended: 30 to 45 degrees."
+  },
+  "support_on_build_plate_only": {
+    "notes": [
+      "Limits supports to those starting on the bed, avoiding supports on the part itself.",
+      "Leaves some overhangs unsupported when there is no clear path to the bed."
+    ]
+  },
+  "support_top_z_distance": {
+    "notes": [
+      "A larger gap makes supports easier to remove but roughens the overhang underside.",
+      "A smaller gap gives a better finish but supports can fuse to the part."
+    ],
+    "recommend": "Recommended: 1 layer height (about 0.2 mm)."
+  },
+  "support_bottom_z_distance": {
+    "notes": [
+      "Sets the gap where supports rest on the part from below.",
+      "Larger values ease removal; smaller values give firmer bases."
+    ]
+  },
+  "support_base_pattern": {
+    "notes": [
+      "Rectilinear is fast and easy to remove; honeycomb is sturdier but uses more material.",
+      "Lightning is the lightest, for tall or simple supports."
+    ]
+  },
+  "support_base_pattern_spacing": {
+    "notes": [
+      "Wider spacing saves material and time but gives less support for the layers above.",
+      "Tighter spacing holds up wider overhangs and is harder to remove."
+    ],
+    "recommend": "Recommended: 2.5 mm."
+  },
+  "support_interface_top_layers": {
+    "notes": [
+      "More interface layers give a smoother overhang surface and easier removal.",
+      "Each layer adds print time and material."
+    ],
+    "recommend": "Recommended: 2 to 3 layers."
+  },
+  "support_interface_spacing": {
+    "notes": [
+      "Tighter spacing gives a denser, smoother contact surface but sticks harder to the part.",
+      "Wider spacing breaks away more easily but leaves a rougher underside."
+    ],
+    "recommend": "Recommended: 0 to 0.2 mm."
+  },
+  "support_object_xy_distance": {
+    "notes": [
+      "A larger gap keeps supports from fusing to walls but weakens side support.",
+      "A smaller gap holds the part better but is harder to remove."
+    ],
+    "recommend": "Recommended: 0.35 mm to 0.5 mm."
+  },
+  "bridge_no_support": {
+    "notes": [
+      "Skips supports under bridges that are short enough to span unaided.",
+      "Saves material but long or heavy bridges may sag."
+    ]
+  },
+  "tree_support_branch_angle": {
+    "notes": [
+      "A larger angle lets branches lean further and reach more areas.",
+      "Smaller angles are more stable and less likely to bend."
+    ],
+    "recommend": "Recommended: 40 to 50 degrees."
+  },
+  "tree_support_branch_diameter": {
+    "notes": [
+      "Thicker branches are sturdier but use more material and are harder to remove.",
+      "Thin branches save material but can wobble on tall supports."
+    ],
+    "recommend": "Recommended: 5 mm to 8 mm."
+  },
+  "tree_support_tip_diameter": {
+    "notes": [
+      "A smaller tip leaves less of a mark on the part.",
+      "A larger tip supports the surface more firmly but is harder to clean off."
+    ],
+    "recommend": "Recommended: 0.8 mm to 2 mm."
+  },
+  "raft_layers": {
+    "notes": [
+      "A raft is a printed base under the part that improves adhesion and evens out the first layer.",
+      "Costs time and material, and the underside of the part ends up rougher."
+    ]
+  },
+  "raft_contact_distance": {
+    "notes": [
+      "A larger gap makes the raft easier to peel off but roughens the underside.",
+      "A smaller gap fuses better and can make removal difficult."
+    ]
+  },
+  "enable_prime_tower": {
+    "notes": [
+      "Prints a tower to purge and prime the nozzle after each filament change.",
+      "Needed for clean color changes; adds time and material."
+    ]
+  },
+  "prime_tower_width": {
+    "notes": [
+      "A wider tower is more stable and gives more room for purging.",
+      "A narrower tower saves material but may wobble when tall."
+    ],
+    "recommend": "Recommended: 35 mm to 60 mm."
+  },
+  "prime_volume": {
+    "notes": [
+      "Sets the volume extruded to prime the nozzle after a change.",
+      "Too little leaves old color in the first strokes; too much wastes filament."
+    ]
+  },
+  "flush_into_infill": {
+    "notes": [
+      "Purges old filament into the infill of the current object instead of the tower.",
+      "Cuts waste, but the infill may show the old color through thin walls."
+    ]
+  },
+  "flush_into_objects": {
+    "notes": [
+      "Purges into other objects on the plate to reduce waste.",
+      "Use on objects that are not visible or do not mind color bleed."
+    ]
+  },
+  "flush_into_support": {
+    "notes": [
+      "Purges into the support structures, which are discarded anyway.",
+      "Reduces waste with no impact on the final part."
+    ]
+  },
+  "ooze_prevention": {
+    "notes": [
+      "Lowers the temperature of idle tools during multi-tool prints to reduce oozing.",
+      "Needs extra heating time before each tool change."
+    ]
+  },
+  "interlocking_beam": {
+    "notes": [
+      "Adds interlocking beams where two materials meet to strengthen their bond.",
+      "Works best with materials that do not adhere well to each other."
+    ]
+  },
+  "skirt_loops": {
+    "notes": [
+      "More loops purge more material and make a larger test outline.",
+      "Set 0 to disable the skirt."
+    ],
+    "recommend": "Recommended: 1 to 3 loops."
+  },
+  "skirt_distance": {
+    "notes": [
+      "A larger distance keeps the skirt clear of the part, useful when it must be removed.",
+      "A smaller distance primes closer to the first-layer start but may merge with a brim."
+    ],
+    "recommend": "Recommended: 2 mm to 5 mm."
+  },
+  "skirt_height": {
+    "notes": [
+      "Number of layers printed for the skirt.",
+      "Taller skirts act as a draft shield but waste material."
+    ],
+    "recommend": "Recommended: 1 layer, or more for a draft shield."
+  },
+  "draft_shield": {
+    "notes": [
+      "Builds a wall around the object to protect it from drafts and trap warmth.",
+      "Helps ABS and ASA warp less, but adds time and material."
+    ]
+  },
+  "brim_type": {
+    "notes": [
+      "A brim widens the first layer to hold the part down and prevent warping.",
+      "Outer brim sits outside the part; inner brim also fills inside holes; brim ears only touch sharp corners."
+    ]
+  },
+  "brim_width": {
+    "notes": [
+      "A wider brim holds the part more firmly but is harder to remove and wastes material.",
+      "Narrow brims suit small contact areas with a good bed."
+    ],
+    "recommend": "Recommended: 3 mm to 8 mm."
+  },
+  "brim_object_gap": {
+    "notes": [
+      "A small gap makes the brim easier to peel off the part.",
+      "A gap too large reduces how well the brim holds the part."
+    ],
+    "recommend": "Recommended: 0 mm to 0.1 mm."
+  },
+  "print_sequence": {
+    "notes": [
+      "By layer prints all objects layer by layer and is faster.",
+      "By object finishes one object at a time but needs enough clearance to avoid collisions."
+    ]
+  },
+  "spiral_mode": {
+    "notes": [
+      "Prints the outer wall as one continuous spiral, avoiding seams and Z jumps.",
+      "Only for single-wall vases; no infill, top-layer details or travel moves are used."
+    ]
+  },
+  "timelapse_type": {
+    "notes": [
+      "Pauses at each layer to take a photo from a fixed toolhead position.",
+      "Traditional mode adds time per layer; smooth mode keeps the toolhead moving and needs a prime tower."
+    ]
+  },
+  "fuzzy_skin": {
+    "notes": [
+      "Adds random jitter to the outer wall for a rough, textured finish that hides layer lines.",
+      "Gives better grip but changes the part dimensions slightly."
+    ]
+  },
+  "fuzzy_skin_thickness": {
+    "notes": [
+      "Larger values give a rougher texture and a bigger dimensional change.",
+      "Smaller values give subtle texture."
+    ],
+    "recommend": "Recommended: 0.1 mm to 0.3 mm."
+  },
+  "fuzzy_skin_point_distance": {
+    "notes": [
+      "A larger distance gives coarser fuzz with fewer moves.",
+      "A smaller distance gives finer fuzz but creates more G-code."
+    ],
+    "recommend": "Recommended: 0.3 mm to 0.8 mm."
+  },
+  "reduce_infill_retraction": {
+    "notes": [
+      "Skips retractions when travelling inside infill to save time.",
+      "Can leave faint strings that stay hidden inside the part."
+    ]
+  },
+  "exclude_object": {
+    "notes": [
+      "Lets the printer skip a failed object during the print.",
+      "Needs firmware support and adds object labels to the G-code."
+    ]
+  },
+  "gcode_label_objects": {
+    "notes": [
+      "Adds object labels to the G-code for firmware features such as object cancellation.",
+      "Has no effect on print quality."
+    ]
+  },
+  "gcode_comments": {
+    "notes": [
+      "Adds explanatory comments to the G-code.",
+      "Makes files larger; useful for debugging, not needed for printing."
+    ]
+  },
+  "wave_overhangs": {
+    "notes": [
+      "Prints wave-shaped extrusions across overhangs to bridge steep angles without support.",
+      "Works best on short spans with strong part cooling and tuned flow.",
+      "Test on a small part first, since results depend on material and cooling."
+    ]
+  },
+  "wave_overhangs_instead_of_bridges": {
+    "notes": [
+      "Replaces bridge detection with solid infill when wave overhangs are on.",
+      "Leave it off to keep simple flat spans as normal bridges."
+    ]
+  },
+  "wave_overhang_line_spacing": {
+    "notes": [
+      "Smaller spacing makes a denser, stronger wave surface but uses more time and heat.",
+      "Larger spacing prints faster but may leave gaps between lines."
+    ]
+  },
+  "wave_overhang_print_speed": {
+    "notes": [
+      "Slower speeds give each bead more time to cool and hold shape in the air.",
+      "Faster speeds risk sagging and snapped strands."
+    ]
+  },
+  "wave_overhang_fan_speed": {
+    "notes": [
+      "Higher fan speed solidifies wave beads faster and reduces sagging.",
+      "Too strong airflow can cool the layer below too much and hurt bonding."
+    ]
+  },
+  "wave_overhang_min_wave_time": {
+    "notes": [
+      "Adds a pause when a wave region would finish too quickly, giving it time to solidify.",
+      "Raise it if waves droop; it adds print time."
+    ]
+  },
+  "wave_overhang_floor_layers": {
+    "notes": [
+      "Number of solid layers placed above wave regions to back the cantilever.",
+      "More layers add strength and rigidity but use more time and material."
+    ]
+  },
+  "wave_overhang_flow_mm3_per_mm": {
+    "notes": [
+      "Sets the plastic volume per millimetre of wave line, independent of layer height.",
+      "Raise it for stronger beads, lower it if lines sag or merge."
+    ]
+  },
+  "curr_bed_type": {
+    "notes": [
+      "Selects the build plate type, which sets the bed temperatures from the filament profile.",
+      "Choose the plate that matches the one installed on the printer."
+    ]
+  },
+  "filament_diameter": {
+    "notes": [
+      "The slicer uses it to convert flow into extrusion length, so a wrong value over- or under-extrudes.",
+      "Measure the actual filament at several points and use the average."
+    ],
+    "recommend": "Recommended: 1.75 mm for most printers."
+  },
+  "filament_density": {
+    "notes": [
+      "Used only to estimate part weight in the statistics.",
+      "Does not change the print itself."
+    ]
+  },
+  "filament_cost": {
+    "notes": [
+      "Used only to estimate print cost per kilogram of filament.",
+      "Does not change the print itself."
+    ]
+  },
+  "filament_flow_ratio": {
+    "notes": [
+      "Scales extrusion to compensate for material and nozzle differences.",
+      "Raise it if walls look thin or gappy; lower it if walls bulge or surfaces look rough."
+    ],
+    "recommend": "Recommended: calibrate with a flow test, usually between 0.94 and 1.05."
+  },
+  "enable_pressure_advance": {
+    "notes": [
+      "Compensates for filament pressure lag, sharpening corners and evening out line width.",
+      "Needs a calibrated value for each filament and nozzle."
+    ]
+  },
+  "pressure_advance": {
+    "notes": [
+      "Too low leaves bulging corners and gaps after speed changes; too high causes thin or gappy corners.",
+      "Calibrate it with a pressure advance test pattern for each filament."
+    ]
+  },
+  "adaptive_pressure_advance": {
+    "notes": [
+      "Adjusts pressure advance with flow rate and acceleration instead of using one fixed value.",
+      "Needs a calibrated model, otherwise results can be worse than a fixed value."
+    ]
+  },
+  "nozzle_temperature": {
+    "notes": [
+      "Higher temperature improves layer bonding and flow but increases stringing and oozing.",
+      "Lower temperature reduces stringing and improves overhangs but can cause weak layers or under-extrusion."
+    ],
+    "recommend": "Recommended: within the filament's printable range, for example 200 C to 230 C for PLA."
+  },
+  "nozzle_temperature_initial_layer": {
+    "notes": [
+      "A slightly hotter first layer improves adhesion to the bed.",
+      "Too hot can cause elephant foot or stringing at the start."
+    ]
+  },
+  "hot_plate_temp": {
+    "notes": [
+      "A hotter bed improves adhesion and reduces warping on high-shrink materials.",
+      "Too hot softens the first layers and can cause elephant foot."
+    ],
+    "recommend": "Recommended: 55 C to 65 C for PLA, 70 C to 90 C for PETG, 90 C to 110 C for ABS."
+  },
+  "hot_plate_temp_initial_layer": {
+    "notes": [
+      "Sets the bed temperature for the first layer only.",
+      "A slightly higher value helps adhesion before dropping to the normal bed temperature."
+    ]
+  },
+  "filament_max_volumetric_speed": {
+    "notes": [
+      "Caps flow so the hotend is not asked to melt more plastic than it can.",
+      "Too high causes under-extrusion; too low slows prints unnecessarily."
+    ],
+    "recommend": "Recommended: 12 mm3/s for PLA on a standard hotend; calibrate for your setup."
+  },
+  "filament_shrink": {
+    "notes": [
+      "Scales the model to offset the material's cooling shrinkage.",
+      "Matters for ABS, ASA and nylon; keep it 100% for low-shrink materials."
+    ]
+  },
+  "fan_min_speed": {
+    "notes": [
+      "The minimum part cooling fan speed used when layers are slow enough.",
+      "Lower values keep layers warmer and bond better; higher values improve detail."
+    ]
+  },
+  "fan_max_speed": {
+    "notes": [
+      "The maximum part cooling fan speed, reached on short layers.",
+      "Higher speeds improve overhangs and bridges but can weaken layer bonding."
+    ]
+  },
+  "close_fan_the_first_x_layers": {
+    "notes": [
+      "Keeps the fan off for the first layers so they stay warm and stick.",
+      "Too few layers risk lifting corners; too many can hurt early overhangs."
+    ],
+    "recommend": "Recommended: 1 to 3 layers."
+  },
+  "full_fan_speed_layer": {
+    "notes": [
+      "Ramps the fan up gradually until it reaches full speed at this layer.",
+      "Useful for materials that need a gentle transition from first layers."
+    ]
+  },
+  "fan_cooling_layer_time": {
+    "notes": [
+      "Layers that take less than this many seconds get more cooling.",
+      "Raise it for small parts that overheat; leave it lower for large parts."
+    ]
+  },
+  "slow_down_layer_time": {
+    "notes": [
+      "Slows layers that print faster than this time, giving each layer time to cool.",
+      "Improves small parts and tips, at the cost of longer print time."
+    ],
+    "recommend": "Recommended: 4 s to 8 s."
+  },
+  "slow_down_min_speed": {
+    "notes": [
+      "The lowest speed layer cooling is allowed to slow the print to.",
+      "Too low causes blobs from heat build-up; too high gives less cooling benefit."
+    ]
+  },
+  "overhang_fan_speed": {
+    "notes": [
+      "Boosts the fan on overhangs and bridges to solidify them quickly.",
+      "Raise it if overhangs curl or droop."
+    ],
+    "recommend": "Recommended: 100% for PLA."
+  },
+  "additional_cooling_fan_speed": {
+    "notes": [
+      "Runs the auxiliary fan to move more air over the part.",
+      "Helps PLA and bridging; disable it for ABS and ASA to avoid warping."
+    ]
+  },
+  "chamber_temperature": {
+    "notes": [
+      "Sets a target chamber temperature to reduce warping and improve layer bonding.",
+      "Useful for ABS, ASA and nylon; leave it off for PLA, which softens in a hot chamber."
+    ]
+  },
+  "filament_type": {
+    "notes": [
+      "Determines default temperatures and compatibility checks for mixed prints.",
+      "Set the correct type so incompatible materials are flagged in multi-material prints."
+    ]
+  },
+  "filament_soluble": {
+    "notes": [
+      "Marks the material as dissolvable, such as PVA, so it can be used for supports.",
+      "Soluble materials are often moisture sensitive and need dry storage."
+    ]
+  },
+  "filament_is_support": {
+    "notes": [
+      "Marks the filament as a support material.",
+      "Lets the slicer assign it to support structures and use its dedicated settings."
+    ]
+  },
+  "filament_start_gcode": {
+    "notes": [
+      "Runs G-code each time this filament is loaded for printing.",
+      "Use it for filament-specific commands such as pressure advance."
+    ]
+  },
+  "filament_end_gcode": {
+    "notes": [
+      "Runs G-code each time this filament finishes or is unloaded.",
+      "Use it for cleanup commands specific to this filament."
+    ]
+  },
+  "nozzle_diameter": {
+    "notes": [
+      "Must match the installed nozzle, as line widths and flow are derived from it.",
+      "A wrong value gives incorrect extrusion and layer height limits."
+    ],
+    "recommend": "Recommended: 0.4 mm for general use."
+  },
+  "printable_area": {
+    "notes": [
+      "Defines the bed shape the slicer can place objects on.",
+      "Must match the real bed, otherwise objects may be placed out of reach."
+    ]
+  },
+  "printable_height": {
+    "notes": [
+      "Maximum object height the printer can reach.",
+      "Prevents slicing models taller than the printer can build."
+    ]
+  },
+  "bed_exclude_area": {
+    "notes": [
+      "Marks parts of the bed where nothing should be printed, such as clips.",
+      "Objects are kept out of these zones when arranging."
+    ]
+  },
+  "z_offset": {
+    "notes": [
+      "Shifts all Z positions to compensate for nozzle-to-bed distance.",
+      "Use small steps; adjust only if the first layer is consistently too high or too low."
+    ]
+  },
+  "gcode_flavor": {
+    "notes": [
+      "Selects the firmware dialect for G-code commands.",
+      "A wrong flavor can break temperature, retraction or acceleration commands."
+    ]
+  },
+  "use_relative_e_distances": {
+    "notes": [
+      "Uses relative extruder moves, which avoids precision loss on long prints.",
+      "Required by some firmware; leave on if your printer supports it."
+    ]
+  },
+  "use_firmware_retraction": {
+    "notes": [
+      "Lets the firmware handle retraction with G10 and G11 instead of slicer-set moves.",
+      "Needs firmware support and tuning; settings come from the firmware."
+    ]
+  },
+  "retraction_length": {
+    "notes": [
+      "Longer retraction reduces stringing but risks clogs and extruder wear.",
+      "Direct drive usually needs 0.5 mm to 2 mm; Bowden setups need more."
+    ],
+    "recommend": "Recommended: 0.5 mm to 1 mm for direct drive, 3 mm to 6 mm for Bowden."
+  },
+  "retraction_speed": {
+    "notes": [
+      "Faster retraction pulls the filament back before it oozes.",
+      "Too fast can grind the filament; too slow lets plastic ooze."
+    ],
+    "recommend": "Recommended: 30 mm/s to 60 mm/s."
+  },
+  "retraction_minimum_travel": {
+    "notes": [
+      "Travel moves shorter than this skip retraction.",
+      "Raising it saves time but may leave strings on short hops."
+    ]
+  },
+  "z_hop": {
+    "notes": [
+      "Lifts the nozzle during travel to avoid scraping the print.",
+      "Reduces collisions but adds time and can increase stringing."
+    ],
+    "recommend": "Recommended: 0.2 mm to 0.4 mm, or 0 to disable."
+  },
+  "retract_when_changing_layer": {
+    "notes": [
+      "Retracts before moving to the next layer to avoid a blob at the layer change.",
+      "Minor time cost; helps hide the seam."
+    ]
+  },
+  "wipe": {
+    "notes": [
+      "Moves the nozzle along the path during retraction to wipe ooze off the tip.",
+      "Reduces blobs and strings, with a small time cost."
+    ]
+  },
+  "retract_before_wipe": {
+    "notes": [
+      "Retracts part of the length before wiping so the tip is clean as it moves.",
+      "Lower values wipe with more pressure; higher values retract earlier."
+    ]
+  },
+  "machine_max_acceleration_x": {
+    "notes": [
+      "Caps the acceleration the printer may use on this axis.",
+      "Set it to what the firmware and frame handle without skipping steps or ringing."
+    ]
+  },
+  "machine_max_speed_x": {
+    "notes": [
+      "Caps the speed the printer may use on this axis.",
+      "Higher limits only help if the motors and frame can sustain them."
+    ]
+  },
+  "machine_start_gcode": {
+    "notes": [
+      "Runs once before printing, to home, heat and prepare the printer.",
+      "Errors here can ruin every print, so test changes on a short print."
+    ]
+  },
+  "machine_end_gcode": {
+    "notes": [
+      "Runs after the print, to cool down, park the head and turn off heaters.",
+      "Make sure it turns off heaters and fans to keep the printer safe."
+    ]
+  },
+  "before_layer_change_gcode": {
+    "notes": [
+      "Runs before every layer change.",
+      "Adds a command per layer, so keep it short to avoid slowing the print."
+    ]
+  },
+  "layer_change_gcode": {
+    "notes": [
+      "Runs at every layer change, after the move to the new layer.",
+      "Commonly used for timelapse triggers or progress commands."
+    ]
+  },
+  "change_filament_gcode": {
+    "notes": [
+      "Runs during filament changes to unload and load the material.",
+      "Required for multi-material setups; errors can cause jams."
+    ]
+  },
+  "machine_pause_gcode": {
+    "notes": [
+      "Runs when a pause is inserted in the print.",
+      "Use it to park the head and beep or notify."
+    ]
+  },
+  "extruder_clearance_radius": {
+    "notes": [
+      "Radius around the nozzle used to avoid collisions in print-by-object mode.",
+      "Larger values leave more space between objects but reduce how many fit."
+    ]
+  },
+  "extruder_clearance_height_to_lid": {
+    "notes": [
+      "Height at which the gantry clears when printing object by object.",
+      "Taller objects than this cannot be printed one after another."
+    ]
+  },
+  "nozzle_hrc": {
+    "notes": [
+      "Records nozzle hardness for abrasive filament warnings.",
+      "Does not change the print itself."
+    ]
+  },
+  "belt_printer": {
+    "notes": [
+      "Enables belt-printer mode, with a tilted slicing plane and transformed G-code coordinates.",
+      "Only for belt printers; leave it off on regular printers."
+    ]
+  },
+  "thumbnails": {
+    "notes": [
+      "Sets the preview image sizes embedded in the G-code.",
+      "Use only sizes your printer's screen supports."
+    ]
+  },
+  "disable_m73": {
+    "notes": [
+      "Stops the slicer from emitting remaining-time commands.",
+      "Use it if your firmware does not understand M73 and shows errors."
+    ]
+  },
+  "fan_speedup_time": {
+    "notes": [
+      "Starts the fan earlier so it reaches the target speed when needed.",
+      "Compensates for fan spin-up lag on printers with slow fans."
+    ]
+  },
+  "fan_kickstart": {
+    "notes": [
+      "Runs the fan at full power briefly before the target speed to get it spinning.",
+      "Useful for fans that stall at low PWM."
+    ]
+  },
+  "adaptive_bed_mesh_margin": {
+    "notes": [
+      "Adds a margin around the print area for adaptive bed mesh probing.",
+      "Larger margins probe more of the bed and take longer."
+    ]
+  },
+  "printer_notes": {
+    "notes": [
+      "Free text stored with the printer profile.",
+      "Used by some profiles to carry flags or hints, so edit it carefully."
+    ]
+  },
+  "filament_notes": {
+    "notes": [
+      "Free text stored with the filament profile.",
+      "Use it for reminders such as drying time or tuning results."
+    ]
+  },
+  "notes": {
+    "notes": [
+      "Free text stored with the process profile.",
+      "Use it to record what the profile is for."
+    ]
+  }
+}

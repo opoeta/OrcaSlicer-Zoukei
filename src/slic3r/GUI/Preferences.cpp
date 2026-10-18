@@ -1800,6 +1800,11 @@ void PreferencesDialog::create_items()
     auto item_show_splash_scr  = create_item_checkbox(_L("Show splash screen"), _L("Show the splash screen during startup."), "show_splash_screen");
     g_sizer->Add(item_show_splash_scr);
 
+    auto item_param_tip_cards = create_item_checkbox(_L("Show illustrated setting tips"),
+        _L("Show a rich card (description, illustration and notes) when hovering a setting name. If disabled, plain tooltips are used."),
+        "param_tip_cards");
+    g_sizer->Add(item_param_tip_cards);
+
 #ifdef __linux__
     auto item_window_button_pos  = create_item_checkbox(_L("Use window buttons on left side"), "", "window_buttons_on_left", _L("(Requires restart)"));
     g_sizer->Add(item_window_button_pos);
@@ -1911,6 +1916,13 @@ void PreferencesDialog::create_items()
            "mapped to that slot instead of only offering a notification."),
         "flashforge_apply_printer_changes");
     g_sizer->Add(item_ff_apply);
+
+    auto item_u1_apply = create_item_checkbox(_L("Apply Snapmaker U1 head changes to the project automatically"),
+        _L("For a Snapmaker U1: when a head's filament is changed on the printer (its screen, Fluidd, an NFC spool), apply it to the project "
+           "filaments mapped to that head instead of only offering a notification. Writing the project's filaments to the heads uses the CFS / IFS "
+           "sync option above and never touches official (NFC) spools."),
+        "snapmaker_u1_apply_printer_changes");
+    g_sizer->Add(item_u1_apply);
 
     auto item_spoolman = create_item_spoolman(_L("Spoolman server"),
         _L("Address of your Spoolman server on the local network (for example 10.10.1.254:7912). It is only read, never changed. "

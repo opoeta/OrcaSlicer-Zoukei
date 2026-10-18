@@ -1633,6 +1633,27 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    // Bridging infill extra expansion (ported from OrcaFS-NeotkoCM, Neotko; concept from Simplify3D).
+    def = this->add("bridge_expansion_extra", coFloat);
+    def->label = L("Bridging infill extra expansion");
+    def->category = L("Quality");
+    def->tooltip = L("Extra distance the bridging infill grows into the surrounding area of the "
+                     "same part, on top of the automatic expansion.\n\n"
+                     "The bridge then starts extruding over solid material before it reaches the "
+                     "gap, so the strand is already anchored when it begins to span. Raise this if "
+                     "bridges detach or curl at their ends.\n\n"
+                     "With a large value the bridge takes over the whole surrounding region and the "
+                     "entire layer prints as one continuous bridge. There is no cap: "
+                     "set it as high as you need.\n\n"
+                     "0 = automatic expansion only (unchanged behaviour). The automatic amount is "
+                     "derived from the wall count, so this setting also lets you decouple bridge "
+                     "anchoring from the number of walls.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 999;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
     def = this->add("bridge_density", coPercent);
     def->label = L("External bridge density");
     def->category = L("Strength");
@@ -1930,6 +1951,44 @@ void PrintConfigDef::init_fff_params()
     def->nullable = true;
     def->set_default_value(new ConfigOptionBoolsNullable{ true });
     
+    // Overhang Shadow (ported from OrcaFS-NeotkoCM, Neotko).
+    def = this->add("overhang_shadow_inner_wall", coBool);
+    def->label = L("Slow down inner walls next to overhangs");
+    def->category = L("Speed");
+    def->tooltip = L("Give the inner wall a share of the slowdown its overhanging neighbour gets.\n\n"
+                     "The outer wall of an overhang is printed onto the inner wall next to it, and that "
+                     "inner wall went down at full speed a few seconds earlier because it is itself "
+                     "supported. This makes the anchor as careful as the wall it has to hold up.\n\n"
+                     "Costs nothing away from an overhang: a wall with solid material under it is graded "
+                     "the same either way. Requires 'Slow down for overhangs', and has no effect when "
+                     "walls are printed outer wall first.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool{ false });
+
+    def = this->add("overhang_shadow_speed_ratio", coPercent);
+    def->label = L("Inner wall slowdown");
+    def->category = L("Speed");
+    def->tooltip = L("How much of the neighbouring wall's treatment this wall borrows. 100% grades the "
+                     "inner wall exactly as if it were the overhanging wall itself, which also brings the "
+                     "overhang fan with it. 50% takes it halfway. 0% disables the effect.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(30));
+
+    def = this->add("overhang_shadow_distance", coPercent);
+    def->label = L("Inner wall reach");
+    def->category = L("Speed");
+    def->tooltip = L("How far outwards to look for the wall being mirrored, as a percentage of line "
+                     "width. 100% is the wall immediately next to this one. Larger values mirror "
+                     "something further out, so the slowdown reaches deeper into the walls.");
+    def->sidetext = L("%");
+    def->min = 0;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(200));
+
     def = this->add("slowdown_for_curled_perimeters", coBools);
     def->label = L("Slow down for curled perimeters");
     def->category = L("Speed");
@@ -7457,6 +7516,25 @@ void PrintConfigDef::init_fff_params()
     def->max = 120;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(30.0));
+
+    // Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko). Slice-time mirrors of two application preferences
+    // ("Bed and Nozzle Extras" dialog), injected by PresetBundle::full_fff_config(). comDevelop on purpose: they are
+    // never rendered in a Tab, so they never end up inside (or conflict with) a print profile. Default off = stock G-code.
+    def = this->add("neotko_idle_tool_power_down", coBool);
+    def->label = L("Turn off unused hotends fully (slice-time)");
+    def->tooltip = L("Internal: true while \"Turn off unused hotends fully\" is active. After a tool's "
+                     "last use in the file, its standby M104 is rewritten to S0 instead of the idle "
+                     "temperature, so it stops heating for the rest of the print.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neotko_idle_tool_deep_sleep", coBool);
+    def->label = L("Extra Energy Save mode (slice-time)");
+    def->tooltip = L("Internal: true while \"Extra Energy Save\" is active. Every parked tool is set "
+                     "to S0, not only after its last use. The preheat backtrace removes the shutdown "
+                     "again for any tool that returns within its preheat window.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("preheat_steps", coInt);
     def->label = L("Preheat steps");

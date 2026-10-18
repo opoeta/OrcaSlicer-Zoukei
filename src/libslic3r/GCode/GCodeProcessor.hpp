@@ -1285,6 +1285,24 @@ inline constexpr float DEFAULT_FILAMENT_DENSITY = 1.245f;
         float m_preheat_time;
         int m_preheat_steps;
         bool m_disable_m73;
+
+        // Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko): "Turn off unused hotends fully (0 C)".
+        // Mirrored from application preferences through PrintConfig, never from a preset.
+        bool m_idle_tool_power_down{ false };
+        // "Extra Energy Save": power down on EVERY park, not just after the last use. Orca's own preheat backtrace
+        // removes the shutdown for any tool that comes back inside its preheat window.
+        bool m_idle_tool_deep_sleep{ false };
+        // The M104 T numbering only matches the extruder ids of the parsed moves on a plain one-heater-per-tool
+        // printer (no SEMM, no IMEX, identity physical map, as many filaments as extruders). Otherwise the feature stays off.
+        bool m_idle_tool_mapping_safe{ false };
+        // Per tool: gcode line id of the LAST extruding move of that tool. 0 = never used.
+        std::vector<unsigned int> m_idle_tool_last_use;
+        // Tools already switched off, so a tool is not powered down twice (base mode).
+        std::vector<bool> m_idle_tool_done;
+        unsigned int m_idle_tool_rewrites{ 0 };
+        unsigned int m_idle_tool_tools_used{ 0 };
+        void idle_tool_prepare();
+        bool idle_tool_rewrite_line(std::string& gcode_line, unsigned int line_id);
         std::string m_printer_model;
 
         enum class EProducer

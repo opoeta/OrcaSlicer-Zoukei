@@ -315,3 +315,14 @@ dl.kv dt { color: var(--muted); } dl.kv dd { margin: 0; }
 .lw-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .lw-grid .tile { min-width: 100px; }
 a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Snapmaker U1: four tool heads */
+.u1-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.u1-slot { width: auto; padding: 10px 6px; border: 1px solid var(--line); background: var(--panel); }
+.u1-slot .sub { max-width: 112px; }
+.u1-slot .lockico { display: inline-flex; margin-left: 4px; color: var(--accent); }
+.u1-slot .feedline { min-height: 14px; max-width: 112px; font-size: 11px; color: var(--accent); text-align: center; }
+.u1-slot .feedline.err { color: #d9534f; }
+.u1-map { margin-top: 16px; }
+.u1-override { align-items: flex-start; margin-top: 10px; }
+

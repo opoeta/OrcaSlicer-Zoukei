@@ -506,6 +506,9 @@ void AppConfig::set_defaults()
         set_bool("show_splash_screen", true);
     }
 
+    if (get("param_tip_cards").empty())
+        set_bool("param_tip_cards", true);
+
     if(get("auto_arrange").empty()) {
         set_bool("auto_arrange", true);
     }

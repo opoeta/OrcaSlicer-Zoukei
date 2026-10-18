@@ -7322,6 +7322,29 @@ void SelectMachineDialog::apply_creality_mapping(MachineObject* obj)
         }
         return;
     }
+    if (obj != nullptr && !is_creality_dialog() && m_print_type == PrintFromType::FROM_NORMAL && CfsUi::u1_active()) {
+        // Snapmaker U1: the sidebar badge's head (E1..E4) per filament is the default mapping; the print then sets the
+        // printer's extruder map from it (SnapmakerPrinterAgent::start_local_print).
+        for (FilamentInfo& f : m_ams_mapping_result) {
+            const std::optional<int> tray = CfsUi::mapped_tray(f.id);
+            if (!tray || *tray < 0 || *tray > 3)
+                continue;
+            const std::string ams_id = "0", slot_id = std::to_string(*tray);
+            if (!obj->contains_tray(ams_id, slot_id))
+                continue;
+            DevAmsTray t = obj->get_tray(ams_id, slot_id);
+            f.tray_id     = *tray;
+            f.ams_id      = ams_id;
+            f.slot_id     = slot_id;
+            f.color       = t.color;
+            f.type        = t.get_filament_type();
+            f.filament_id = t.setting_id;
+            f.ctype       = t.ctype;
+            f.colors      = t.cols;
+            f.distance    = 0;
+        }
+        return;
+    }
     if (obj == nullptr || !is_creality_dialog())
         return;
     const bool spool = m_checkbox_list["filament_src"]->getValue() == "spool";

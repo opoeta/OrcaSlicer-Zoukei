@@ -1284,9 +1284,107 @@ int Emboss::get_line_height(const FontFile &font, const FontProp &prop) {
     return static_cast<int>(line_height / SHAPE_SCALE);
 }
 
+bool Emboss::has_kerning_table(const FontFile &font, unsigned int font_index)
+{
+    if (!is_valid(font, font_index))
+        return false;
+    fontinfo_opt font_info = load_font_info(font.data->data(), font_index);
+    if (!font_info.has_value())
+        return false;
+    if (font_info->gpos != 0)
+        return true; // modern OpenType kerning, read by stb_truetype
+    if (font_info->kern == 0)
+        return false;
+    // A 'kern' table exists, but only two layouts can actually be read: the Microsoft version 0 (handled by
+    // stb_truetype) and the Apple version 1.0 (handled by apple_kern_advance). Anything else would leave the user
+    // with a checkbox that does nothing, so report false.
+    const unsigned char *table = font_info->data + font_info->kern;
+    const uint32_t version = (static_cast<uint32_t>(table[0]) << 24) | (static_cast<uint32_t>(table[1]) << 16) |
+                             (static_cast<uint32_t>(table[2]) << 8) | static_cast<uint32_t>(table[3]);
+    if (version == 0x00010000u)
+        return true; // Apple v1.0
+    return ((table[0] << 8) | table[1]) == 0; // Microsoft v0
+}
+
 namespace {
+// Apple 'kern' table reader (ported from OrcaFS-NeotkoCM, Neotko).
+// stb_truetype only understands the Microsoft 'kern' table (version 0). Apple ships version 1.0 (uint32 version,
+// uint32 table count, wider subtable header) which stb silently reads as "no pairs". macOS system fonts use it.
+// Format 0 subtables only, which is what kerning pairs actually use.
+uint16_t kern_be_u16(const unsigned char *p) { return static_cast<uint16_t>((p[0] << 8) | p[1]); }
+int16_t  kern_be_s16(const unsigned char *p) { return static_cast<int16_t>((p[0] << 8) | p[1]); }
+uint32_t kern_be_u32(const unsigned char *p)
+{
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]);
+}
+
+/// Kerning of a pair from an Apple version 1.0 'kern' table. Returns 0 when the font does not use that format,
+/// so it can safely be added to whatever stb_truetype reports.
+int apple_kern_advance(const stbtt_fontinfo &font_info, int glyph1, int glyph2)
+{
+    if (font_info.kern == 0)
+        return 0;
+    const unsigned char *table = font_info.data + font_info.kern;
+    if (kern_be_u32(table) != 0x00010000u)
+        return 0; // not the Apple format, stb_truetype already handled it
+
+    const uint32_t       count    = kern_be_u32(table + 4);
+    const unsigned char *subtable = table + 8;
+    for (uint32_t t = 0; t < count; ++t) {
+        const uint32_t length   = kern_be_u32(subtable);
+        const uint16_t coverage = kern_be_u16(subtable + 4);
+        if (length < 16)
+            break; // malformed, do not walk further
+
+        const bool is_vertical = (coverage & 0x8000) != 0;
+        const int  format      = coverage & 0x00FF;
+        if (!is_vertical && format == 0) {
+            const uint16_t       pair_count = kern_be_u16(subtable + 8);
+            const unsigned char *pairs      = subtable + 16;
+            // Pairs are sorted by (left << 16 | right), same as the Microsoft format
+            const uint32_t needle = (static_cast<uint32_t>(glyph1) << 16) | static_cast<uint32_t>(glyph2);
+            int lo = 0, hi = static_cast<int>(pair_count) - 1;
+            while (lo <= hi) {
+                const int      mid   = (lo + hi) >> 1;
+                const uint32_t straw = kern_be_u32(pairs + mid * 6);
+                if (needle < straw)
+                    hi = mid - 1;
+                else if (needle > straw)
+                    lo = mid + 1;
+                else
+                    return kern_be_s16(pairs + mid * 6 + 4);
+            }
+            return 0; // horizontal format 0 subtable found, the pair simply has no kerning
+        }
+        subtable += length;
+    }
+    return 0;
+}
+
+// Index of a glyph inside the font file, cached per unicode. Kerning is addressed by glyph index, not by unicode.
+int glyph_index_of(int unicode, const stbtt_fontinfo &font_info, std::map<int, int> &cache)
+{
+    auto it = cache.find(unicode);
+    if (it != cache.end())
+        return it->second;
+    const int index = stbtt_FindGlyphIndex(&font_info, unicode);
+    cache[unicode]  = index;
+    return index;
+}
+
+// Typographic Spacing state carried from one letter to the next (ported from OrcaFS-NeotkoCM, Neotko).
+struct KerningState
+{
+    bool               enabled{false};
+    std::map<int, int> glyph_index_cache;
+    // Glyph index of the previous character of the current line, when there is one to kern against
+    std::optional<int> prev_glyph_index;
+};
+
 ExPolygons letter2shapes(
-    wchar_t letter, Point &cursor, FontFileWithCache &font_with_cache, const FontProp &font_prop, fontinfo_opt& font_info_cache)
+    wchar_t letter, Point &cursor, FontFileWithCache &font_with_cache, const FontProp &font_prop, fontinfo_opt& font_info_cache,
+    KerningState &kerning)
 {
     assert(font_with_cache.has_value());
     if (!font_with_cache.has_value())
@@ -1299,12 +1397,14 @@ ExPolygons letter2shapes(
         cursor.x() = 0;
         // 2d shape has opposit direction of y
         cursor.y() -= get_line_height(font, font_prop);
+        kerning.prev_glyph_index.reset(); // never kern across a line break
         return {};
     }
     if (letter == '\t') {
         // '\t' = 4*space => same as imgui
         const int count_spaces = 4;
         const Glyph *space = get_glyph(int(' '), font, font_prop, cache, font_info_cache);
+        kerning.prev_glyph_index.reset(); // a tab is an explicit spacing, kerning across it is meaningless
         if (space == nullptr)
             return {};
         cursor.x() += count_spaces * space->advance_width;
@@ -1318,8 +1418,25 @@ ExPolygons letter2shapes(
 
     // Create glyph from font file and cache it
     const Glyph *glyph_ptr = (it != cache.end()) ? &it->second : get_glyph(unicode, font, font_prop, cache, font_info_cache);
-    if (glyph_ptr == nullptr)
+    if (glyph_ptr == nullptr) {
+        // Character has no definition in this font: it takes no space, exactly as before.
+        kerning.prev_glyph_index.reset();
         return {};
+    }
+
+    // Typographic Spacing: kerning of the pair (previous, current), in font units, applied as its own term so that the
+    // kerning-off path stays arithmetically identical to the code before it existed. stb reads the Microsoft 'kern'
+    // table and GPOS; apple_kern_advance() covers the Apple version 1.0 table. They are exclusive by table version.
+    if (kerning.enabled && font_info_cache.has_value()) {
+        const int index = glyph_index_of(unicode, *font_info_cache, kerning.glyph_index_cache);
+        if (kerning.prev_glyph_index.has_value()) {
+            const int kern = stbtt_GetGlyphKernAdvance(&(*font_info_cache), *kerning.prev_glyph_index, index) +
+                             apple_kern_advance(*font_info_cache, *kerning.prev_glyph_index, index);
+            if (kern != 0)
+                cursor.x() += static_cast<int>(kern / SHAPE_SCALE);
+        }
+        kerning.prev_glyph_index = index;
+    }
 
     // move glyph to cursor position
     ExPolygons expolygons = glyph_ptr->shape; // copy
@@ -1417,6 +1534,15 @@ ExPolygonsWithIds Emboss::text2vshapes(FontFileWithCache &font_with_cache, const
     Point cursor(0, 0);
 
     fontinfo_opt font_info_cache;  
+    // Kerning needs the font info even when every glyph shape is already cached, so load it up front
+    // instead of relying on get_glyph() to do it lazily.
+    KerningState kerning;
+    kerning.enabled = font_prop.use_font_kerning.value_or(false);
+    if (kerning.enabled) {
+        font_info_cache = load_font_info(font.data->data(), font_index);
+        if (!font_info_cache.has_value())
+            kerning.enabled = false;
+    }
     ExPolygonsWithIds result;
     result.reserve(text.size());
     for (wchar_t letter : text) {
@@ -1426,7 +1552,7 @@ ExPolygonsWithIds Emboss::text2vshapes(FontFileWithCache &font_with_cache, const
                 return {};
         }
         unsigned id = static_cast<unsigned>(letter);
-        result.push_back({id, letter2shapes(letter, cursor, font_with_cache, font_prop, font_info_cache)});
+        result.push_back({id, letter2shapes(letter, cursor, font_with_cache, font_prop, font_info_cache, kerning)});
     }
 
     align_shape(result, text, font_prop, font);

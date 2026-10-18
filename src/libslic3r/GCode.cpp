@@ -9567,6 +9567,16 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
             
             ConfigOptionPercents         overhang_overlap_levels({90, 75, 50, 25, 13, 0});
 
+            // Overhang Shadow (ported from OrcaFS-NeotkoCM, Neotko): only the inner wall borrows slowdown from the
+            // overhang it runs alongside. Ratio 0 leaves both params at 0 and the estimator on its stock path.
+            float shadow_ratio = 0.f;
+            float shadow_reach = 0.f;
+            if (m_config.overhang_shadow_inner_wall.value && path.role() == erPerimeter) {
+                shadow_ratio = float(m_config.overhang_shadow_speed_ratio.value) / 100.f;
+                // How far outboard the mirrored wall sits; 100% is the wall immediately next to this one.
+                shadow_reach = float(m_config.overhang_shadow_distance.value) / 100.f * path.width;
+            }
+
             // ORCA: Lets the path be split where the overhang fan switches, not only where the speed changes.
             // Bridges and overhang perimeters are cooled regardless of overlap.
             float fan_overlap_threshold = -1.f;
@@ -9595,7 +9605,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
 
                 new_points = m_extrusion_quality_estimator.estimate_extrusion_quality(path, overhang_overlap_levels, dynamic_overhang_speeds,
                                                                               ref_speed, speed, NOZZLE_CONFIG(slowdown_for_curled_perimeters),
-                                                                              fan_overlap_threshold);
+                                                                              fan_overlap_threshold, shadow_ratio, shadow_reach);
         	}else{
                 ConfigOptionFloatsOrPercents dynamic_overhang_speeds(
                                                                      {FloatOrPercent{100, true},
@@ -9615,7 +9625,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
 
                 new_points = m_extrusion_quality_estimator.estimate_extrusion_quality(path, overhang_overlap_levels, dynamic_overhang_speeds,
                                                                               ref_speed, speed, NOZZLE_CONFIG(slowdown_for_curled_perimeters),
-                                                                              fan_overlap_threshold);
+                                                                              fan_overlap_threshold, shadow_ratio, shadow_reach);
             }
             if (!NOZZLE_CONFIG(enable_overhang_speed))
                 for (ProcessedPoint &point : new_points)

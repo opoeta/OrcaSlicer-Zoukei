@@ -89,6 +89,7 @@ class MainFrame;
 class WebViewPanel;
 class CrealityDevicePanel;
 class FlashforgeDevicePanel;
+class SnapmakerU1DevicePanel;
 class ParamsDialog;
 enum class Shortcut : uint8_t;
 struct KeyChord;
@@ -521,6 +522,8 @@ public:
     LazyPage<CrealityDevicePanel>* m_creality_device_page{ nullptr };
     // Same for Flashforge printers (ZMOD / Moonraker).
     LazyPage<FlashforgeDevicePanel>* m_flashforge_device_page{ nullptr };
+    // Same for the Snapmaker U1 (Moonraker, four heads).
+    LazyPage<SnapmakerU1DevicePanel>* m_u1_device_page{ nullptr };
 
     //AuxiliaryPanel*       m_auxiliary{ nullptr };
     LazyPage<MultiMachinePage>* m_multi_machine_page{ nullptr };

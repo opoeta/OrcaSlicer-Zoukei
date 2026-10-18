@@ -455,6 +455,7 @@ static constexpr const char *FONT_DESCRIPTOR_TYPE_ATTR = "font_descriptor_type";
 
 // TextConfiguration::FontProperty
 static constexpr const char *CHAR_GAP_ATTR    = "char_gap";
+static constexpr const char *USE_FONT_KERNING_ATTR = "neotko_font_kerning"; // Typographic Spacing, same name as OrcaFS-NeotkoCM
 static constexpr const char *LINE_GAP_ATTR    = "line_gap";
 static constexpr const char *LINE_HEIGHT_ATTR = "line_height";
 static constexpr const char *BOLDNESS_ATTR    = "boldness";
@@ -9921,6 +9922,8 @@ void TextConfigurationSerialization::to_xml(std::stringstream &stream, const Tex
         stream << CHAR_GAP_ATTR << "=\"" << *fp.char_gap << "\" ";
     if (fp.line_gap.has_value())
         stream << LINE_GAP_ATTR << "=\"" << *fp.line_gap << "\" ";
+    if (fp.use_font_kerning.value_or(false))
+        stream << USE_FONT_KERNING_ATTR << "=\"" << 1 << "\" ";
 
     stream << LINE_HEIGHT_ATTR << "=\"" << fp.size_in_mm << "\" ";
     if (fp.boldness.has_value())
@@ -9995,6 +9998,9 @@ std::optional<TextConfiguration> TextConfigurationSerialization::read(const char
     if (char_gap != 0) fp.char_gap = char_gap;
     int line_gap = bbs_get_attribute_value_int(attributes, num_attributes, LINE_GAP_ATTR); 
     if (line_gap != 0) fp.line_gap = line_gap;
+    // Missing attribute leaves the optional unset = kerning off
+    int use_font_kerning = bbs_get_attribute_value_int(attributes, num_attributes, USE_FONT_KERNING_ATTR);
+    if (use_font_kerning == 1) fp.use_font_kerning = true;
     float boldness = bbs_get_attribute_value_float(attributes, num_attributes, BOLDNESS_ATTR);
     if (std::fabs(boldness) > std::numeric_limits<float>::epsilon())
         fp.boldness = boldness;

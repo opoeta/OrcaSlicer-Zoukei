@@ -21,6 +21,7 @@
 
 namespace Slic3r {
 class FlashforgePrinterAgent;
+class SnapmakerPrinterAgent;
 namespace GUI { namespace CfsUi {
 
 // Project filament index -> printer slot {box_id, slot_id}; box 0 is the external spool.
@@ -39,6 +40,10 @@ void set_mapped_tray(int filament_idx, int tray_id);
 bool ifs_active();
 // The Flashforge agent of the selected printer (null for any other printer).
 std::shared_ptr<Slic3r::FlashforgePrinterAgent> ifs_agent();
+// Snapmaker U1: its four tool heads (one unit, box 1, slots 0-3 = E1..E4) take the place of the CFS in the sidebar badges.
+bool u1_active();
+// The Snapmaker agent of the selected printer when it is a U1 (null for any other printer).
+std::shared_ptr<Slic3r::SnapmakerPrinterAgent> u1_agent();
 // Header of the sidebar column of a unit: "CFS n", or "IFS" for the Flashforge unit (empty for the unused second column).
 wxString unit_title(int box);
 

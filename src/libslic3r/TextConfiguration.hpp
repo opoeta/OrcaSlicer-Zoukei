@@ -69,6 +69,11 @@ struct FontProp
     std::optional<std::string> style;
     std::optional<std::string> weight;
 
+    // Typographic Spacing (ported from OrcaFS-NeotkoCM, Neotko): use the kerning pairs stored in the font
+    // ('kern' table or GPOS) to tighten/loosen specific glyph pairs. Independent from char_gap (uniform tracking).
+    // When not set kerning is off, which is what Orca has always done; it is not stored in that case.
+    std::optional<bool> use_font_kerning;
+
     /// <summary>
     /// Only constructor with restricted values
     /// </summary>
@@ -81,6 +86,7 @@ struct FontProp
         return 
             char_gap == other.char_gap && 
             line_gap == other.line_gap &&
+            use_font_kerning == other.use_font_kerning &&
             per_glyph == other.per_glyph &&
             align == other.align &&
             is_approx(size_in_mm, other.size_in_mm) && 
@@ -97,6 +103,7 @@ struct FontProp
         cereal::save(ar, boldness);
         cereal::save(ar, skew);
         cereal::save(ar, collection_number);
+        cereal::save(ar, use_font_kerning);
     }
     template<class Archive> void load(Archive &ar)
     {
@@ -106,6 +113,7 @@ struct FontProp
         cereal::load(ar, boldness);
         cereal::load(ar, skew);
         cereal::load(ar, collection_number);
+        cereal::load(ar, use_font_kerning);
     }
 };
 

@@ -325,6 +325,9 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "retraction_distances_when_cut",
         "filament_long_retractions_when_cut",
         "filament_retraction_distances_when_cut",
+        // Idle tool power down: consumed only by GCodeProcessor::run_post_process (a rewrite of the emitted G-code)
+        "neotko_idle_tool_power_down",
+        "neotko_idle_tool_deep_sleep",
         "grab_length",
         "bed_temperature_formula",
         "filament_notes",

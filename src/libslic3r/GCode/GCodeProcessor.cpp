@@ -1063,6 +1063,114 @@ public:
     void reserve(size_t lines_count) { m_gcode_lines_map.reserve(lines_count); }
 };
 
+// Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko): "Turn off unused hotends fully (0 C)".
+//
+// The decision needs the FINAL G-code: OozePrevention::pre_toolchange emits the standby M104 (marked ";cooldown")
+// without knowing whether the tool ever comes back, and the wipe tower can add visits afterwards. run_post_process
+// runs after everything is emitted and m_result.moves is fully parsed, so "does this tool come back?" is a lookup.
+//
+// Fills m_idle_tool_last_use[tool] with the gcode line id of that tool's last EXTRUDING move. 0 = never extrudes.
+void GCodeProcessor::idle_tool_prepare()
+{
+    m_idle_tool_last_use.clear();
+    m_idle_tool_done.clear();
+    m_idle_tool_rewrites = 0;
+    m_idle_tool_tools_used = 0;
+    if (!m_idle_tool_power_down || !m_idle_tool_mapping_safe)
+        return;
+
+    size_t tools = 0;
+    for (const GCodeProcessorResult::MoveVertex& move : m_result.moves)
+        if (move.type == EMoveType::Extrude)
+            tools = std::max<size_t>(tools, size_t(move.extruder_id) + 1);
+    if (tools == 0)
+        return;
+    m_idle_tool_last_use.assign(tools, 0);
+    m_idle_tool_done.assign(tools, false);
+
+    for (const GCodeProcessorResult::MoveVertex& move : m_result.moves) {
+        // Only extrusion counts as "use": a travel or a retract does not mean the tool still has work to do.
+        if (move.type != EMoveType::Extrude)
+            continue;
+        const size_t t = size_t(move.extruder_id);
+        if (t < tools && move.gcode_id > m_idle_tool_last_use[t])
+            m_idle_tool_last_use[t] = move.gcode_id;
+    }
+    for (size_t t = 0; t < tools; ++t)
+        if (m_idle_tool_last_use[t] > 0)
+            ++m_idle_tool_tools_used;
+}
+
+// Rewrites a standby "M104 S<idle> T<n> ;cooldown" into "S0" when line_id is already past that tool's last extruding
+// move (or, in deep sleep, at every park). Returns true if the line was changed.
+// Deliberately a REWRITE and not an insertion: inserting lines would shift the line/time bookkeeping that the M73
+// estimates depend on. Needs a standby M104 to exist, i.e. Ooze prevention enabled.
+bool GCodeProcessor::idle_tool_rewrite_line(std::string& gcode_line, unsigned int line_id)
+{
+    if (!m_idle_tool_power_down || m_idle_tool_last_use.empty())
+        return false;
+    if (!GCodeReader::GCodeLine::cmd_is(gcode_line, "M104"))
+        return false;
+    // The ";cooldown" marker is what makes this line a PARK; every other M104 with a T (a working temperature after
+    // a pick-up, start G-code preheats) means the opposite and rewriting it would break the print.
+    if (gcode_line.find("cooldown") == std::string::npos)
+        return false;
+
+    GCodeReader::GCodeLine gline;
+    GCodeReader            reader;
+    reader.parse_line(gcode_line, [&gline](GCodeReader& r, const GCodeReader::GCodeLine& l) { gline = l; });
+
+    float tool_f = 0.f;
+    float temp_f = 0.f;
+    // An M104 without an explicit T is aimed at the active tool, which by definition is not the one being parked.
+    if (!gline.has_value('T', tool_f) || !gline.has_value('S', temp_f))
+        return false;
+    if (temp_f <= 0.f)
+        return false; // already off
+
+    const int tool = static_cast<int>(tool_f);
+    if (tool < 0 || static_cast<size_t>(tool) >= m_idle_tool_last_use.size())
+        return false;
+    // In deep sleep a tool is powered down at every park, so it stays eligible all print long.
+    if (!m_idle_tool_deep_sleep && m_idle_tool_done[tool])
+        return false;
+
+    const unsigned int last_use = m_idle_tool_last_use[tool];
+    // last_use == 0: the tool never extrudes, so the start G-code already decided not to use it. Do not touch it.
+    if (last_use == 0)
+        return false;
+
+    // Base rule: only once the tool has no extrusion left. "Extra Energy Save" widens it to every park and leaves the
+    // timing to Orca's preheat backtrace, which removes the cooldown (line replacer in process_line_T, keyed on the
+    // ";cooldown" marker preserved below) when the tool comes back inside the preheat window.
+    if (!m_idle_tool_deep_sleep && line_id <= last_use)
+        return false;
+
+    // Surgical edit: swap the S value for 0, keep everything else including the ";cooldown" marker.
+    const size_t s_pos = gcode_line.find('S');
+    if (s_pos == std::string::npos)
+        return false;
+    size_t end = s_pos + 1;
+    while (end < gcode_line.size() && (std::isdigit(static_cast<unsigned char>(gcode_line[end])) ||
+                                       gcode_line[end] == '.' || gcode_line[end] == '-'))
+        ++end;
+    if (end == s_pos + 1)
+        return false;
+
+    std::string tail = gcode_line.substr(end);
+    std::string eol;
+    while (!tail.empty() && (tail.back() == '\n' || tail.back() == '\r')) {
+        eol.insert(eol.begin(), tail.back());
+        tail.pop_back();
+    }
+    const char* why = (line_id > last_use) ? " ; tool off, not used again" : " ; tool off while parked";
+    gcode_line = gcode_line.substr(0, s_pos) + "S0" + tail + why + eol;
+
+    m_idle_tool_done[tool] = true;
+    ++m_idle_tool_rewrites;
+    return true;
+}
+
 void GCodeProcessor::run_post_process()
 {
     FilePtr in{ boost::nowide::fopen(m_result.filename.c_str(), "rb") };
@@ -1541,6 +1649,9 @@ void GCodeProcessor::run_post_process()
     // avoid stale ranges on re-invocation.
     m_skippable_blocks.clear();
 
+    // Idle tool power down: build the per-tool "last extruding line" table before the write pass.
+    idle_tool_prepare();
+
     unsigned int line_id = 0;
     // Backtrace data for Tx gcode lines
     const ExportLines::Backtrace backtrace_T = { m_preheat_time, m_preheat_steps };
@@ -1737,6 +1848,8 @@ void GCodeProcessor::run_post_process()
 
                 if (eol) {
                     ++line_id;
+                    // Idle tool power down: must run BEFORE export_line.update(), which measures and stores the line.
+                    idle_tool_rewrite_line(gcode_line, line_id);
                     const unsigned int internal_g1_lines_counter = export_line.update(gcode_line, line_id, g1_lines_counter);
                     // Orca: track the current layer for preheat temperature selection.
                     // The line is ";" + reserved_tag(Layer_Change) + EOL; match it independent of
@@ -3042,6 +3155,18 @@ void GCodeProcessor::apply_config(const PrintConfig& config)
     m_is_XL_printer = is_XL_printer(config);
     m_preheat_time = config.preheat_time;
     m_preheat_steps = config.preheat_steps;
+    // Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko)
+    m_idle_tool_power_down = config.neotko_idle_tool_power_down.value;
+    m_idle_tool_deep_sleep = m_idle_tool_power_down && config.neotko_idle_tool_deep_sleep.value;
+    {
+        bool identity = true;
+        for (size_t i = 0; i < config.physical_extruder_map.values.size(); ++i)
+            if (config.physical_extruder_map.values[i] != int(i))
+                identity = false;
+        m_idle_tool_mapping_safe = identity && !config.single_extruder_multi_material.value && !config.is_imex.value &&
+                                   config.filament_diameter.values.size() == config.nozzle_diameter.values.size() &&
+                                   config.nozzle_diameter.values.size() > 1;
+    }
     // sanity check
     if(m_preheat_steps < 1)
         m_preheat_steps = 1;
@@ -3733,6 +3858,13 @@ void GCodeProcessor::reset()
     m_g29_time_added = false;
     m_preheat_time = 0.f;
     m_preheat_steps = 1;
+    m_idle_tool_power_down = false;
+    m_idle_tool_deep_sleep = false;
+    m_idle_tool_mapping_safe = false;
+    m_idle_tool_last_use.clear();
+    m_idle_tool_done.clear();
+    m_idle_tool_rewrites = 0;
+    m_idle_tool_tools_used = 0;
 }
 
 static inline const char* skip_whitespaces(const char *begin, const char *end) {

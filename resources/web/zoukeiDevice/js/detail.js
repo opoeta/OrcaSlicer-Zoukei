@@ -98,7 +98,8 @@
         function build(device) {
             dev = device;
             const mr = dev.backend === 'moonraker';
-            link = mr ? new Z.MoonrakerLink(dev) : new Z.PrinterLink(dev);
+            const u1 = mr && dev.family === 'u1';
+            link = u1 ? new Z.U1Link(dev) : mr ? new Z.MoonrakerLink(dev) : new Z.PrinterLink(dev);
             camera = mr ? new Z.MrCamera(dev, link) : new Z.Camera(dev, link);
             const phaseOf = () => Z.derive(link.state);
             const canWrite = () => link.online;       // temperatures etc. are allowed while printing too
@@ -179,7 +180,7 @@
 
             // tabs
             tabs = mr ? [
-                { key: 'ifs', label: Z.t('tab_ifs'), page: Z.createIfsTab(ctx) },
+                u1 ? { key: 'heads', label: Z.t('tab_u1'), page: Z.createU1HeadsTab(ctx) } : { key: 'ifs', label: Z.t('tab_ifs'), page: Z.createIfsTab(ctx) },
                 { key: 'move', label: Z.t('tab_move'), page: Z.createMoveTab(ctx) },
                 { key: 'files', label: Z.t('tab_files'), page: Z.createMrFilesTab(ctx) },
                 { key: 'timelapse', label: Z.t('tab_timelapse'), page: Z.createMrTimelapseTab(ctx) },

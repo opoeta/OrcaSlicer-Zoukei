@@ -482,6 +482,11 @@ public:
     // and they are being used by slicing core.
     DynamicPrintConfig          project_config;
 
+    // Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko): application preferences ("Bed and Nozzle Extras"),
+    // not part of any preset or project. Mirrored into the full config at slice time by full_fff_config().
+    bool                        idle_tool_power_down{ false };
+    bool                        idle_tool_deep_sleep{ false };
+
     // There will be an entry for each system profile loaded,
     // and the system profiles will point to the VendorProfile instances owned by PresetBundle::vendors.
     VendorMap                   vendors;

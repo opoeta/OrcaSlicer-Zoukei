@@ -69,6 +69,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/CrealityCfsAutoSync.hpp
     GUI/FlashforgeIfsAutoSync.cpp
     GUI/FlashforgeIfsAutoSync.hpp
+    GUI/SnapmakerU1AutoSync.cpp
+    GUI/SnapmakerU1AutoSync.hpp
     GUI/SpoolmanUi.cpp
     GUI/SpoolmanUi.hpp
     GUI/ZoukeiUpdateUi.cpp
@@ -79,6 +81,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/CrealityDevicePanel.hpp
     GUI/FlashforgeDevicePanel.cpp
     GUI/FlashforgeDevicePanel.hpp
+    GUI/SnapmakerU1DevicePanel.cpp
+    GUI/SnapmakerU1DevicePanel.hpp
     GUI/CrealityDevice/DeviceStore.cpp
     GUI/CrealityDevice/DeviceStore.hpp
     GUI/CrealityDevice/ImageServer.hpp
@@ -397,6 +401,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/MainFrame.hpp
     GUI/MarkdownTip.cpp
     GUI/MarkdownTip.hpp
+    GUI/ParamTipCard.cpp
+    GUI/ParamTipCard.hpp
     GUI/MediaFilePanel.cpp
     GUI/MediaFilePanel.h
     GUI/MediaPlayCtrl.cpp

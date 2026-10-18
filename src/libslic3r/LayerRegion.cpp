@@ -549,7 +549,10 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
     // Scaled expansions of the respective external surfaces.
     float                           expansion_top           = shell_width * sqrt(2.);
     float                           expansion_bottom        = expansion_top;
-    float                           expansion_bottom_bridge = expansion_top;
+    // Bridging infill extra expansion (ported from OrcaFS-NeotkoCM, Neotko): millimetres added on top of the automatic
+    // bridge expansion, which is derived from the wall count. 0 keeps the behaviour unchanged.
+    float                           expansion_bottom_bridge = expansion_top
+        + scaled<float>(std::max(0., this->region().config().bridge_expansion_extra.value));
     // Expand by waves of expansion_step size (expansion_step is scaled), but with no more steps than max_nr_expansion_steps.
     const float                     expansion_step          = scaled<float>(0.1);
     // Don't take more than max_nr_steps for small expansion_step.
@@ -570,6 +573,16 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
         ExpansionZone{std::move(sparse), expansion_params_into_sparse_infill},
         ExpansionZone{std::move(top_expolygons), expansion_params_into_solid_infill},
     };
+
+    // Bridging infill extra expansion: a 4th zone made of stBottom, used only for bridge expansion and only when the
+    // user asked for extra expansion, so a bridge can grow over a supported bottom area next to it (a beam resting
+    // on two blocks). The remainder is handed back to fill_surfaces as stBottom below.
+    const bool bridge_extra_on = this->region().config().bridge_expansion_extra.value > 0.;
+    if (bridge_extra_on) {
+        ExPolygons bottom_expolygons = union_ex(
+            fill_surfaces_extract_expolygons(this->fill_surfaces.surfaces, { stBottom }, layer_thickness));
+        expansion_zones.push_back(ExpansionZone{ std::move(bottom_expolygons), expansion_params_into_solid_infill });
+    }
 
     SurfaceCollection bridges;
     {
@@ -602,6 +615,15 @@ void LayerRegion::process_external_surfaces(const Layer *lower_layer, const Poly
             bridges.export_to_svg(debug_out_path("bridges-after-grouping-%d.svg", iRun++).c_str(), true);
         }
 #endif
+    }
+
+    // Bridging infill extra expansion: give back the stBottom remainder first (last zone pushed).
+    if (bridge_extra_on) {
+        this->fill_surfaces.remove_types({ stBottom });
+        Surface bottom_templ(stBottom, {});
+        bottom_templ.thickness = layer_thickness;
+        this->fill_surfaces.append(std::move(expansion_zones.back().expolygons), bottom_templ);
+        expansion_zones.pop_back();
     }
 
     this->fill_surfaces.remove_types({stTop});

@@ -153,6 +153,13 @@ namespace Emboss
     std::optional<Glyph> letter2glyph(const FontFile &font, unsigned int font_index, int letter, float flatness);
 
     /// <summary>
+    /// Does this font carry kerning data that can actually be read (GPOS, Microsoft 'kern' v0 or Apple 'kern' v1.0)?
+    /// The GUI uses this to tell the user why enabling font kerning changes nothing instead of leaving a dead checkbox.
+    /// Typographic Spacing, ported from OrcaFS-NeotkoCM (Neotko).
+    /// </summary>
+    bool has_kerning_table(const FontFile &font, unsigned int font_index = 0);
+
+    /// <summary>
     /// Convert text into polygons
     /// </summary>
     /// <param name="font">Define fonts + cache, which could extend</param>

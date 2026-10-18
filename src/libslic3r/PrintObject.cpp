@@ -1796,6 +1796,9 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "precise_outer_wall") {
             steps.emplace_back(posPerimeters);
             steps.emplace_back(posSupportMaterial);
+        } else if (opt_key == "bridge_expansion_extra") {
+            // Bridging infill extra expansion: consumed in LayerRegion::process_external_surfaces() (posPrepareInfill).
+            steps.emplace_back(posPrepareInfill);
         } else if (opt_key == "bridge_flow" || opt_key == "internal_bridge_flow") {
             steps.emplace_back(posPerimeters);
             steps.emplace_back(posInfill);
@@ -1831,6 +1834,10 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "overhang_2_4_speed"
             || opt_key == "overhang_3_4_speed"
             || opt_key == "overhang_4_4_speed"
+            // Overhang Shadow: consumed only by the gcode exporter
+            || opt_key == "overhang_shadow_inner_wall"
+            || opt_key == "overhang_shadow_speed_ratio"
+            || opt_key == "overhang_shadow_distance"
             || opt_key == "bridge_speed"
             || opt_key == "internal_bridge_speed"
             || opt_key == "outer_wall_speed"

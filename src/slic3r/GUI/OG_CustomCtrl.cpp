@@ -1,6 +1,7 @@
 #include "OG_CustomCtrl.hpp"
 #include "OptionsGroup.hpp"
 #include "MarkdownTip.hpp"
+#include "ParamTipCard.hpp"
 #include "Plater.hpp"
 #include "GUI_App.hpp"
 #include "MsgDialog.hpp"
@@ -425,9 +426,21 @@ void OG_CustomCtrl::OnMotion(wxMouseEvent& event)
             break;
     }
 
+    // Zoukei: illustrated parameter tip card replaces the plain tooltip over a setting label
+    bool card_shown = false;
+    if (focusedLine)
+        card_shown = ParamTipCard::hover(this, focusedLine->rect_label, focusedLine->og_line.label, focusedLine->og_line.label_tooltip,
+                                         focusedLine->og_line.label_path);
+    else
+        ParamTipCard::leave();
+    if (card_shown)
+        tooltip.clear();
+
     // Set tooltips with information for each icon
     // BBS: markdown tip
-    if (!markdowntip.empty()) {
+    if (card_shown) {
+    }
+    else if (!markdowntip.empty()) {
         wxWindow* window = GetGrandParent();
         assert(focusedLine);
         wxPoint pos2 = { 250, focusedLine->rect_label.y };
@@ -502,6 +515,7 @@ void OG_CustomCtrl::OnLeaveWin(wxMouseEvent& event)
 
     // BBS: markdown tip
     MarkdownTip::ShowTip("", "", {});
+    ParamTipCard::leave();
 
     Refresh();
     Update();

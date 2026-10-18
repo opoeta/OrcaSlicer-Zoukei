@@ -10,6 +10,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/CrealityCfsClient.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
+#include "slic3r/Utils/SnapmakerPrinterAgent.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
 #include "slic3r/Utils/Spoolman.hpp"
 
@@ -84,6 +85,15 @@ std::shared_ptr<FlashforgePrinterAgent> flashforge_agent()
         return nullptr;
     NetworkAgent* agent = wxGetApp().getAgent();
     return agent != nullptr ? std::dynamic_pointer_cast<FlashforgePrinterAgent>(agent->get_printer_agent()) : nullptr;
+}
+
+// Snapmaker U1: the four tool heads are one unit (box 1, slots 0-3 = T1..T4) that takes the place of the CFS.
+std::shared_ptr<SnapmakerPrinterAgent> snapmaker_agent()
+{
+    PresetBundle* b = wxGetApp().preset_bundle;
+    if (b == nullptr || CrealityDevicePanel::is_creality_printer(*b) || !is_snapmaker_u1_selected())
+        return nullptr;
+    return SnapmakerPrinterAgent::current();
 }
 
 // Explicit slot choices live in the project config (option filament_cfs_slot, one "box:slot" string per
@@ -304,6 +314,15 @@ std::vector<Entry> current_entries()
             out.push_back({1, s.port - 1, wxString::Format("IFS%d", s.port), s.color.empty() ? wxColour() : wxColour(s.color), s.material, s.has_filament, s.spool_id});
         return slots.empty() ? std::vector<Entry>() : out;
     }
+    if (auto u1 = snapmaker_agent()) {
+        std::vector<Entry> out;
+        const auto         state = u1->u1_state();
+        if (!state.valid)
+            return out;
+        for (const auto& h : state.heads)
+            out.push_back({1, h.index, wxString::Format("E%d", h.index + 1), wxColour(h.color), h.type, h.present});
+        return out;
+    }
     std::vector<Entry> out = bambu_obj() != nullptr ? bambu_entries(bambu_obj()) : entries(snapshot());
     if (const std::string printer = spool_printer_id(); !printer.empty() && !out.empty())
         for (Entry& e : out)
@@ -425,7 +444,7 @@ private:
             dc.SetBrush(wxBrush(m_tabs[i] == m_tab ? wxColour(0, 150, 136) : StateColor::darkModeColorFor(wxColour("#EBEBEB"))));
             dc.DrawRectangle(r);
             dc.SetTextForeground(m_tabs[i] == m_tab ? *wxWHITE : fg_col());
-            const wxString t  = m_bambu ? unit_name(m_tabs[i], false) : m_tabs[i] == 0 ? wxString("EXT") : flashforge_agent() ? wxString("IFS") : wxString::Format("CFS%d", m_tabs[i]);
+            const wxString t  = m_bambu ? unit_name(m_tabs[i], false) : m_tabs[i] == 0 ? wxString("EXT") : flashforge_agent() ? wxString("IFS") : snapmaker_agent() ? wxString("U1") : wxString::Format("CFS%d", m_tabs[i]);
             const wxSize   ts = dc.GetTextExtent(t);
             dc.DrawText(t, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
         }
@@ -520,8 +539,8 @@ std::optional<int> mapped_tray(int idx)
         return std::nullopt;
     if (slot->first == 0)
         return 255;
-    if (flashforge_agent())
-        return slot->second; // the IFS is one unit: tray id = slot 0..3
+    if (flashforge_agent() || snapmaker_agent())
+        return slot->second; // the IFS / the U1 heads are one unit: tray id = slot 0..3
     const auto boxes = snapshot().cfs_boxes();
     for (size_t u = 0; u < boxes.size(); ++u)
         if (boxes[u].id == slot->first)
@@ -589,6 +608,10 @@ bool restore_colours(const std::string& dev_id, int ams, int slot, const std::st
 
 std::shared_ptr<FlashforgePrinterAgent> ifs_agent() { return flashforge_agent(); }
 
+std::shared_ptr<SnapmakerPrinterAgent> u1_agent() { return snapmaker_agent(); }
+
+bool u1_active() { return snapmaker_agent() != nullptr && !current_entries().empty(); }
+
 bool ifs_active() { return flashforge_agent() != nullptr && !current_entries().empty(); }
 
 wxString unit_title(int box)
@@ -602,12 +625,14 @@ wxString unit_title(int box)
     }
     if (flashforge_agent())
         return box == 1 ? wxString("IFS") : wxString();
+    if (snapmaker_agent())
+        return box == 1 ? wxString("U1") : wxString();
     return wxString::Format("CFS %d", box);
 }
 
 void set_mapped_tray(int idx, int tray)
 {
-    if (flashforge_agent()) {
+    if (flashforge_agent() || snapmaker_agent()) {
         if (tray == 254 || tray == 255)
             set_slot(idx, 0, 0);
         else if (tray >= 0 && tray <= 3)
@@ -708,7 +733,7 @@ bool grouping(int n, std::vector<int>& box_of)
         const Entry* e = nullptr;
         label_of(i, es, &e);
         if (e != nullptr)
-            box_of[i] = bambu ? bambu_col(es, e->box) : (flashforge_agent() && e->box == 1) ? (e->slot >= 2 ? 2 : 1) : e->box; // IFS: slots 1-2 left, 3-4 right
+            box_of[i] = bambu ? bambu_col(es, e->box) : ((flashforge_agent() || snapmaker_agent()) && e->box == 1) ? (e->slot >= 2 ? 2 : 1) : e->box; // IFS / U1: slots 1-2 left, 3-4 right
     }
     return true;
 }

@@ -25,6 +25,8 @@
 #include "slic3r/GUI/FlashforgeDevicePanel.hpp"
 #include "slic3r/GUI/CrealityCfsAutoSync.hpp"
 #include "slic3r/GUI/FlashforgeIfsAutoSync.hpp"
+#include "slic3r/GUI/SnapmakerU1DevicePanel.hpp"
+#include "slic3r/GUI/SnapmakerU1AutoSync.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
 #include "slic3r/GUI/CalibrationPanel.hpp"
 #include "slic3r/GUI/ReleaseNote.hpp"
@@ -1286,6 +1288,7 @@ void MainFrame::shutdown()
     m_idle.stop();
     CrealityCfsAutoSync::shutdown();
     FlashforgeIfsAutoSync::shutdown();
+    SnapmakerU1AutoSync::shutdown();
     if (ProjectPanel* project = ProjectPanel::if_built())
         project->shutdown();
     m_plugin_pages.shutdown();
@@ -1553,12 +1556,16 @@ void MainFrame::init_tabpanel() {
     m_lazy_pages.push_back(m_creality_device_page);
     m_flashforge_device_page = new LazyPage<FlashforgeDevicePanel>(m_tabpanel, "flashforge_device", 22);
     m_lazy_pages.push_back(m_flashforge_device_page);
+    m_u1_device_page = new LazyPage<SnapmakerU1DevicePanel>(m_tabpanel, "snapmaker_u1_device", 23);
+    m_lazy_pages.push_back(m_u1_device_page);
 
     // Project -> CFS filament sync for Creality printers (native port of the CFS Sync plugin).
     if (wxGetApp().is_editor())
         CrealityCfsAutoSync::start();
     if (wxGetApp().is_editor())
         FlashforgeIfsAutoSync::start(); // the same for a Flashforge printer on ZMOD (IFS)
+    if (wxGetApp().is_editor())
+        SnapmakerU1AutoSync::start(); // and for a Snapmaker U1 (its four heads)
 
     m_printer_view_page =new LazyPage<PrinterWebView>(m_tabpanel, TAB_ID_MONITOR_WEB, 50, [this](wxWindow* parent) {
         auto* view = new PrinterWebView(parent);
@@ -1627,10 +1634,13 @@ void MainFrame::show_device(bool should_use_native) {
                                       CrealityDevicePanel::is_creality_printer(*wxGetApp().preset_bundle);
     const bool want_flashforge_device = !want_creality_device && wxGetApp().preset_bundle != nullptr &&
                                         FlashforgeDevicePanel::is_flashforge_printer(*wxGetApp().preset_bundle);
+    const bool want_u1_device = !want_creality_device && !want_flashforge_device && wxGetApp().preset_bundle != nullptr &&
+                                SnapmakerU1DevicePanel::is_u1_printer(*wxGetApp().preset_bundle);
     wxWindow* device_page = want_creality_device ? static_cast<wxWindow*>(m_creality_device_page) :
-                            want_flashforge_device ? static_cast<wxWindow*>(m_flashforge_device_page) : static_cast<wxWindow*>(m_monitor_page);
+                            want_flashforge_device ? static_cast<wxWindow*>(m_flashforge_device_page) :
+                            want_u1_device ? static_cast<wxWindow*>(m_u1_device_page) : static_cast<wxWindow*>(m_monitor_page);
     for (wxWindow* other_device_page : {static_cast<wxWindow*>(m_monitor_page), static_cast<wxWindow*>(m_creality_device_page),
-                                        static_cast<wxWindow*>(m_flashforge_device_page)}) {
+                                        static_cast<wxWindow*>(m_flashforge_device_page), static_cast<wxWindow*>(m_u1_device_page)}) {
         if (other_device_page == device_page)
             continue;
         if ((idx = m_tabpanel->FindPage(other_device_page)) != wxNOT_FOUND) {
@@ -1751,6 +1761,10 @@ void MainFrame::show_device(bool should_use_native) {
         }
         if ((idx = m_tabpanel->FindPage(m_flashforge_device_page)) != wxNOT_FOUND) {
             m_flashforge_device_page->Show(false);
+            m_tabpanel->RemovePage(idx);
+        }
+        if ((idx = m_tabpanel->FindPage(m_u1_device_page)) != wxNOT_FOUND) {
+            m_u1_device_page->Show(false);
             m_tabpanel->RemovePage(idx);
         }
         m_printer_view_page->Show(false);
@@ -2832,6 +2846,8 @@ void MainFrame::on_sys_color_changed()
         creality->on_sys_color_changed();
     if (FlashforgeDevicePanel* flashforge = FlashforgeDevicePanel::if_built())
         flashforge->on_sys_color_changed();
+    if (SnapmakerU1DevicePanel* u1 = SnapmakerU1DevicePanel::if_built())
+        u1->on_sys_color_changed();
     CalibrationPanel::when_built([](CalibrationPanel& calibration) { calibration.on_sys_color_changed(); });
 #ifdef SLIC3R_CAD
     DesignPanel::when_built([](DesignPanel& design) { design.on_sys_color_changed(); });

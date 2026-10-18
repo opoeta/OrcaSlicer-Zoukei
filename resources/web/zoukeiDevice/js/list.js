@@ -44,7 +44,7 @@
         ipInput.addEventListener('keydown', e => { if (e.key === 'Enter') addByIp(); });
         const found = h('div.found', { hidden: true });
         const grid = h('div.device-grid');
-        const empty = h('div.list-empty', { hidden: true }, h('p', { text: Z.t(mr ? 'list_empty_ff' : 'list_empty') }));
+        const empty = h('div.list-empty', { hidden: true }, h('p', { text: Z.t(mr ? (Z.family === 'u1' ? 'list_empty_u1' : 'list_empty_ff') : 'list_empty') }));
 
         const el = h('section.screen.list',
             h('header.topbar',
@@ -168,7 +168,7 @@
         // ---- peeking ------------------------------------------------------------------------
         function peekAll() {
             devices.forEach(dev => {
-                (mr ? Z.peekMoonraker : Z.peek)(dev, 7000).then(result => {
+                (mr ? (dev.family === 'u1' ? Z.peekU1 : Z.peekMoonraker) : Z.peek)(dev, 7000).then(result => {
                     peeks[dev.address] = result;
                     if (!active) return;
                     const card = cards.get(dev.address);

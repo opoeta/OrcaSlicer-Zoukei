@@ -50,7 +50,16 @@
             lw_title: 'lessWaste settings', lw_start_purge: 'Start purge', lw_line_purge: 'Line purge', lw_leveling: 'Leveling', lw_backup: 'Backup', lw_ifs: 'IFS',
             lw_on: 'On', lw_off: 'Off', lw_tc: 'Type/colour', lw_type: 'Type',
             lw_preparing: 'Preparing the print (lessWaste)...', lw_no_dialog: 'lessWaste did not open its print dialog. Cancel it on the printer and try again.',
-            lw_no_slot: 'No IFS slot holds filament for {tool}.', lw_old_gcode: 'lessWaste needs a newer Change filament G-code in the slicer profile (file v{v}, needs v{min}).'
+            lw_no_slot: 'No IFS slot holds filament for {tool}.', lw_old_gcode: 'lessWaste needs a newer Change filament G-code in the slicer profile (file v{v}, needs v{min}).',
+            tab_u1: 'Filament (U1 heads)', list_empty_u1: 'No Snapmaker U1 printer preset with a host. Select a Snapmaker U1 profile and fill in its host (Moonraker, port 7125).',
+            u1_no_data: 'No head data from the U1 (print_task_config).', u1_hint: 'Select a head to edit its filament, load or unload it.',
+            u1_official_locked: 'Official Snapmaker spool (NFC): locked on the printer.',
+            u1_override: 'Override the official spool data (the printer then treats the head as a custom spool).', u1_override_needed: 'Tick the box to override an official spool.',
+            u1_colour_only: 'Colour only', u1_sub: 'Sub type',
+            u1_load_confirm: 'Load the filament of head T{head}? The printer heats the nozzle and moves filament.', u1_unload_confirm: 'Unload the filament of head T{head}? The printer heats the nozzle and moves filament.',
+            u1_feed_started: 'Request sent. The head card shows the progress.', u1_feed_loading: 'Loading...', u1_feed_unloading: 'Unloading...', u1_feed_manual: 'Manual feed', u1_feed_error: 'Feed error',
+            u1_map: 'Extruder map', u1_map_info: 'Which head prints each tool (T) of the G-code. Orca sets it from the print dialog when it sends a print.',
+            u1_sync_all_info: 'The heads are the reference: the project filaments mapped to them take their type and colour.'
         },
         pt: {
             printers: 'Impressoras', add: 'Adicionar', added: 'Adicionada', scan_lan: 'Buscar na rede', scanning: 'Procurando na rede...',
@@ -98,7 +107,16 @@
             lw_title: 'Ajustes do lessWaste', lw_start_purge: 'Purga inicial', lw_line_purge: 'Linha de purga', lw_leveling: 'Nivelamento', lw_backup: 'Backup', lw_ifs: 'IFS',
             lw_on: 'Ligado', lw_off: 'Desligado', lw_tc: 'Tipo/cor', lw_type: 'Tipo',
             lw_preparing: 'Preparando a impressão (lessWaste)...', lw_no_dialog: 'O lessWaste não abriu o diálogo de impressão. Cancele na impressora e tente de novo.',
-            lw_no_slot: 'Nenhum slot do IFS tem filamento para {tool}.', lw_old_gcode: 'O lessWaste exige um G-code de troca de filamento mais novo no perfil do fatiador (arquivo v{v}, exige v{min}).'
+            lw_no_slot: 'Nenhum slot do IFS tem filamento para {tool}.', lw_old_gcode: 'O lessWaste exige um G-code de troca de filamento mais novo no perfil do fatiador (arquivo v{v}, exige v{min}).',
+            tab_u1: 'Filamento (cabeças U1)', list_empty_u1: 'Nenhum preset de impressora Snapmaker U1 com host. Escolha um perfil Snapmaker U1 e preencha o host (Moonraker, porta 7125).',
+            u1_no_data: 'Sem dados das cabeças da U1 (print_task_config).', u1_hint: 'Selecione uma cabeça para editar o filamento, carregar ou descarregar.',
+            u1_official_locked: 'Carretel oficial da Snapmaker (NFC): travado na impressora.',
+            u1_override: 'Sobrescrever os dados do carretel oficial (a impressora passa a tratar a cabeça como carretel personalizado).', u1_override_needed: 'Marque a caixa para sobrescrever um carretel oficial.',
+            u1_colour_only: 'Só a cor', u1_sub: 'Subtipo',
+            u1_load_confirm: 'Carregar o filamento da cabeça T{head}? A impressora aquece o bico e movimenta o filamento.', u1_unload_confirm: 'Descarregar o filamento da cabeça T{head}? A impressora aquece o bico e movimenta o filamento.',
+            u1_feed_started: 'Pedido enviado. O cartão da cabeça mostra o andamento.', u1_feed_loading: 'Carregando...', u1_feed_unloading: 'Descarregando...', u1_feed_manual: 'Alimentação manual', u1_feed_error: 'Erro de alimentação',
+            u1_map: 'Mapa de extrusoras', u1_map_info: 'Qual cabeça imprime cada ferramenta (T) do G-code. O Orca define isso no diálogo de impressão ao enviar o trabalho.',
+            u1_sync_all_info: 'As cabeças são a referência: os filamentos do projeto mapeados a elas assumem o tipo e a cor.'
         }
     };
 

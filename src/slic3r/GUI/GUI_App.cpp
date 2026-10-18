@@ -5172,13 +5172,26 @@ bool is_flashforge_printer_selected()
     return boost::istarts_with(model, "Flashforge") || (vendor != nullptr && boost::iequals(vendor->id, "Flashforge"));
 }
 
-// Each brand's name for its multi-filament unit: Bambu AMS, Creality CFS, Flashforge IFS.
+// Snapmaker U1: four tool heads that each hold a spool (agent "snapmaker", Klipper + Moonraker).
+bool is_snapmaker_u1_selected()
+{
+    auto* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return false;
+    const Preset& printer = bundle->printers.get_edited_preset();
+    const std::string model = printer.config.has("printer_model") ? printer.config.opt_string("printer_model") : std::string();
+    return boost::istarts_with(model, "Snapmaker U1");
+}
+
+// Each brand's name for its multi-filament unit: Bambu AMS, Creality CFS, Flashforge IFS, Snapmaker U1 heads.
 wxString filament_system_name()
 {
     if (is_creality_printer_selected())
         return "CFS";
     if (is_flashforge_printer_selected())
         return "IFS";
+    if (is_snapmaker_u1_selected())
+        return "U1";
     return "AMS";
 }
 

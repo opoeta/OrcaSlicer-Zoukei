@@ -10,6 +10,7 @@
     let requestSeq = 0;
 
     Z.backend = params.get('backend') === 'moonraker' ? 'moonraker' : 'creality';
+    Z.family = params.get('family') === 'u1' ? 'u1' : '';   // Moonraker printer family: '' (Flashforge / generic) or 'u1' (Snapmaker U1)
 
     const Host = {
         // Port of the host's local image relay (printer pictures), 0 when unavailable.

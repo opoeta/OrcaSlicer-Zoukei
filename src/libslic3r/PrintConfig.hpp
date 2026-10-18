@@ -1470,6 +1470,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                bridge_flow))
     ((ConfigOptionFloatOrPercent,       bridge_line_width))
     ((ConfigOptionFloat,                internal_bridge_flow))
+    ((ConfigOptionFloat,                bridge_expansion_extra))
     ((ConfigOptionFloatsNullable,       bridge_speed))
     ((ConfigOptionFloatsOrPercentsNullable, internal_bridge_speed))
     ((ConfigOptionEnum<EnsureVerticalShellThickness>,   ensure_vertical_shell_thickness))
@@ -1622,6 +1623,10 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatsOrPercentsNullable, overhang_2_4_speed))
     ((ConfigOptionFloatsOrPercentsNullable, overhang_3_4_speed))
     ((ConfigOptionFloatsOrPercentsNullable, overhang_4_4_speed))
+    // Overhang Shadow (ported from OrcaFS-NeotkoCM, Neotko)
+    ((ConfigOptionBool,                 overhang_shadow_inner_wall))
+    ((ConfigOptionPercent,              overhang_shadow_speed_ratio))
+    ((ConfigOptionPercent,              overhang_shadow_distance))
     ((ConfigOptionBool,                 only_one_wall_top))
 
     //SoftFever
@@ -2132,6 +2137,9 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              spiral_starting_flow_ratio))
     ((ConfigOptionInt,                standby_temperature_delta))
     ((ConfigOptionFloat,                preheat_time))
+    // Idle tool power down (ported from OrcaFS-NeotkoCM, Neotko): mirrors of application preferences, not preset options.
+    ((ConfigOptionBool,               neotko_idle_tool_power_down))
+    ((ConfigOptionBool,               neotko_idle_tool_deep_sleep))
     ((ConfigOptionInt,                preheat_steps))
     ((ConfigOptionInts,               nozzle_temperature))
     ((ConfigOptionBools,              wipe))

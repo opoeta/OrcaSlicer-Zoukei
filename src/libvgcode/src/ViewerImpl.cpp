@@ -1403,7 +1403,9 @@ void ViewerImpl::update_colors()
     for (size_t i = 0; i < m_vertices.size(); ++i)
         m_vertices_colors[i] = encode_color(get_vertex_color(m_vertices[i]));
 
-    if (m_settings.view_type == EViewType::Tool && !m_tool_multi.empty())
+    // Tool view, and the colour-print view a multi-material plate opens in (Summary is the same view)
+    if ((m_settings.view_type == EViewType::Tool || m_settings.view_type == EViewType::ColorPrint ||
+         m_settings.view_type == EViewType::Summary) && !m_tool_multi.empty())
         apply_tool_multi_colors();
 
     update_colors_texture();
@@ -1760,6 +1762,11 @@ void ViewerImpl::apply_tool_multi_colors()
         const ToolMultiColor& tm = m_tool_multi[v.extruder_id];
         const size_t n = tm.colors.size();
         if (n < 2)
+            continue;
+        // Colour-print view: only where the vertex shows its filament's own colour, so M600 colour
+        // changes and the dimmed colour-print layers keep theirs.
+        if (m_settings.view_type != EViewType::Tool && size_t(v.extruder_id) < m_tool_colors.size() &&
+            m_vertices_colors[i] != encode_color(m_tool_colors[v.extruder_id]))
             continue;
         const PathVertex& p = m_vertices[i - 1];
         const float dx = v.position[0] - p.position[0];

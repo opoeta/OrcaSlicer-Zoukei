@@ -902,6 +902,12 @@ struct Sidebar::priv
     wxStaticBitmap *image_printer_bed = nullptr;
     ComboBox *      combo_printer_bed = nullptr;
 
+    // "Bed and Nozzle Extras" button (idle tool power down), ported from OrcaFS-NeotkoCM (Neotko).
+    // The settings behind it are application preferences, so nothing else on screen would say that the
+    // exported G-code is being altered: the button label carries that itself.
+    Button *        m_idle_tool_extras_btn = nullptr;
+    void            update_idle_tool_extras_btn();
+
     ImageDPIFrame *big_bed_image_popup = nullptr;
     // Printer - sync
     //Button *btn_sync_printer;
@@ -1040,6 +1046,180 @@ struct Sidebar::priv
 #endif
 };
 
+namespace {
+
+// "Bed and Nozzle Extras" (ported from OrcaFS-NeotkoCM, Neotko): app-level preferences that alter the exported
+// G-code of multi-tool printers. They live in app_config (like the bed type), so they survive profile updates and
+// never mark a preset as modified.
+const char* const IDLE_TOOL_POWER_DOWN_KEY = "neotko_idle_tool_power_down";
+const char* const IDLE_TOOL_DEEP_SLEEP_KEY = "neotko_idle_tool_deep_sleep";
+
+// Push the stored preferences into the preset bundle, which mirrors them into the full config at slice time.
+void sync_idle_tool_extras_to_bundle()
+{
+    AppConfig* app_config = wxGetApp().app_config;
+    if (app_config == nullptr || wxGetApp().preset_bundle == nullptr)
+        return;
+    wxGetApp().preset_bundle->idle_tool_power_down = app_config->get_bool(IDLE_TOOL_POWER_DOWN_KEY);
+    wxGetApp().preset_bundle->idle_tool_deep_sleep = app_config->get_bool(IDLE_TOOL_DEEP_SLEEP_KEY);
+}
+
+class IdleToolExtrasDialog : public DPIDialog
+{
+public:
+    explicit IdleToolExtrasDialog(wxWindow* parent)
+        : DPIDialog(parent, wxID_ANY, _L("Bed and Nozzle Extras"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE)
+    {
+        build();
+    }
+
+    // True if anything changed, so the caller can invalidate the exported G-code.
+    bool changed() const { return m_changed; }
+
+protected:
+    void on_dpi_changed(const wxRect& suggested_rect) override
+    {
+        Fit();
+        Refresh();
+    }
+
+private:
+    ::CheckBox*              m_power_down_cb{ nullptr };
+    ::CheckBox*              m_deep_sleep_cb{ nullptr };
+    std::vector<wxWindow*> m_deep_sleep_dim; // title and body of Extra Energy Save, greyed out with its checkbox
+    bool                   m_changed{ false };
+
+    // Is a standby temperature command actually being emitted? Without one there is nothing to rewrite.
+    static bool ooze_prevention_active()
+    {
+        const DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config();
+        const ConfigOptionBool*  opt = cfg.option<ConfigOptionBool>("ooze_prevention");
+        return opt != nullptr && opt->value;
+    }
+
+    void sync_enabled()
+    {
+        const bool on = m_power_down_cb->GetValue();
+        m_deep_sleep_cb->Enable(on);
+        for (wxWindow* w : m_deep_sleep_dim)
+            w->Enable(on);
+    }
+
+    void apply()
+    {
+        auto store = [this](const char* key, bool now) {
+            if (wxGetApp().app_config->get_bool(key) != now) {
+                wxGetApp().app_config->set_bool(key, now);
+                m_changed = true;
+            }
+        };
+        store(IDLE_TOOL_POWER_DOWN_KEY, m_power_down_cb->GetValue());
+        store(IDLE_TOOL_DEEP_SLEEP_KEY, m_deep_sleep_cb->GetValue());
+        sync_idle_tool_extras_to_bundle();
+    }
+
+    void build()
+    {
+        const int pad    = FromDIP(20);
+        const int wrap   = FromDIP(360);
+        const int indent = FromDIP(26);
+        const wxColour dim("#6B6B6B");
+
+        wxBoxSizer* root = new wxBoxSizer(wxVERTICAL);
+        root->AddSpacer(pad);
+
+        wxBoxSizer* row = new wxBoxSizer(wxHORIZONTAL);
+        m_power_down_cb = new ::CheckBox(this);
+        m_power_down_cb->SetValue(wxGetApp().app_config->get_bool(IDLE_TOOL_POWER_DOWN_KEY));
+        row->Add(m_power_down_cb, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(10));
+        row->Add(new Label(this, Label::Head_13, _L("Turn off unused hotends fully (0 degrees C)")), 0, wxALIGN_CENTER_VERTICAL);
+        root->Add(row, 0, wxLEFT | wxRIGHT, pad);
+
+        wxBoxSizer* copy = new wxBoxSizer(wxVERTICAL);
+        auto add_caption = [&](wxBoxSizer* sizer, const wxString& text, const wxColour& colour) {
+            Label* l = new Label(this, Label::Body_12, text);
+            l->Wrap(wrap);
+            l->SetForegroundColour(colour);
+            sizer->Add(l, 0, wxTOP, FromDIP(8));
+            return l;
+        };
+        add_caption(copy, _L("After a tool's last extrusion, its standby command is set to 0 degrees C instead of the "
+                             "idle temperature, so it stops heating for the rest of the print."), dim);
+        add_caption(copy, _L("It also stops the filament parked in the nozzle from cooking while it waits. A tool is "
+                             "only switched off when nothing uses it again, so no print ever waits for a reheat."), dim);
+        if (!ooze_prevention_active())
+            add_caption(copy, _L("Ooze prevention is off in this print profile, so there is no standby command to "
+                                 "rewrite and nothing would be turned off."), wxColour(230, 130, 40));
+        root->Add(copy, 0, wxLEFT | wxRIGHT, pad + indent);
+        root->AddSpacer(FromDIP(18));
+
+        wxBoxSizer* row2 = new wxBoxSizer(wxHORIZONTAL);
+        m_deep_sleep_cb = new ::CheckBox(this);
+        m_deep_sleep_cb->SetValue(wxGetApp().app_config->get_bool(IDLE_TOOL_DEEP_SLEEP_KEY));
+        row2->Add(m_deep_sleep_cb, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(10));
+        Label* deep_title = new Label(this, Label::Head_13, _L("Extra Energy Save mode"));
+        m_deep_sleep_dim.push_back(deep_title);
+        row2->Add(deep_title, 0, wxALIGN_CENTER_VERTICAL);
+        root->Add(row2, 0, wxLEFT | wxRIGHT, pad);
+
+        wxBoxSizer* copy2 = new wxBoxSizer(wxVERTICAL);
+        m_deep_sleep_dim.push_back(add_caption(copy2,
+            _L("Also switches a tool off while it waits, not only when it has finished for good. A tool that prints on "
+               "layer 2 and is not needed again until layer 200 sits at idle temperature for the whole gap; this puts "
+               "it at 0 degrees C instead."), dim));
+        m_deep_sleep_dim.push_back(add_caption(copy2,
+            _L("It costs no print time. A tool coming back too soon to be worth cooling keeps its heat: the preheat "
+               "that Orca already schedules cancels the shutdown. Past that, preheating starts well before the tool "
+               "is picked up. Raise Preheat time in Print settings for more margin."), dim));
+        root->Add(copy2, 0, wxLEFT | wxRIGHT, pad + indent);
+        root->AddSpacer(pad);
+
+        m_power_down_cb->Bind(wxEVT_TOGGLEBUTTON, [this](wxCommandEvent& e) { sync_enabled(); e.Skip(); });
+        sync_enabled();
+
+        DialogButtons* buttons = new DialogButtons(this, { "OK", "Cancel" });
+        if (Button* ok = buttons->GetOK())
+            ok->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+                apply();
+                EndModal(wxID_OK);
+            });
+        if (Button* cancel = buttons->GetCANCEL())
+            cancel->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CANCEL); });
+        root->Add(buttons, 0, wxEXPAND);
+
+        Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent&) { EndModal(wxID_CANCEL); });
+
+        wxGetApp().UpdateDlgDarkUI(this);
+        SetSizerAndFit(root);
+        CenterOnParent();
+    }
+};
+
+} // namespace
+
+void Sidebar::priv::update_idle_tool_extras_btn()
+{
+    if (m_idle_tool_extras_btn == nullptr)
+        return;
+
+    int active = 0;
+    if (wxGetApp().app_config->get_bool(IDLE_TOOL_POWER_DOWN_KEY)) {
+        ++active;
+        // Extra Energy Save only counts when its parent is on, which is the only way it does anything.
+        if (wxGetApp().app_config->get_bool(IDLE_TOOL_DEEP_SLEEP_KEY))
+            ++active;
+    }
+
+    if (active > 0) {
+        m_idle_tool_extras_btn->SetLabel(wxString::Format(_L("Bed and Nozzle Extras (%d on)"), active));
+        m_idle_tool_extras_btn->SetStyle(ButtonStyle::Confirm, ButtonType::Compact);
+    } else {
+        m_idle_tool_extras_btn->SetLabel(_L("Bed and Nozzle Extras"));
+        m_idle_tool_extras_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
+    }
+    m_idle_tool_extras_btn->Refresh();
+}
+
 void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
 {
     // Printer - preset
@@ -1102,6 +1282,23 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
         extruder_sizer->Add(extruder_single_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(SidebarProps::ContentMargin()));
 
         vsizer_printer->Add(extruder_sizer, 1, wxEXPAND | wxTOP, FromDIP(2));
+
+        // "Bed and Nozzle Extras" (idle tool power down), ported from OrcaFS-NeotkoCM (Neotko). Off by default.
+        sync_idle_tool_extras_to_bundle();
+        m_idle_tool_extras_btn = new Button(m_panel_printer_content, _L("Bed and Nozzle Extras"));
+        m_idle_tool_extras_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
+        m_idle_tool_extras_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+            IdleToolExtrasDialog dlg(m_panel_printer_content);
+            if (dlg.ShowModal() == wxID_OK && dlg.changed()) {
+                // The G-code already exported is stale: only the export step is invalidated (see Print.cpp), so this
+                // re-exports without a full re-slice.
+                if (plater != nullptr)
+                    wxPostEvent(plater, SimpleEvent(EVT_SCHEDULE_BACKGROUND_PROCESS, plater));
+            }
+            update_idle_tool_extras_btn();
+        });
+        vsizer_printer->Add(m_idle_tool_extras_btn, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(SidebarProps::ContentMargin()));
+        update_idle_tool_extras_btn();
 
         vsizer_printer->AddSpacer(FromDIP(SidebarProps::ContentMarginV()));
     }

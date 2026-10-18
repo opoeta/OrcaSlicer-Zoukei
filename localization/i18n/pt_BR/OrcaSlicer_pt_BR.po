@@ -35762,8 +35762,6 @@ msgstr ""
 #~ msgid "Already did a synchronization, do you want to sync only changes or resync all?"
 #~ msgstr "Já foi feita uma sincronização, deseja sincronizar apenas as alterações ou ressincronizar tudo?"
 
-#~ msgid "Sync"
-#~ msgstr "Sincronizar"
 
 #~ msgid "Resync"
 #~ msgstr "Ressincronizar"
@@ -36781,3 +36779,1648 @@ msgstr "Este modelo usa %1% cores de filamento."
 
 msgid "Reproduce the model colors with mixed filaments made from your loaded filaments, with a review of every recipe before applying"
 msgstr "Reproduzir as cores do modelo com filamentos misturados feitos dos seus filamentos carregados, revisando cada receita antes de aplicar"
+
+msgid "Slow down inner walls next to overhangs"
+msgstr "Reduzir a velocidade das paredes internas junto a saliências"
+
+msgid ""
+"Give the inner wall a share of the slowdown its overhanging neighbour gets.\n"
+"\n"
+"The outer wall of an overhang is printed onto the inner wall next to it, and that inner wall went down at full speed a few seconds earlier because it is itself supported. This makes the anchor as careful as the wall it has to hold up.\n"
+"\n"
+"Costs nothing away from an overhang: a wall with solid material under it is graded the same either way. Requires 'Slow down for overhangs', and has no effect when walls are printed outer wall first."
+msgstr ""
+"Dá à parede interna uma parte da redução de velocidade que sua vizinha em balanço recebe.\n"
+"\n"
+"A parede externa de uma saliência é impressa sobre a parede interna ao lado dela, e essa parede interna foi impressa em velocidade total alguns segundos antes por estar apoiada. Isto torna o ponto de ancoragem tão cuidadoso quanto a parede que ele precisa sustentar.\n"
+"\n"
+"Não tem custo longe de uma saliência: uma parede com material sólido por baixo é tratada da mesma forma em ambos os casos. Requer 'Reduzir velocidade em saliências' e não tem efeito quando as paredes são impressas com a parede externa primeiro."
+
+msgid "Inner wall slowdown"
+msgstr "Redução da parede interna"
+
+msgid "How much of the neighbouring wall's treatment this wall borrows. 100% grades the inner wall exactly as if it were the overhanging wall itself, which also brings the overhang fan with it. 50% takes it halfway. 0% disables the effect."
+msgstr "Quanto do tratamento da parede vizinha esta parede herda. 100% trata a parede interna exatamente como se fosse a própria parede em balanço, o que também traz o ventilador de saliência. 50% vai até a metade. 0% desativa o efeito."
+
+msgid "Inner wall reach"
+msgstr "Alcance da parede interna"
+
+msgid "How far outwards to look for the wall being mirrored, as a percentage of line width. 100% is the wall immediately next to this one. Larger values mirror something further out, so the slowdown reaches deeper into the walls."
+msgstr "Até onde olhar para fora em busca da parede espelhada, como porcentagem da largura da linha. 100% é a parede imediatamente ao lado desta. Valores maiores espelham algo mais distante, de modo que a redução de velocidade alcança mais fundo nas paredes."
+
+msgid "Bridging infill extra expansion"
+msgstr "Expansão extra do preenchimento de ponte"
+
+msgid ""
+"Extra distance the bridging infill grows into the surrounding area of the same part, on top of the automatic expansion.\n"
+"\n"
+"The bridge then starts extruding over solid material before it reaches the gap, so the strand is already anchored when it begins to span. Raise this if bridges detach or curl at their ends.\n"
+"\n"
+"With a large value the bridge takes over the whole surrounding region and the entire layer prints as one continuous bridge. There is no cap: set it as high as you need.\n"
+"\n"
+"0 = automatic expansion only (unchanged behaviour). The automatic amount is derived from the wall count, so this setting also lets you decouple bridge anchoring from the number of walls."
+msgstr ""
+"Distância extra que o preenchimento de ponte avança sobre a área ao redor da mesma peça, além da expansão automática.\n"
+"\n"
+"A ponte passa a extrudar sobre material sólido antes de chegar ao vão, de modo que o filamento já está ancorado quando começa a atravessar. Aumente se as pontes se soltarem ou enrolarem nas pontas.\n"
+"\n"
+"Com um valor grande, a ponte toma toda a região ao redor e a camada inteira é impressa como uma única ponte contínua. Não há limite: use o valor que precisar.\n"
+"\n"
+"0 = somente a expansão automática (comportamento inalterado). O valor automático é derivado do número de paredes, então esta configuração também permite desacoplar a ancoragem da ponte do número de paredes."
+
+msgid "Bed and Nozzle Extras"
+msgstr "Extras de mesa e bico"
+
+msgid "Bed and Nozzle Extras (%d on)"
+msgstr "Extras de mesa e bico (%d ativos)"
+
+msgid "Turn off unused hotends fully (0 degrees C)"
+msgstr "Desligar totalmente os hotends sem uso (0 graus C)"
+
+msgid "After a tool's last extrusion, its standby command is set to 0 degrees C instead of the idle temperature, so it stops heating for the rest of the print."
+msgstr "Após a última extrusão de uma ferramenta, seu comando de espera é definido para 0 graus C em vez da temperatura ociosa, e ela deixa de aquecer pelo resto da impressão."
+
+msgid "It also stops the filament parked in the nozzle from cooking while it waits. A tool is only switched off when nothing uses it again, so no print ever waits for a reheat."
+msgstr "Isto também evita que o filamento parado no bico queime enquanto espera. Uma ferramenta só é desligada quando nada mais a usa, então nenhuma impressão espera por reaquecimento."
+
+msgid "Ooze prevention is off in this print profile, so there is no standby command to rewrite and nothing would be turned off."
+msgstr "A prevenção de escorrimento está desativada neste perfil de impressão, então não há comando de espera para reescrever e nada seria desligado."
+
+msgid "Extra Energy Save mode"
+msgstr "Modo de economia extra de energia"
+
+msgid "Also switches a tool off while it waits, not only when it has finished for good. A tool that prints on layer 2 and is not needed again until layer 200 sits at idle temperature for the whole gap; this puts it at 0 degrees C instead."
+msgstr "Também desliga uma ferramenta enquanto ela espera, não apenas quando terminou de vez. Uma ferramenta que imprime na camada 2 e só é necessária de novo na camada 200 fica em temperatura ociosa durante todo o intervalo; isto a coloca em 0 graus C."
+
+msgid "It costs no print time. A tool coming back too soon to be worth cooling keeps its heat: the preheat that Orca already schedules cancels the shutdown. Past that, preheating starts well before the tool is picked up. Raise Preheat time in Print settings for more margin."
+msgstr "Não custa tempo de impressão. Uma ferramenta que volta cedo demais para valer a pena esfriar mantém o calor: o pré-aquecimento que o Orca já agenda cancela o desligamento. Passado esse ponto, o pré-aquecimento começa bem antes de a ferramenta ser usada. Aumente o Tempo de pré-aquecimento nas configurações de impressão para mais margem."
+
+msgid "Font kerning"
+msgstr "Kerning da fonte"
+
+msgid "Revert using of font kerning."
+msgstr "Reverter o uso do kerning da fonte."
+
+msgid "Use the kerning pairs designed into the font, so pairs like \"AV\" or \"To\" are spaced the way the type designer intended. This is independent from \"Char gap\", which shifts every character by the same amount."
+msgstr "Usa os pares de kerning projetados na fonte, de modo que pares como \"AV\" ou \"To\" fiquem espaçados como o designer da fonte pretendia. É independente do \"Vão de caractere\", que desloca todos os caracteres na mesma quantidade."
+
+msgid "Font has no kerning data"
+msgstr "A fonte não tem dados de kerning"
+
+msgid "Apply Snapmaker U1 head changes to the project automatically"
+msgstr "Aplicar automaticamente ao projeto as mudanças das cabeças da Snapmaker U1"
+
+msgid "For a Snapmaker U1: when a head's filament is changed on the printer (its screen, Fluidd, an NFC spool), apply it to the project filaments mapped to that head instead of only offering a notification. Writing the project's filaments to the heads uses the CFS / IFS sync option above and never touches official (NFC) spools."
+msgstr "Para a Snapmaker U1: quando o filamento de uma cabeça é alterado na impressora (tela, Fluidd, carretel NFC), aplica a mudança aos filamentos do projeto mapeados para essa cabeça em vez de apenas mostrar uma notificação. Gravar os filamentos do projeto nas cabeças usa a opção de sincronização CFS / IFS acima e nunca altera carretéis oficiais (NFC)."
+
+msgid "Head T%d holds an official Snapmaker spool (NFC tag). Its data is locked on the printer.\n\nOverride it with the new type and colour anyway?"
+msgstr "A cabeça T%d tem um carretel oficial da Snapmaker (etiqueta NFC). Os dados dele são travados na impressora.\n\nSobrescrever com o novo tipo e cor mesmo assim?"
+
+msgid "Official Snapmaker spool"
+msgstr "Carretel oficial da Snapmaker"
+
+msgid "the U1 has not answered yet"
+msgstr "a U1 ainda não respondeu"
+
+msgid "a print is running"
+msgstr "há uma impressão em andamento"
+
+msgid "the printer is not ready"
+msgstr "a impressora não está pronta"
+
+msgid "another change is still being written"
+msgstr "outra alteração ainda está sendo gravada"
+
+msgid "invalid head"
+msgstr "cabeça inválida"
+
+msgid "no filament in this head"
+msgstr "não há filamento nesta cabeça"
+
+msgid "official Snapmaker spool: it needs the user's confirmation"
+msgstr "carretel oficial da Snapmaker: exige a confirmação do usuário"
+
+msgid "Snapmaker U1"
+msgstr "Snapmaker U1"
+
+msgid "filament updated on the printer"
+msgstr "filamento atualizado na impressora"
+
+msgid "the printer did not accept the change"
+msgstr "a impressora não aceitou a alteração"
+
+msgid "filament is already moving"
+msgstr "o filamento já está em movimento"
+
+msgid "no filament detected at the feeder of this head"
+msgstr "nenhum filamento detectado no alimentador desta cabeça"
+
+msgid "filament loaded"
+msgstr "filamento carregado"
+
+msgid "filament unloaded"
+msgstr "filamento descarregado"
+
+msgid "loading failed"
+msgstr "falha ao carregar"
+
+msgid "unloading failed"
+msgstr "falha ao descarregar"
+
+msgid "could not read the printer, the print was not sent"
+msgstr "não foi possível ler a impressora, a impressão não foi enviada"
+
+msgid "Setting the extruder map..."
+msgstr "Definindo o mapa de extrusoras..."
+
+msgid "the extruder map was refused"
+msgstr "o mapa de extrusoras foi recusado"
+
+msgid "Snapmaker U1: the project already matches the printer."
+msgstr "Snapmaker U1: o projeto já coincide com a impressora."
+
+msgid "Snapmaker U1: project updated"
+msgstr "Snapmaker U1: projeto atualizado"
+
+msgid "changed on the printer - project updated."
+msgstr "mudou na impressora - projeto atualizado."
+
+msgid "changed on the printer"
+msgstr "mudou na impressora"
+
+msgid "Sync"
+msgstr "Sincronizar"
+
+msgid "filament change queued"
+msgstr "alteração de filamento na fila"
+
+msgid "official or empty heads were left as they are."
+msgstr "cabeças oficiais ou vazias foram mantidas como estão."
+
+msgid "Show illustrated setting tips"
+msgstr "Mostrar dicas ilustradas das configurações"
+
+msgid "Show a rich card (description, illustration and notes) when hovering a setting name. If disabled, plain tooltips are used."
+msgstr "Mostra um cartão completo (descrição, ilustração e notas) ao passar o mouse sobre o nome de uma configuração. Se desativado, são usadas dicas simples."
+
+msgid "View details on the Wiki"
+msgstr "Ver detalhes na Wiki"
+
+msgid "Copied"
+msgstr "Copiado"
+
+# Setting tip cards (param_tips/notes.json)
+msgid "Thinner layers hide layer lines and improve curved surfaces, but print time grows almost in proportion."
+msgstr "Camadas mais finas escondem as linhas de camada e melhoram superfícies curvas, mas o tempo de impressão aumenta quase na mesma proporção."
+
+msgid "Thicker layers print faster and bond more strongly between layers, but show visible steps."
+msgstr "Camadas mais grossas imprimem mais rápido e aderem melhor entre si, mas deixam degraus visíveis."
+
+msgid "Recommended: 20% to 70% of the nozzle diameter."
+msgstr "Recomendado: de 20% a 70% do diâmetro do bico."
+
+msgid "A thicker first layer tolerates an uneven bed and sticks more reliably."
+msgstr "Uma primeira camada mais grossa tolera mesa desnivelada e adere com mais segurança."
+
+msgid "A thinner first layer gives a smoother, more precise bottom surface but needs a well-leveled bed."
+msgstr "Uma primeira camada mais fina deixa a base mais lisa e precisa, mas exige a mesa bem nivelada."
+
+msgid "Recommended: 0.2 mm for a 0.4 mm nozzle."
+msgstr "Recomendado: 0,2 mm para um bico de 0,4 mm."
+
+msgid "Wider lines are stronger and print faster, but lose fine detail and sharp corners."
+msgstr "Linhas mais largas são mais resistentes e rápidas, mas perdem detalhes finos e cantos vivos."
+
+msgid "Narrower lines resolve small features better but need more passes and take longer."
+msgstr "Linhas mais estreitas reproduzem melhor detalhes pequenos, mas exigem mais passadas e mais tempo."
+
+msgid "Recommended: 100% to 125% of the nozzle diameter."
+msgstr "Recomendado: de 100% a 125% do diâmetro do bico."
+
+msgid "A wider first-layer line squishes into the bed for better adhesion."
+msgstr "Uma linha mais larga na primeira camada se achata melhor contra a mesa e adere mais."
+
+msgid "Too wide a line can cause elephant foot or over-extrusion on the first layer."
+msgstr "Linha larga demais pode causar pé de elefante ou excesso de material na primeira camada."
+
+msgid "Recommended: 120% to 150% of the nozzle diameter."
+msgstr "Recomendado: de 120% a 150% do diâmetro do bico."
+
+msgid "Narrower outer walls give sharper details and a more accurate outer dimension."
+msgstr "Paredes externas mais estreitas dão detalhes mais nítidos e dimensão externa mais precisa."
+
+msgid "Wider outer walls hide minor defects and print faster."
+msgstr "Paredes externas mais largas escondem pequenos defeitos e imprimem mais rápido."
+
+msgid "Recommended: 100% of the nozzle diameter, or slightly less for detail."
+msgstr "Recomendado: 100% do diâmetro do bico, ou um pouco menos para mais detalhe."
+
+msgid "Wider inner walls add strength and speed; narrower ones fit tight geometry better."
+msgstr "Paredes internas mais largas aumentam a resistência e a velocidade; as mais estreitas se ajustam melhor a geometrias apertadas."
+
+msgid "Inner walls are hidden, so width matters for strength rather than looks."
+msgstr "As paredes internas ficam escondidas, então a largura afeta a resistência, não a aparência."
+
+msgid "Narrower lines give a smoother, finer top surface at the cost of time."
+msgstr "Linhas mais estreitas deixam o topo mais liso e refinado, ao custo de tempo."
+
+msgid "Wider lines cover large flat areas faster but can leave visible ridges."
+msgstr "Linhas mais largas cobrem áreas planas grandes mais rápido, mas podem deixar ressaltos visíveis."
+
+msgid "Recommended: 90% to 100% of the nozzle diameter."
+msgstr "Recomendado: de 90% a 100% do diâmetro do bico."
+
+msgid "Wider infill lines print much faster and add strength with fewer passes."
+msgstr "Linhas de preenchimento mais largas imprimem bem mais rápido e dão resistência com menos passadas."
+
+msgid "Very wide lines can bulge into the walls and need more cooling."
+msgstr "Linhas muito largas podem empurrar as paredes e exigem mais resfriamento."
+
+msgid "Wider lines speed up solid layers hidden inside the part."
+msgstr "Linhas mais largas aceleram as camadas sólidas escondidas dentro da peça."
+
+msgid "Narrower lines leave fewer gaps but take longer."
+msgstr "Linhas mais estreitas deixam menos vazios, mas demoram mais."
+
+msgid "Wider support lines print faster and are sturdier."
+msgstr "Linhas de suporte mais largas imprimem mais rápido e ficam mais firmes."
+
+msgid "Narrower lines give finer interface layers and cleaner support contact."
+msgstr "Linhas mais estreitas dão interfaces mais finas e um contato mais limpo com o suporte."
+
+msgid "Aligned places seams in a neat line that is easy to sand or hide."
+msgstr "Alinhada põe as costuras em uma linha reta, fácil de lixar ou esconder."
+
+msgid "Random scatters seams so no single line is visible, but the surface looks slightly uneven."
+msgstr "Aleatória espalha as costuras para não formar uma linha visível, mas deixa a superfície levemente irregular."
+
+msgid "Nearest and Back suit parts where one side must stay clean."
+msgstr "Mais próxima e Traseira servem para peças em que um lado precisa ficar limpo."
+
+msgid "Offsets inner wall seams from the outer one so seam weak points do not stack."
+msgstr "Desloca as costuras das paredes internas em relação à externa para que os pontos fracos não se acumulem."
+
+msgid "Slightly improves strength and hides seams better on the outer wall."
+msgstr "Melhora um pouco a resistência e esconde melhor as costuras na parede externa."
+
+msgid "A larger gap reduces seam blobs but can leave a small visible notch."
+msgstr "Uma folga maior reduz saliências na costura, mas pode deixar um pequeno entalhe visível."
+
+msgid "A smaller gap closes the loop better but risks a bulge at the seam."
+msgstr "Uma folga menor fecha melhor o laço, mas pode formar um calombo na costura."
+
+msgid "Recommended: 10% of the nozzle diameter, or 0 on a well-tuned machine."
+msgstr "Recomendado: 10% do diâmetro do bico, ou 0 em uma máquina bem calibrada."
+
+msgid "Scarf seams ramp the wall in and out to make the seam almost invisible on smooth walls."
+msgstr "Costuras em cunha (scarf) fazem a parede subir e descer em rampa, deixando a costura quase invisível em paredes lisas."
+
+msgid "Works best on round or vertical walls and needs good pressure advance tuning."
+msgstr "Funciona melhor em paredes redondas ou verticais e exige boa calibração de avanço de pressão."
+
+msgid "Lower values start the ramp closer to the layer bottom, giving a gentler transition."
+msgstr "Valores menores iniciam a rampa mais perto da base da camada, com transição mais suave."
+
+msgid "Higher values make the seam steeper and the overlap shorter."
+msgstr "Valores maiores deixam a costura mais inclinada e a sobreposição mais curta."
+
+msgid "Recommended: 0% to 50% of the layer height."
+msgstr "Recomendado: de 0% a 50% da altura da camada."
+
+msgid "Longer scarf ramps blend the seam better and reduce visible marks."
+msgstr "Rampas mais longas mesclam melhor a costura e reduzem marcas visíveis."
+
+msgid "Very long ramps take more time and can bulge when flow is not tuned."
+msgstr "Rampas muito longas levam mais tempo e podem formar calombos se o fluxo não estiver ajustado."
+
+msgid "Recommended: 10 mm to 20 mm."
+msgstr "Recomendado: de 10 mm a 20 mm."
+
+msgid "More steps make the ramp smoother but produce more G-code moves."
+msgstr "Mais passos deixam a rampa mais suave, mas geram mais movimentos de G-code."
+
+msgid "Fewer steps are lighter on the controller but give a coarser slope."
+msgstr "Menos passos pesam menos para a controladora, mas deixam a rampa mais grosseira."
+
+msgid "Lower values reduce material at the ramp to avoid bulging at the seam."
+msgstr "Valores menores reduzem o material na rampa para evitar calombo na costura."
+
+msgid "Raise it slightly if the seam shows a gap or an underfilled notch."
+msgstr "Aumente um pouco se a costura mostrar vão ou entalhe mal preenchido."
+
+msgid "Recommended: 1.0, adjusted in steps of 0.02."
+msgstr "Recomendado: 1,0, ajustado em passos de 0,02."
+
+msgid "Moves the nozzle inward at the end of a wall loop to wipe off the seam blob."
+msgstr "Move o bico para dentro no fim de cada laço de parede para limpar o excesso na costura."
+
+msgid "Reduces seam zits at almost no time cost."
+msgstr "Reduz os pontinhos na costura quase sem custo de tempo."
+
+msgid "Wipes the nozzle into the part before the outer wall to hide the seam start."
+msgstr "Limpa o bico para dentro da peça antes da parede externa para esconder o início da costura."
+
+msgid "Helps with outer-wall zits but can slightly shift the seam position."
+msgstr "Ajuda contra pontinhos na parede externa, mas pode deslocar levemente a costura."
+
+msgid "Higher values merge tiny gaps and cracks in the model into one solid region."
+msgstr "Valores maiores fecham pequenas frestas e rachaduras do modelo em uma região sólida."
+
+msgid "Too high a value can fill in details that should stay open."
+msgstr "Um valor alto demais pode fechar detalhes que deveriam continuar abertos."
+
+msgid "Recommended: 0.049 mm, the default."
+msgstr "Recomendado: 0,049 mm, o padrão."
+
+msgid "Lower values keep curves accurate but create larger G-code and slower slicing."
+msgstr "Valores menores preservam a precisão das curvas, mas geram G-code maior e fatiamento mais lento."
+
+msgid "Higher values simplify the model, which can facet curves and drop fine detail."
+msgstr "Valores maiores simplificam o modelo, o que pode facetar curvas e perder detalhes finos."
+
+msgid "Recommended: 0.012 mm for most prints."
+msgstr "Recomendado: 0,012 mm na maioria das impressões."
+
+msgid "Replaces many short segments with G2/G3 arcs, which shrinks G-code and smooths motion."
+msgstr "Troca muitos segmentos curtos por arcos G2/G3, o que reduz o G-code e suaviza o movimento."
+
+msgid "Requires firmware that supports arc commands; leave it off otherwise."
+msgstr "Exige firmware com suporte a comandos de arco; deixe desligado caso contrário."
+
+msgid "Positive values enlarge holes and negative values shrink them to correct printed size."
+msgstr "Valores positivos aumentam os furos e negativos os diminuem, corrigindo o tamanho impresso."
+
+msgid "Print a test part with known holes and measure before adjusting."
+msgstr "Imprima uma peça de teste com furos conhecidos e meça antes de ajustar."
+
+msgid "Recommended: -0.1 mm to 0.1 mm."
+msgstr "Recomendado: de -0,1 mm a 0,1 mm."
+
+msgid "Positive values grow the outer contour and negative values shrink it to correct dimensions."
+msgstr "Valores positivos aumentam o contorno externo e negativos o diminuem, corrigindo as dimensões."
+
+msgid "Use it when parts consistently print larger or smaller than designed."
+msgstr "Use quando as peças saem sempre maiores ou menores que o projeto."
+
+msgid "Shrinks the first layer inward to counter the flared bottom edge called elephant foot."
+msgstr "Encolhe a primeira camada para dentro para compensar o alargamento da base, o pé de elefante."
+
+msgid "Too much leaves a visible groove at the base."
+msgstr "Compensação demais deixa um sulco visível na base."
+
+msgid "Recommended: 0.1 mm to 0.3 mm, only if elephant foot appears."
+msgstr "Recomendado: de 0,1 mm a 0,3 mm, apenas se houver pé de elefante."
+
+msgid "Adjusts wall spacing so the outer surface matches the model dimensions more closely."
+msgstr "Ajusta o espaçamento das paredes para que a superfície externa fique mais fiel às dimensões do modelo."
+
+msgid "Improves dimensional accuracy for parts that must fit together."
+msgstr "Melhora a precisão dimensional de peças que precisam se encaixar."
+
+msgid "Adjusts the last layer heights so the print reaches the exact model height."
+msgstr "Ajusta as últimas camadas para que a impressão atinja exatamente a altura do modelo."
+
+msgid "May produce a slightly thinner top layer instead of an off-height part."
+msgstr "Pode resultar em uma camada superior um pouco mais fina em vez de uma peça com altura errada."
+
+msgid "Converts round holes to polygons whose flats sit inside the true circle, so printed holes match the nominal diameter."
+msgstr "Converte furos redondos em polígonos cujos lados ficam dentro do círculo real, para que o furo impresso tenha o diâmetro nominal."
+
+msgid "Improves fit for bolts and pins in small holes."
+msgstr "Melhora o encaixe de parafusos e pinos em furos pequenos."
+
+msgid "Ironing passes a hot, low-flow nozzle over the top surface to melt and flatten it."
+msgstr "O alisamento passa um bico quente com pouco fluxo sobre o topo para derreter e nivelar a superfície."
+
+msgid "Gives a glossy, smooth top at the cost of extra print time."
+msgstr "Deixa o topo liso e brilhante, ao custo de tempo extra."
+
+msgid "Top surfaces only is usually enough; use Topmost only for the final layer."
+msgstr "Apenas superfícies superiores costuma bastar; use Apenas a mais alta para só a camada final."
+
+msgid "Higher flow fills tiny gaps better but can leave excess material and rough streaks."
+msgstr "Fluxo maior preenche melhor pequenas falhas, mas pode deixar excesso de material e riscos ásperos."
+
+msgid "Lower flow gives a lighter polish and less risk of blobs."
+msgstr "Fluxo menor dá um acabamento mais leve e menos risco de borrões."
+
+msgid "Recommended: 10% to 15%."
+msgstr "Recomendado: de 10% a 15%."
+
+msgid "Smaller spacing gives a smoother finish but increases ironing time."
+msgstr "Espaçamento menor deixa o acabamento mais liso, mas aumenta o tempo de alisamento."
+
+msgid "Larger spacing is faster but may leave ridges between passes."
+msgstr "Espaçamento maior é mais rápido, mas pode deixar ressaltos entre as passadas."
+
+msgid "Recommended: 0.1 mm to 0.15 mm."
+msgstr "Recomendado: de 0,1 mm a 0,15 mm."
+
+msgid "Slower ironing melts the surface more evenly."
+msgstr "Alisar mais devagar derrete a superfície de modo mais uniforme."
+
+msgid "Very high speeds leave streaks and do little smoothing."
+msgstr "Velocidades muito altas deixam riscos e alisam pouco."
+
+msgid "Recommended: 15 mm/s to 30 mm/s."
+msgstr "Recomendado: de 15 mm/s a 30 mm/s."
+
+msgid "Arachne varies line width to fill thin and tapered walls without gaps, giving stronger parts."
+msgstr "Arachne varia a largura da linha para preencher paredes finas e afuniladas sem vazios, gerando peças mais resistentes."
+
+msgid "Classic keeps constant line width and is more predictable and slightly faster to slice."
+msgstr "Clássico mantém a largura constante e é mais previsível e um pouco mais rápido de fatiar."
+
+msgid "Inner-then-outer hides inner-wall flaws and is more accurate for overhangs."
+msgstr "Interna depois externa esconde falhas das paredes internas e é mais precisa em saliências."
+
+msgid "Outer-then-inner gives cleaner outer surfaces but can show inner-wall pressure marks."
+msgstr "Externa depois interna deixa a superfície externa mais limpa, mas pode marcar a pressão da parede interna."
+
+msgid "Inner-outer-inner balances the two for tight dimensional accuracy."
+msgstr "Interna-externa-interna equilibra as duas para boa precisão dimensional."
+
+msgid "Scales extrusion for the whole process on top of the filament flow ratio."
+msgstr "Escala a extrusão de todo o processo, somada ao fluxo do filamento."
+
+msgid "Use small steps only; tune the filament flow ratio first."
+msgstr "Use passos pequenos; ajuste primeiro o fluxo do filamento."
+
+msgid "Prints a single wall on the first layer so more of the layer is solid infill."
+msgstr "Imprime uma única parede na primeira camada, deixando mais área em preenchimento sólido."
+
+msgid "Improves bed adhesion and first-layer surface quality on thin parts."
+msgstr "Melhora a aderência à mesa e a superfície da primeira camada em peças finas."
+
+msgid "Uses one wall on top surface layers to leave more room for top infill."
+msgstr "Usa uma parede só nas camadas da superfície superior, deixando mais espaço para o preenchimento do topo."
+
+msgid "Gives a smoother top finish but slightly weaker top edges."
+msgstr "Dá um acabamento superior mais liso, mas bordas do topo um pouco mais fracas."
+
+msgid "Routes travel moves around walls to avoid crossing them and leaving marks."
+msgstr "Desvia os deslocamentos para evitar cruzar paredes e deixar marcas."
+
+msgid "Can lengthen travel paths and add time on complex parts."
+msgstr "Pode alongar o trajeto e adicionar tempo em peças complexas."
+
+msgid "Sets how far a travel may detour to avoid crossing walls."
+msgstr "Define quanto um deslocamento pode se desviar para evitar cruzar paredes."
+
+msgid "Higher values avoid more crossings but lengthen travel."
+msgstr "Valores maiores evitam mais cruzamentos, mas alongam os deslocamentos."
+
+msgid "Recommended: 0 for no limit, or about 5 mm to 10 mm."
+msgstr "Recomendado: 0 para sem limite, ou cerca de 5 mm a 10 mm."
+
+msgid "Lower flow thins the bridge strand so it sags less."
+msgstr "Fluxo menor afina o fio da ponte e reduz o afundamento."
+
+msgid "Too low causes gaps and snapped strands; too high causes sagging."
+msgstr "Baixo demais causa falhas e fios rompidos; alto demais causa afundamento."
+
+msgid "Recommended: 0.8 to 1.0."
+msgstr "Recomendado: de 0,8 a 1,0."
+
+msgid "Prints bridges with round, full-nozzle-diameter strands that span gaps more reliably."
+msgstr "Imprime pontes com fios redondos do diâmetro total do bico, que vencem vãos com mais segurança."
+
+msgid "Improves bridge strength but may leave a rougher underside."
+msgstr "Melhora a resistência da ponte, mas pode deixar a parte inferior mais áspera."
+
+msgid "Detects overhanging walls and slows them down so they print cleanly."
+msgstr "Detecta paredes em balanço e reduz a velocidade para que saiam limpas."
+
+msgid "Required for the overhang speed and fan settings to apply."
+msgstr "Necessário para que as velocidades e o ventilador de saliências sejam aplicados."
+
+msgid "Modifies the model slope so overhangs print without supports."
+msgstr "Modifica a inclinação do modelo para que saliências imprimam sem suporte."
+
+msgid "Changes the geometry slightly, so avoid it on precision parts."
+msgstr "Altera um pouco a geometria; evite em peças de precisão."
+
+msgid "Adds extra wall passes over overhangs to build a better base for the next layer."
+msgstr "Adiciona passadas de parede sobre saliências para criar uma base melhor para a camada seguinte."
+
+msgid "Raises print time and material on parts with many overhangs."
+msgstr "Aumenta o tempo e o material em peças com muitas saliências."
+
+msgid "Alternates wall direction on overhang layers so curled edges are pushed back inward."
+msgstr "Alterna a direção da parede nas camadas de saliência para empurrar de volta as bordas enroladas."
+
+msgid "Works best with strong cooling on the overhang."
+msgstr "Funciona melhor com bom resfriamento nas saliências."
+
+msgid "More walls make the part stronger and stiffer than extra infill does."
+msgstr "Mais paredes deixam a peça mais forte e rígida do que mais preenchimento."
+
+msgid "Each extra wall adds print time and material."
+msgstr "Cada parede extra aumenta o tempo e o material."
+
+msgid "Recommended: 2 to 4 walls for functional parts."
+msgstr "Recomendado: de 2 a 4 paredes em peças funcionais."
+
+msgid "Adds an extra wall on every other layer to fill gaps between infill and walls."
+msgstr "Adiciona uma parede extra em camadas alternadas para preencher vãos entre preenchimento e paredes."
+
+msgid "Improves strength and top surface support at a small time cost."
+msgstr "Melhora a resistência e o apoio do topo com pequeno custo de tempo."
+
+msgid "Detects walls thinner than two lines and prints them as a single pass."
+msgstr "Detecta paredes mais finas que duas linhas e as imprime em uma única passada."
+
+msgid "Prevents gaps and missing thin features but may add slight extrusion variance."
+msgstr "Evita falhas e perda de detalhes finos, mas pode causar leve variação de extrusão."
+
+msgid "More top layers give a stronger, more sealed top and better coverage over sparse infill."
+msgstr "Mais camadas de topo dão um topo mais forte, vedado e com melhor cobertura sobre o preenchimento esparso."
+
+msgid "Each extra layer adds print time."
+msgstr "Cada camada extra aumenta o tempo de impressão."
+
+msgid "Recommended: 4 to 6 layers at 0.2 mm layer height."
+msgstr "Recomendado: de 4 a 6 camadas com altura de camada de 0,2 mm."
+
+msgid "Sets a minimum top thickness; the slicer uses whichever is greater, this or the layer count."
+msgstr "Define uma espessura mínima do topo; vale o maior valor entre ela e o número de camadas."
+
+msgid "Mostly useful at very thin layer heights, where the layer count alone is too thin."
+msgstr "Útil principalmente com camadas muito finas, em que apenas o número de camadas seria pouco."
+
+msgid "Recommended: 0.8 mm to 1.2 mm."
+msgstr "Recomendado: de 0,8 mm a 1,2 mm."
+
+msgid "Monotonic gives the smoothest look by keeping all lines in one direction."
+msgstr "Monotônico dá o aspecto mais liso, mantendo todas as linhas na mesma direção."
+
+msgid "Concentric and Hilbert curve suit decorative tops but may leave seams or take longer."
+msgstr "Concêntrico e curva de Hilbert servem para topos decorativos, mas podem deixar emendas ou levar mais tempo."
+
+msgid "More bottom layers make the base stronger and give better bed contact."
+msgstr "Mais camadas de base deixam a base mais forte e com melhor contato com a mesa."
+
+msgid "Each extra layer adds print time and material."
+msgstr "Cada camada extra aumenta o tempo e o material."
+
+msgid "Recommended: 3 to 5 layers at 0.2 mm layer height."
+msgstr "Recomendado: de 3 a 5 camadas com altura de camada de 0,2 mm."
+
+msgid "Sets a minimum bottom thickness, overriding the layer count when it is greater."
+msgstr "Define uma espessura mínima da base, prevalecendo sobre o número de camadas quando for maior."
+
+msgid "Useful at thin layer heights, where a few layers are not enough."
+msgstr "Útil com camadas finas, em que poucas camadas não bastam."
+
+msgid "Recommended: 0.6 mm to 1.0 mm."
+msgstr "Recomendado: de 0,6 mm a 1,0 mm."
+
+msgid "Controls the fill pattern of the visible bottom surface."
+msgstr "Controla o padrão de preenchimento da superfície inferior visível."
+
+msgid "Monotonic gives a cleaner bottom finish; rectilinear prints faster."
+msgstr "Monotônico dá um acabamento inferior mais limpo; retilíneo imprime mais rápido."
+
+msgid "Higher density adds strength and top support but increases time, weight and material."
+msgstr "Densidade maior aumenta a resistência e o apoio do topo, mas também o tempo, o peso e o material."
+
+msgid "Most strength comes from walls; density above 40% rarely pays off."
+msgstr "A maior parte da resistência vem das paredes; densidade acima de 40% raramente compensa."
+
+msgid "Recommended: 10% to 20% for decorative parts, 25% to 40% for functional parts."
+msgstr "Recomendado: de 10% a 20% em peças decorativas, de 25% a 40% em peças funcionais."
+
+msgid "Grid and cubic give strong, uniform support; lines and zig-zag print faster."
+msgstr "Grade e cúbico dão apoio forte e uniforme; linhas e ziguezague imprimem mais rápido."
+
+msgid "Gyroid is isotropic but slower to slice; lightning saves the most material on display parts."
+msgstr "Giroide é isotrópico, mas mais lento de fatiar; relâmpago economiza mais material em peças de exibição."
+
+msgid "Sets the angle of the infill lines in the XY plane."
+msgstr "Define o ângulo das linhas de preenchimento no plano XY."
+
+msgid "Aligning infill to the load direction can improve strength."
+msgstr "Alinhar o preenchimento à direção da carga pode aumentar a resistência."
+
+msgid "Recommended: 45 degrees, the default."
+msgstr "Recomendado: 45 graus, o padrão."
+
+msgid "Sets how far infill lines may extend along the wall to anchor to it."
+msgstr "Define quanto as linhas de preenchimento podem acompanhar a parede para se ancorar."
+
+msgid "Longer anchors improve adhesion but add extrusion on the wall."
+msgstr "Âncoras mais longas melhoram a aderência, mas adicionam extrusão na parede."
+
+msgid "Caps the anchor length so short infill lines are not connected to long extra segments."
+msgstr "Limita o comprimento da âncora para que linhas curtas de preenchimento não ganhem segmentos longos extras."
+
+msgid "Lower values give cleaner infill but weaker bonding to walls."
+msgstr "Valores menores deixam o preenchimento mais limpo, mas com aderência mais fraca às paredes."
+
+msgid "More overlap bonds infill to walls better but can show through the outer wall."
+msgstr "Mais sobreposição une melhor o preenchimento às paredes, mas pode aparecer na parede externa."
+
+msgid "Less overlap prevents bulges and ghosting on thin walls."
+msgstr "Menos sobreposição evita calombos e marcas fantasma em paredes finas."
+
+msgid "Recommended: 10% to 25%."
+msgstr "Recomendado: de 10% a 25%."
+
+msgid "More overlap bonds skin to walls better but can cause bulges at edges."
+msgstr "Mais sobreposição une melhor a pele às paredes, mas pode causar calombos nas bordas."
+
+msgid "Less overlap gives cleaner edges with slightly weaker bonding."
+msgstr "Menos sobreposição deixa as bordas mais limpas, com união um pouco mais fraca."
+
+msgid "Forces a bridge direction instead of letting the slicer choose."
+msgstr "Força a direção da ponte em vez de deixar o fatiador escolher."
+
+msgid "Align it to span the shortest gap for the best support."
+msgstr "Alinhe para vencer o menor vão e obter melhor apoio."
+
+msgid "Recommended: 0 for automatic detection."
+msgstr "Recomendado: 0 para detecção automática."
+
+msgid "Prints infill every few layers using thicker lines, saving time."
+msgstr "Imprime o preenchimento a cada algumas camadas com linhas mais grossas, economizando tempo."
+
+msgid "Reduces detail inside the part; walls and top layers are unchanged."
+msgstr "Reduz o detalhe interno da peça; paredes e camadas superiores não mudam."
+
+msgid "Adds solid infill near sloped surfaces to keep the shell thick."
+msgstr "Adiciona preenchimento sólido perto de superfícies inclinadas para manter a casca espessa."
+
+msgid "Prevents thin spots and pillowing, at some extra material."
+msgstr "Evita pontos finos e abaulamento, com algum material a mais."
+
+msgid "Areas smaller than this get solid infill instead of sparse infill."
+msgstr "Áreas menores que isso recebem preenchimento sólido no lugar do esparso."
+
+msgid "Raising it removes tiny sparse pockets that print poorly."
+msgstr "Aumentar o valor elimina bolsões esparsos pequenos que imprimem mal."
+
+msgid "Recommended: 15 mm2."
+msgstr "Recomendado: 15 mm²."
+
+msgid "Chooses where thin gaps are filled: everywhere, only between walls, or nowhere."
+msgstr "Escolhe onde as frestas finas são preenchidas: em toda parte, só entre paredes, ou em lugar nenhum."
+
+msgid "Filling gaps adds strength but may leave visible lines on thin features."
+msgstr "Preencher frestas aumenta a resistência, mas pode deixar linhas visíveis em detalhes finos."
+
+msgid "Slower first layers stick better and tolerate a less-perfect bed."
+msgstr "Primeiras camadas mais lentas aderem melhor e toleram uma mesa menos perfeita."
+
+msgid "Raising it saves little time and risks poor adhesion."
+msgstr "Aumentar a velocidade economiza pouco tempo e arrisca a aderência."
+
+msgid "Recommended: 20 mm/s to 50 mm/s."
+msgstr "Recomendado: de 20 mm/s a 50 mm/s."
+
+msgid "Controls infill speed on the first layer only."
+msgstr "Controla a velocidade do preenchimento só na primeira camada."
+
+msgid "Raising it saves time on large parts, but keep it moderate for adhesion."
+msgstr "Aumentar economiza tempo em peças grandes, mas mantenha moderado para não prejudicar a aderência."
+
+msgid "Faster travel on the first layer reduces oozing time over the bed."
+msgstr "Deslocamento mais rápido na primeira camada reduz o tempo de escorrimento sobre a mesa."
+
+msgid "Too fast can knock loose parts that have not stuck yet."
+msgstr "Rápido demais pode soltar peças que ainda não aderiram."
+
+msgid "Number of initial layers printed at a ramped-up speed rather than full speed."
+msgstr "Número de camadas iniciais impressas com velocidade progressiva, e não a plena."
+
+msgid "Higher values give a gentler transition from first layer to normal speed."
+msgstr "Valores maiores dão uma transição mais suave da primeira camada à velocidade normal."
+
+msgid "Slower outer walls improve surface quality and dimensional accuracy."
+msgstr "Paredes externas mais lentas melhoram a qualidade da superfície e a precisão dimensional."
+
+msgid "Faster outer walls save time but show ringing and layer inconsistency."
+msgstr "Paredes externas mais rápidas economizam tempo, mas mostram ondulações e inconsistência de camada."
+
+msgid "Recommended: 40% to 60% of the inner wall speed."
+msgstr "Recomendado: de 40% a 60% da velocidade da parede interna."
+
+msgid "Inner walls are hidden, so they can run faster than the outer wall to save time."
+msgstr "As paredes internas ficam escondidas, então podem ser mais rápidas que a externa para economizar tempo."
+
+msgid "Too fast can hurt layer bonding and strength."
+msgstr "Rápido demais pode prejudicar a adesão entre camadas e a resistência."
+
+msgid "Slows small holes and features, which cool too little and overheat at normal speed."
+msgstr "Reduz a velocidade em furos e detalhes pequenos, que esfriam pouco e superaquecem na velocidade normal."
+
+msgid "Improves accuracy on tiny circles."
+msgstr "Melhora a precisão em círculos minúsculos."
+
+msgid "Recommended: 50% of the wall speed."
+msgstr "Recomendado: 50% da velocidade da parede."
+
+msgid "Infill is hidden, so it can run fast, limited mainly by flow rate and vibration."
+msgstr "O preenchimento fica escondido, então pode ser rápido, limitado sobretudo pelo fluxo e pela vibração."
+
+msgid "Too fast risks under-extrusion and weak infill."
+msgstr "Rápido demais arrisca subextrusão e preenchimento fraco."
+
+msgid "Controls the speed of solid layers hidden inside the part."
+msgstr "Controla a velocidade das camadas sólidas ocultas dentro da peça."
+
+msgid "Lower speeds support top layers better; higher speeds save time."
+msgstr "Velocidades menores sustentam melhor as camadas de topo; maiores economizam tempo."
+
+msgid "Slower top surfaces give a smoother finish with fewer ridges."
+msgstr "Topos mais lentos dão acabamento mais liso e menos ressaltos."
+
+msgid "Higher speeds save time but can leave roughness."
+msgstr "Velocidades maiores economizam tempo, mas podem deixar aspereza."
+
+msgid "Recommended: 60 mm/s to 100 mm/s."
+msgstr "Recomendado: de 60 mm/s a 100 mm/s."
+
+msgid "Faster supports save time since their quality matters little."
+msgstr "Suportes mais rápidos economizam tempo, já que a qualidade deles importa pouco."
+
+msgid "Too fast can make supports fragile and break during printing."
+msgstr "Rápido demais pode deixá-los frágeis e quebrar durante a impressão."
+
+msgid "Slower interfaces give a smoother surface under the supported part."
+msgstr "Interfaces mais lentas dão uma superfície mais lisa sob a peça apoiada."
+
+msgid "Raising it saves time but may roughen the supported surface."
+msgstr "Aumentar economiza tempo, mas pode deixar a superfície apoiada mais áspera."
+
+msgid "Slows walls over overhangs by the overhang percentage so the extrusion cools and holds shape."
+msgstr "Reduz a velocidade das paredes sobre saliências conforme o percentual de saliência, para que o material esfrie e mantenha a forma."
+
+msgid "Improves overhang quality at the cost of print time."
+msgstr "Melhora a qualidade das saliências ao custo de tempo."
+
+msgid "Slower bridges sag less and keep strands tight, given good cooling."
+msgstr "Pontes mais lentas afundam menos e mantêm os fios tensos, com bom resfriamento."
+
+msgid "Faster bridges stretch strands thin and may snap them."
+msgstr "Pontes mais rápidas esticam os fios e podem rompê-los."
+
+msgid "Recommended: 25 mm/s to 50 mm/s."
+msgstr "Recomendado: de 25 mm/s a 50 mm/s."
+
+msgid "Controls the speed of bridges over sparse infill, which are usually short."
+msgstr "Controla a velocidade das pontes sobre preenchimento esparso, normalmente curtas."
+
+msgid "Slower values reduce sagging into the infill."
+msgstr "Valores menores reduzem o afundamento no preenchimento."
+
+msgid "Faster travel cuts time and ooze, as the nozzle spends less time over the print."
+msgstr "Deslocamento mais rápido reduz o tempo e o escorrimento, pois o bico passa menos tempo sobre a peça."
+
+msgid "Too fast causes vibration, skipped steps or ringing marks."
+msgstr "Rápido demais causa vibração, perda de passos ou marcas de ondulação."
+
+msgid "Recommended: 150 mm/s to 500 mm/s, depending on the printer."
+msgstr "Recomendado: de 150 mm/s a 500 mm/s, conforme a impressora."
+
+msgid "Lower acceleration reduces ringing and improves quality but increases print time."
+msgstr "Aceleração menor reduz ondulações e melhora a qualidade, mas aumenta o tempo."
+
+msgid "Higher acceleration saves time on large, simple parts."
+msgstr "Aceleração maior economiza tempo em peças grandes e simples."
+
+msgid "A low value on outer walls reduces ringing and keeps edges sharp."
+msgstr "Um valor baixo nas paredes externas reduz ondulações e mantém as bordas nítidas."
+
+msgid "Costs time only on visible surfaces."
+msgstr "Custa tempo só nas superfícies visíveis."
+
+msgid "Inner walls can accelerate harder than the outer wall since they are not visible."
+msgstr "As paredes internas podem acelerar mais que a externa, já que não aparecem."
+
+msgid "Too high may affect outer wall quality through vibration."
+msgstr "Alto demais pode afetar a parede externa por vibração."
+
+msgid "Lower acceleration keeps bridge strands straighter and avoids breaking them."
+msgstr "Aceleração menor mantém os fios da ponte mais retos e evita rompê-los."
+
+msgid "Higher acceleration speeds up hidden infill but shakes the printer."
+msgstr "Aceleração maior acelera o preenchimento oculto, mas faz a impressora vibrar."
+
+msgid "Keep it within what the machine can handle without marking the walls."
+msgstr "Mantenha dentro do que a máquina suporta sem marcar as paredes."
+
+msgid "Higher acceleration shortens solid-layer time inside the part."
+msgstr "Aceleração maior reduz o tempo das camadas sólidas dentro da peça."
+
+msgid "A low value on the first layer improves adhesion and avoids dislodging the part."
+msgstr "Um valor baixo na primeira camada melhora a aderência e evita deslocar a peça."
+
+msgid "A low value on top surfaces reduces ringing and gives a smoother finish."
+msgstr "Um valor baixo nas superfícies superiores reduz ondulações e dá acabamento mais liso."
+
+msgid "Higher travel acceleration shortens non-printing moves."
+msgstr "Aceleração de deslocamento maior encurta os movimentos sem extrusão."
+
+msgid "Too high can shake the printer and cause layer shifts."
+msgstr "Alta demais pode sacudir a impressora e causar deslocamento de camadas."
+
+msgid "Higher values allow faster cornering but cause bulging and ringing at corners."
+msgstr "Valores maiores permitem fazer curvas mais rápido, mas causam calombos e ondulações nos cantos."
+
+msgid "Lower values slow corners for cleaner edges."
+msgstr "Valores menores reduzem a velocidade nos cantos para bordas mais limpas."
+
+msgid "Recommended: 0.01 mm to 0.05 mm."
+msgstr "Recomendado: de 0,01 mm a 0,05 mm."
+
+msgid "Higher jerk allows quicker direction changes but increases vibration and ringing."
+msgstr "Jerk maior permite mudar de direção mais rápido, mas aumenta vibração e ondulações."
+
+msgid "Lower jerk slows corners and gives cleaner walls."
+msgstr "Jerk menor reduz a velocidade nos cantos e deixa as paredes mais limpas."
+
+msgid "A lower value on outer walls reduces corner artifacts and ringing."
+msgstr "Um valor menor nas paredes externas reduz defeitos nos cantos e ondulações."
+
+msgid "Smooths sudden changes in extrusion rate so flow ramps up and down gradually."
+msgstr "Suaviza mudanças bruscas na taxa de extrusão, aumentando e diminuindo o fluxo gradualmente."
+
+msgid "Reduces pressure artifacts at speed changes; heavy smoothing can slow some moves."
+msgstr "Reduz defeitos de pressão nas trocas de velocidade; suavização excessiva pode desacelerar alguns movimentos."
+
+msgid "Adds temporary structures under overhangs so they do not droop or collapse."
+msgstr "Adiciona estruturas temporárias sob saliências para que não cedam nem desabem."
+
+msgid "Costs time and material and leaves marks where supports touch the part."
+msgstr "Custa tempo e material e deixa marcas onde o suporte toca a peça."
+
+msgid "Recommended: on for overhangs steeper than about 45 degrees."
+msgstr "Recomendado: ligado para saliências mais inclinadas que cerca de 45 graus."
+
+msgid "Normal supports are fast and reliable on simple shapes."
+msgstr "Suportes normais são rápidos e confiáveis em formas simples."
+
+msgid "Tree supports use less material and leave fewer marks on organic models."
+msgstr "Suportes em árvore usam menos material e deixam menos marcas em modelos orgânicos."
+
+msgid "Controls how the support structure is built, trading stability against material and removal effort."
+msgstr "Controla como a estrutura de suporte é construída, equilibrando estabilidade, material e esforço de remoção."
+
+msgid "Snug and slim styles save material; grid and default styles are sturdier."
+msgstr "Estilos justos e finos economizam material; os de grade e o padrão são mais firmes."
+
+msgid "Overhangs steeper than this angle get supports; a lower value adds more support."
+msgstr "Saliências mais inclinadas que esse ângulo recebem suporte; um valor menor gera mais suporte."
+
+msgid "Raise it to save supports on surfaces that print fine unsupported."
+msgstr "Aumente para economizar suporte em superfícies que imprimem bem sem ele."
+
+msgid "Recommended: 30 to 45 degrees."
+msgstr "Recomendado: de 30 a 45 graus."
+
+msgid "Limits supports to those starting on the bed, avoiding supports on the part itself."
+msgstr "Limita os suportes aos que partem da mesa, evitando apoios sobre a própria peça."
+
+msgid "Leaves some overhangs unsupported when there is no clear path to the bed."
+msgstr "Deixa algumas saliências sem suporte quando não há caminho livre até a mesa."
+
+msgid "A larger gap makes supports easier to remove but roughens the overhang underside."
+msgstr "Uma folga maior facilita remover o suporte, mas deixa a parte inferior da saliência mais áspera."
+
+msgid "A smaller gap gives a better finish but supports can fuse to the part."
+msgstr "Uma folga menor dá melhor acabamento, mas o suporte pode grudar na peça."
+
+msgid "Recommended: 1 layer height (about 0.2 mm)."
+msgstr "Recomendado: 1 altura de camada (cerca de 0,2 mm)."
+
+msgid "Sets the gap where supports rest on the part from below."
+msgstr "Define a folga onde o suporte se apoia na peça por baixo."
+
+msgid "Larger values ease removal; smaller values give firmer bases."
+msgstr "Valores maiores facilitam a remoção; menores dão bases mais firmes."
+
+msgid "Rectilinear is fast and easy to remove; honeycomb is sturdier but uses more material."
+msgstr "Retilíneo é rápido e fácil de remover; favo de mel é mais firme, mas usa mais material."
+
+msgid "Lightning is the lightest, for tall or simple supports."
+msgstr "Relâmpago é o mais leve, para suportes altos ou simples."
+
+msgid "Wider spacing saves material and time but gives less support for the layers above."
+msgstr "Espaçamento maior economiza material e tempo, mas sustenta menos as camadas acima."
+
+msgid "Tighter spacing holds up wider overhangs and is harder to remove."
+msgstr "Espaçamento menor segura saliências largas e é mais difícil de remover."
+
+msgid "Recommended: 2.5 mm."
+msgstr "Recomendado: 2,5 mm."
+
+msgid "More interface layers give a smoother overhang surface and easier removal."
+msgstr "Mais camadas de interface dão uma superfície mais lisa e remoção mais fácil."
+
+msgid "Each layer adds print time and material."
+msgstr "Cada camada aumenta o tempo e o material."
+
+msgid "Recommended: 2 to 3 layers."
+msgstr "Recomendado: de 2 a 3 camadas."
+
+msgid "Tighter spacing gives a denser, smoother contact surface but sticks harder to the part."
+msgstr "Espaçamento menor dá uma superfície de contato mais densa e lisa, mas gruda mais na peça."
+
+msgid "Wider spacing breaks away more easily but leaves a rougher underside."
+msgstr "Espaçamento maior solta com facilidade, mas deixa a parte inferior mais áspera."
+
+msgid "Recommended: 0 to 0.2 mm."
+msgstr "Recomendado: de 0 a 0,2 mm."
+
+msgid "A larger gap keeps supports from fusing to walls but weakens side support."
+msgstr "Uma folga maior evita que o suporte grude nas paredes, mas enfraquece o apoio lateral."
+
+msgid "A smaller gap holds the part better but is harder to remove."
+msgstr "Uma folga menor segura melhor a peça, mas é mais difícil de remover."
+
+msgid "Recommended: 0.35 mm to 0.5 mm."
+msgstr "Recomendado: de 0,35 mm a 0,5 mm."
+
+msgid "Skips supports under bridges that are short enough to span unaided."
+msgstr "Dispensa suporte sob pontes curtas o bastante para vencer o vão sozinhas."
+
+msgid "Saves material but long or heavy bridges may sag."
+msgstr "Economiza material, mas pontes longas ou pesadas podem ceder."
+
+msgid "A larger angle lets branches lean further and reach more areas."
+msgstr "Um ângulo maior deixa os galhos se inclinarem mais e alcançarem mais áreas."
+
+msgid "Smaller angles are more stable and less likely to bend."
+msgstr "Ângulos menores são mais estáveis e dobram menos."
+
+msgid "Recommended: 40 to 50 degrees."
+msgstr "Recomendado: de 40 a 50 graus."
+
+msgid "Thicker branches are sturdier but use more material and are harder to remove."
+msgstr "Galhos mais grossos são mais firmes, mas usam mais material e são mais difíceis de remover."
+
+msgid "Thin branches save material but can wobble on tall supports."
+msgstr "Galhos finos economizam material, mas podem balançar em suportes altos."
+
+msgid "Recommended: 5 mm to 8 mm."
+msgstr "Recomendado: de 5 mm a 8 mm."
+
+msgid "A smaller tip leaves less of a mark on the part."
+msgstr "Uma ponta menor deixa menos marca na peça."
+
+msgid "A larger tip supports the surface more firmly but is harder to clean off."
+msgstr "Uma ponta maior apoia melhor a superfície, mas é mais difícil de limpar."
+
+msgid "Recommended: 0.8 mm to 2 mm."
+msgstr "Recomendado: de 0,8 mm a 2 mm."
+
+msgid "A raft is a printed base under the part that improves adhesion and evens out the first layer."
+msgstr "A balsa (raft) é uma base impressa sob a peça que melhora a aderência e nivela a primeira camada."
+
+msgid "Costs time and material, and the underside of the part ends up rougher."
+msgstr "Custa tempo e material, e a parte de baixo da peça fica mais áspera."
+
+msgid "A larger gap makes the raft easier to peel off but roughens the underside."
+msgstr "Uma folga maior facilita descolar a balsa, mas deixa a parte de baixo mais áspera."
+
+msgid "A smaller gap fuses better and can make removal difficult."
+msgstr "Uma folga menor gruda melhor e pode dificultar a remoção."
+
+msgid "Prints a tower to purge and prime the nozzle after each filament change."
+msgstr "Imprime uma torre para purgar e preparar o bico após cada troca de filamento."
+
+msgid "Needed for clean color changes; adds time and material."
+msgstr "Necessária para trocas de cor limpas; aumenta o tempo e o material."
+
+msgid "A wider tower is more stable and gives more room for purging."
+msgstr "Uma torre mais larga é mais estável e dá mais espaço para purga."
+
+msgid "A narrower tower saves material but may wobble when tall."
+msgstr "Uma torre mais estreita economiza material, mas pode balançar quando alta."
+
+msgid "Recommended: 35 mm to 60 mm."
+msgstr "Recomendado: de 35 mm a 60 mm."
+
+msgid "Sets the volume extruded to prime the nozzle after a change."
+msgstr "Define o volume extrudado para preparar o bico após a troca."
+
+msgid "Too little leaves old color in the first strokes; too much wastes filament."
+msgstr "Pouco demais deixa a cor antiga nas primeiras linhas; demais desperdiça filamento."
+
+msgid "Purges old filament into the infill of the current object instead of the tower."
+msgstr "Purga o filamento antigo no preenchimento do objeto atual em vez de na torre."
+
+msgid "Cuts waste, but the infill may show the old color through thin walls."
+msgstr "Reduz o desperdício, mas o preenchimento pode transparecer a cor antiga por paredes finas."
+
+msgid "Purges into other objects on the plate to reduce waste."
+msgstr "Purga em outros objetos da mesa para reduzir o desperdício."
+
+msgid "Use on objects that are not visible or do not mind color bleed."
+msgstr "Use em objetos que não aparecem ou toleram mistura de cor."
+
+msgid "Purges into the support structures, which are discarded anyway."
+msgstr "Purga nas estruturas de suporte, que serão descartadas de qualquer forma."
+
+msgid "Reduces waste with no impact on the final part."
+msgstr "Reduz o desperdício sem afetar a peça final."
+
+msgid "Lowers the temperature of idle tools during multi-tool prints to reduce oozing."
+msgstr "Reduz a temperatura das ferramentas ociosas em impressões com várias ferramentas, para diminuir o escorrimento."
+
+msgid "Needs extra heating time before each tool change."
+msgstr "Exige tempo extra de aquecimento antes de cada troca de ferramenta."
+
+msgid "Adds interlocking beams where two materials meet to strengthen their bond."
+msgstr "Cria vigas entrelaçadas onde dois materiais se encontram, reforçando a união."
+
+msgid "Works best with materials that do not adhere well to each other."
+msgstr "Funciona melhor com materiais que aderem mal entre si."
+
+msgid "More loops purge more material and make a larger test outline."
+msgstr "Mais voltas purgam mais material e criam um contorno de teste maior."
+
+msgid "Set 0 to disable the skirt."
+msgstr "Use 0 para desativar a saia."
+
+msgid "Recommended: 1 to 3 loops."
+msgstr "Recomendado: de 1 a 3 voltas."
+
+msgid "A larger distance keeps the skirt clear of the part, useful when it must be removed."
+msgstr "Uma distância maior mantém a saia longe da peça, útil quando ela precisa ser removida."
+
+msgid "A smaller distance primes closer to the first-layer start but may merge with a brim."
+msgstr "Uma distância menor prepara o bico mais perto do início da primeira camada, mas pode se unir à borda (brim)."
+
+msgid "Recommended: 2 mm to 5 mm."
+msgstr "Recomendado: de 2 mm a 5 mm."
+
+msgid "Number of layers printed for the skirt."
+msgstr "Número de camadas impressas na saia."
+
+msgid "Taller skirts act as a draft shield but waste material."
+msgstr "Saias mais altas funcionam como proteção contra correntes de ar, mas gastam material."
+
+msgid "Recommended: 1 layer, or more for a draft shield."
+msgstr "Recomendado: 1 camada, ou mais como proteção contra correntes de ar."
+
+msgid "Builds a wall around the object to protect it from drafts and trap warmth."
+msgstr "Constrói uma parede em volta do objeto para protegê-lo de correntes de ar e reter calor."
+
+msgid "Helps ABS and ASA warp less, but adds time and material."
+msgstr "Ajuda ABS e ASA a empenar menos, mas aumenta o tempo e o material."
+
+msgid "A brim widens the first layer to hold the part down and prevent warping."
+msgstr "A borda (brim) alarga a primeira camada para segurar a peça e evitar empenamento."
+
+msgid "Outer brim sits outside the part; inner brim also fills inside holes; brim ears only touch sharp corners."
+msgstr "Externa fica fora da peça; interna também preenche furos; orelhas tocam só os cantos agudos."
+
+msgid "A wider brim holds the part more firmly but is harder to remove and wastes material."
+msgstr "Uma borda mais larga segura mais a peça, mas é mais difícil de remover e gasta material."
+
+msgid "Narrow brims suit small contact areas with a good bed."
+msgstr "Bordas estreitas servem para pequenas áreas de contato com boa mesa."
+
+msgid "Recommended: 3 mm to 8 mm."
+msgstr "Recomendado: de 3 mm a 8 mm."
+
+msgid "A small gap makes the brim easier to peel off the part."
+msgstr "Uma folga pequena facilita descolar a borda da peça."
+
+msgid "A gap too large reduces how well the brim holds the part."
+msgstr "Uma folga grande demais reduz a capacidade da borda de segurar a peça."
+
+msgid "Recommended: 0 mm to 0.1 mm."
+msgstr "Recomendado: de 0 mm a 0,1 mm."
+
+msgid "By layer prints all objects layer by layer and is faster."
+msgstr "Por camada imprime todos os objetos camada a camada e é mais rápido."
+
+msgid "By object finishes one object at a time but needs enough clearance to avoid collisions."
+msgstr "Por objeto termina um objeto de cada vez, mas exige folga suficiente para evitar colisões."
+
+msgid "Prints the outer wall as one continuous spiral, avoiding seams and Z jumps."
+msgstr "Imprime a parede externa como uma espiral contínua, sem costuras nem saltos em Z."
+
+msgid "Only for single-wall vases; no infill, top-layer details or travel moves are used."
+msgstr "Serve para vasos de parede única; não há preenchimento, detalhes de topo nem deslocamentos."
+
+msgid "Pauses at each layer to take a photo from a fixed toolhead position."
+msgstr "Pausa a cada camada para fotografar com o cabeçote em posição fixa."
+
+msgid "Traditional mode adds time per layer; smooth mode keeps the toolhead moving and needs a prime tower."
+msgstr "O modo tradicional soma tempo a cada camada; o suave mantém o cabeçote em movimento e exige torre de limpeza."
+
+msgid "Adds random jitter to the outer wall for a rough, textured finish that hides layer lines."
+msgstr "Adiciona irregularidade aleatória à parede externa, criando um acabamento áspero que esconde as linhas de camada."
+
+msgid "Gives better grip but changes the part dimensions slightly."
+msgstr "Dá mais aderência para manuseio, mas altera um pouco as dimensões da peça."
+
+msgid "Larger values give a rougher texture and a bigger dimensional change."
+msgstr "Valores maiores dão textura mais áspera e maior alteração nas dimensões."
+
+msgid "Smaller values give subtle texture."
+msgstr "Valores menores dão textura sutil."
+
+msgid "Recommended: 0.1 mm to 0.3 mm."
+msgstr "Recomendado: de 0,1 mm a 0,3 mm."
+
+msgid "A larger distance gives coarser fuzz with fewer moves."
+msgstr "Uma distância maior dá textura mais grossa com menos movimentos."
+
+msgid "A smaller distance gives finer fuzz but creates more G-code."
+msgstr "Uma distância menor dá textura mais fina, mas gera mais G-code."
+
+msgid "Recommended: 0.3 mm to 0.8 mm."
+msgstr "Recomendado: de 0,3 mm a 0,8 mm."
+
+msgid "Skips retractions when travelling inside infill to save time."
+msgstr "Dispensa retrações em deslocamentos dentro do preenchimento para economizar tempo."
+
+msgid "Can leave faint strings that stay hidden inside the part."
+msgstr "Pode deixar fiapos leves, que ficam escondidos dentro da peça."
+
+msgid "Lets the printer skip a failed object during the print."
+msgstr "Permite que a impressora pule um objeto com falha durante a impressão."
+
+msgid "Needs firmware support and adds object labels to the G-code."
+msgstr "Exige suporte do firmware e adiciona rótulos de objeto ao G-code."
+
+msgid "Adds object labels to the G-code for firmware features such as object cancellation."
+msgstr "Adiciona rótulos de objeto ao G-code para recursos do firmware, como cancelar objetos."
+
+msgid "Has no effect on print quality."
+msgstr "Não afeta a qualidade da impressão."
+
+msgid "Adds explanatory comments to the G-code."
+msgstr "Adiciona comentários explicativos ao G-code."
+
+msgid "Makes files larger; useful for debugging, not needed for printing."
+msgstr "Deixa os arquivos maiores; útil para depurar, desnecessário para imprimir."
+
+msgid "Prints wave-shaped extrusions across overhangs to bridge steep angles without support."
+msgstr "Imprime extrusões em onda sobre saliências para vencer ângulos acentuados sem suporte."
+
+msgid "Works best on short spans with strong part cooling and tuned flow."
+msgstr "Funciona melhor em vãos curtos, com bom resfriamento da peça e fluxo ajustado."
+
+msgid "Test on a small part first, since results depend on material and cooling."
+msgstr "Teste antes em uma peça pequena, pois o resultado depende do material e do resfriamento."
+
+msgid "Replaces bridge detection with solid infill when wave overhangs are on."
+msgstr "Troca a detecção de pontes por preenchimento sólido quando as saliências em onda estão ativas."
+
+msgid "Leave it off to keep simple flat spans as normal bridges."
+msgstr "Deixe desligado para manter vãos planos simples como pontes normais."
+
+msgid "Smaller spacing makes a denser, stronger wave surface but uses more time and heat."
+msgstr "Espaçamento menor cria uma superfície em onda mais densa e forte, mas usa mais tempo e calor."
+
+msgid "Larger spacing prints faster but may leave gaps between lines."
+msgstr "Espaçamento maior imprime mais rápido, mas pode deixar vãos entre as linhas."
+
+msgid "Slower speeds give each bead more time to cool and hold shape in the air."
+msgstr "Velocidades menores dão a cada fio mais tempo para esfriar e manter a forma no ar."
+
+msgid "Faster speeds risk sagging and snapped strands."
+msgstr "Velocidades maiores arriscam afundamento e fios rompidos."
+
+msgid "Higher fan speed solidifies wave beads faster and reduces sagging."
+msgstr "Ventilador mais forte solidifica os fios em onda mais rápido e reduz o afundamento."
+
+msgid "Too strong airflow can cool the layer below too much and hurt bonding."
+msgstr "Fluxo de ar forte demais pode esfriar demais a camada de baixo e prejudicar a adesão."
+
+msgid "Adds a pause when a wave region would finish too quickly, giving it time to solidify."
+msgstr "Adiciona uma pausa quando uma região em onda terminaria rápido demais, dando tempo para solidificar."
+
+msgid "Raise it if waves droop; it adds print time."
+msgstr "Aumente se as ondas caírem; isso soma tempo de impressão."
+
+msgid "Number of solid layers placed above wave regions to back the cantilever."
+msgstr "Número de camadas sólidas sobre as regiões em onda para dar apoio ao balanço."
+
+msgid "More layers add strength and rigidity but use more time and material."
+msgstr "Mais camadas aumentam a resistência e a rigidez, mas gastam mais tempo e material."
+
+msgid "Sets the plastic volume per millimetre of wave line, independent of layer height."
+msgstr "Define o volume de plástico por milímetro da linha em onda, independente da altura da camada."
+
+msgid "Raise it for stronger beads, lower it if lines sag or merge."
+msgstr "Aumente para fios mais fortes; diminua se as linhas afundarem ou se juntarem."
+
+msgid "Selects the build plate type, which sets the bed temperatures from the filament profile."
+msgstr "Seleciona o tipo de placa de impressão, que define as temperaturas da mesa a partir do perfil do filamento."
+
+msgid "Choose the plate that matches the one installed on the printer."
+msgstr "Escolha a placa que corresponde à instalada na impressora."
+
+msgid "The slicer uses it to convert flow into extrusion length, so a wrong value over- or under-extrudes."
+msgstr "O fatiador usa esse valor para converter fluxo em comprimento de extrusão, então um valor errado causa excesso ou falta de material."
+
+msgid "Measure the actual filament at several points and use the average."
+msgstr "Meça o filamento real em vários pontos e use a média."
+
+msgid "Recommended: 1.75 mm for most printers."
+msgstr "Recomendado: 1,75 mm na maioria das impressoras."
+
+msgid "Used only to estimate part weight in the statistics."
+msgstr "Usada apenas para estimar o peso da peça nas estatísticas."
+
+msgid "Does not change the print itself."
+msgstr "Não altera a impressão em si."
+
+msgid "Used only to estimate print cost per kilogram of filament."
+msgstr "Usado apenas para estimar o custo da impressão por quilo de filamento."
+
+msgid "Scales extrusion to compensate for material and nozzle differences."
+msgstr "Escala a extrusão para compensar diferenças de material e bico."
+
+msgid "Raise it if walls look thin or gappy; lower it if walls bulge or surfaces look rough."
+msgstr "Aumente se as paredes parecerem finas ou com vãos; diminua se estufarem ou a superfície ficar áspera."
+
+msgid "Recommended: calibrate with a flow test, usually between 0.94 and 1.05."
+msgstr "Recomendado: calibrar com um teste de fluxo, normalmente entre 0,94 e 1,05."
+
+msgid "Compensates for filament pressure lag, sharpening corners and evening out line width."
+msgstr "Compensa o atraso de pressão do filamento, deixando os cantos mais nítidos e a largura da linha uniforme."
+
+msgid "Needs a calibrated value for each filament and nozzle."
+msgstr "Exige um valor calibrado para cada filamento e bico."
+
+msgid "Too low leaves bulging corners and gaps after speed changes; too high causes thin or gappy corners."
+msgstr "Baixo demais deixa cantos estufados e falhas após mudanças de velocidade; alto demais causa cantos finos ou com vãos."
+
+msgid "Calibrate it with a pressure advance test pattern for each filament."
+msgstr "Calibre com um padrão de teste de avanço de pressão para cada filamento."
+
+msgid "Adjusts pressure advance with flow rate and acceleration instead of using one fixed value."
+msgstr "Ajusta o avanço de pressão conforme o fluxo e a aceleração, em vez de usar um valor fixo."
+
+msgid "Needs a calibrated model, otherwise results can be worse than a fixed value."
+msgstr "Exige um modelo calibrado, caso contrário o resultado pode ser pior que o de um valor fixo."
+
+msgid "Higher temperature improves layer bonding and flow but increases stringing and oozing."
+msgstr "Temperatura maior melhora a adesão entre camadas e o fluxo, mas aumenta fiapos e escorrimento."
+
+msgid "Lower temperature reduces stringing and improves overhangs but can cause weak layers or under-extrusion."
+msgstr "Temperatura menor reduz fiapos e melhora saliências, mas pode causar camadas fracas ou subextrusão."
+
+msgid "Recommended: within the filament's printable range, for example 200 C to 230 C for PLA."
+msgstr "Recomendado: dentro da faixa do filamento, por exemplo de 200 °C a 230 °C para PLA."
+
+msgid "A slightly hotter first layer improves adhesion to the bed."
+msgstr "Uma primeira camada um pouco mais quente melhora a aderência à mesa."
+
+msgid "Too hot can cause elephant foot or stringing at the start."
+msgstr "Quente demais pode causar pé de elefante ou fiapos no início."
+
+msgid "A hotter bed improves adhesion and reduces warping on high-shrink materials."
+msgstr "Uma mesa mais quente melhora a aderência e reduz o empenamento em materiais de alta contração."
+
+msgid "Too hot softens the first layers and can cause elephant foot."
+msgstr "Quente demais amolece as primeiras camadas e pode causar pé de elefante."
+
+msgid "Recommended: 55 C to 65 C for PLA, 70 C to 90 C for PETG, 90 C to 110 C for ABS."
+msgstr "Recomendado: de 55 °C a 65 °C para PLA, de 70 °C a 90 °C para PETG, de 90 °C a 110 °C para ABS."
+
+msgid "Sets the bed temperature for the first layer only."
+msgstr "Define a temperatura da mesa apenas para a primeira camada."
+
+msgid "A slightly higher value helps adhesion before dropping to the normal bed temperature."
+msgstr "Um valor um pouco maior ajuda a aderência antes de cair para a temperatura normal da mesa."
+
+msgid "Caps flow so the hotend is not asked to melt more plastic than it can."
+msgstr "Limita o fluxo para que o hotend não precise derreter mais plástico do que consegue."
+
+msgid "Too high causes under-extrusion; too low slows prints unnecessarily."
+msgstr "Alto demais causa subextrusão; baixo demais deixa a impressão mais lenta sem necessidade."
+
+msgid "Recommended: 12 mm3/s for PLA on a standard hotend; calibrate for your setup."
+msgstr "Recomendado: 12 mm³/s para PLA em um hotend padrão; calibre para a sua configuração."
+
+msgid "Scales the model to offset the material's cooling shrinkage."
+msgstr "Escala o modelo para compensar a contração do material ao esfriar."
+
+msgid "Matters for ABS, ASA and nylon; keep it 100% for low-shrink materials."
+msgstr "Importa para ABS, ASA e náilon; mantenha 100% em materiais de baixa contração."
+
+msgid "The minimum part cooling fan speed used when layers are slow enough."
+msgstr "A velocidade mínima do ventilador da peça quando as camadas são lentas o bastante."
+
+msgid "Lower values keep layers warmer and bond better; higher values improve detail."
+msgstr "Valores menores mantêm as camadas mais quentes e unidas; maiores melhoram o detalhe."
+
+msgid "The maximum part cooling fan speed, reached on short layers."
+msgstr "A velocidade máxima do ventilador da peça, atingida em camadas curtas."
+
+msgid "Higher speeds improve overhangs and bridges but can weaken layer bonding."
+msgstr "Velocidades maiores melhoram saliências e pontes, mas podem enfraquecer a adesão entre camadas."
+
+msgid "Keeps the fan off for the first layers so they stay warm and stick."
+msgstr "Mantém o ventilador desligado nas primeiras camadas para que fiquem quentes e grudem."
+
+msgid "Too few layers risk lifting corners; too many can hurt early overhangs."
+msgstr "Poucas camadas arriscam levantar os cantos; muitas podem prejudicar as primeiras saliências."
+
+msgid "Recommended: 1 to 3 layers."
+msgstr "Recomendado: de 1 a 3 camadas."
+
+msgid "Ramps the fan up gradually until it reaches full speed at this layer."
+msgstr "Aumenta o ventilador gradualmente até a velocidade total nesta camada."
+
+msgid "Useful for materials that need a gentle transition from first layers."
+msgstr "Útil para materiais que precisam de uma transição suave a partir das primeiras camadas."
+
+msgid "Layers that take less than this many seconds get more cooling."
+msgstr "Camadas que levam menos que esse número de segundos recebem mais resfriamento."
+
+msgid "Raise it for small parts that overheat; leave it lower for large parts."
+msgstr "Aumente para peças pequenas que superaquecem; deixe menor para peças grandes."
+
+msgid "Slows layers that print faster than this time, giving each layer time to cool."
+msgstr "Reduz a velocidade das camadas que imprimem mais rápido que esse tempo, dando tempo para esfriar."
+
+msgid "Improves small parts and tips, at the cost of longer print time."
+msgstr "Melhora peças pequenas e pontas, ao custo de mais tempo de impressão."
+
+msgid "Recommended: 4 s to 8 s."
+msgstr "Recomendado: de 4 s a 8 s."
+
+msgid "The lowest speed layer cooling is allowed to slow the print to."
+msgstr "A menor velocidade a que o resfriamento de camada pode reduzir a impressão."
+
+msgid "Too low causes blobs from heat build-up; too high gives less cooling benefit."
+msgstr "Baixa demais causa calombos por acúmulo de calor; alta demais dá menos benefício de resfriamento."
+
+msgid "Boosts the fan on overhangs and bridges to solidify them quickly."
+msgstr "Aumenta o ventilador em saliências e pontes para solidificá-las rápido."
+
+msgid "Raise it if overhangs curl or droop."
+msgstr "Aumente se as saliências enrolarem ou caírem."
+
+msgid "Recommended: 100% for PLA."
+msgstr "Recomendado: 100% para PLA."
+
+msgid "Runs the auxiliary fan to move more air over the part."
+msgstr "Aciona o ventilador auxiliar para mover mais ar sobre a peça."
+
+msgid "Helps PLA and bridging; disable it for ABS and ASA to avoid warping."
+msgstr "Ajuda PLA e pontes; desative em ABS e ASA para evitar empenamento."
+
+msgid "Sets a target chamber temperature to reduce warping and improve layer bonding."
+msgstr "Define a temperatura-alvo da câmara para reduzir o empenamento e melhorar a adesão entre camadas."
+
+msgid "Useful for ABS, ASA and nylon; leave it off for PLA, which softens in a hot chamber."
+msgstr "Útil para ABS, ASA e náilon; deixe desligada para PLA, que amolece em câmara quente."
+
+msgid "Determines default temperatures and compatibility checks for mixed prints."
+msgstr "Determina temperaturas padrão e verificações de compatibilidade em impressões mistas."
+
+msgid "Set the correct type so incompatible materials are flagged in multi-material prints."
+msgstr "Defina o tipo correto para que materiais incompatíveis sejam sinalizados em impressões multimaterial."
+
+msgid "Marks the material as dissolvable, such as PVA, so it can be used for supports."
+msgstr "Marca o material como solúvel, como PVA, para poder ser usado em suportes."
+
+msgid "Soluble materials are often moisture sensitive and need dry storage."
+msgstr "Materiais solúveis costumam ser sensíveis à umidade e precisam de armazenamento seco."
+
+msgid "Marks the filament as a support material."
+msgstr "Marca o filamento como material de suporte."
+
+msgid "Lets the slicer assign it to support structures and use its dedicated settings."
+msgstr "Permite que o fatiador o atribua às estruturas de suporte e use configurações próprias."
+
+msgid "Runs G-code each time this filament is loaded for printing."
+msgstr "Executa G-code sempre que este filamento é carregado para imprimir."
+
+msgid "Use it for filament-specific commands such as pressure advance."
+msgstr "Use para comandos específicos do filamento, como avanço de pressão."
+
+msgid "Runs G-code each time this filament finishes or is unloaded."
+msgstr "Executa G-code sempre que este filamento termina ou é descarregado."
+
+msgid "Use it for cleanup commands specific to this filament."
+msgstr "Use para comandos de limpeza específicos deste filamento."
+
+msgid "Must match the installed nozzle, as line widths and flow are derived from it."
+msgstr "Deve corresponder ao bico instalado, pois larguras de linha e fluxo derivam dele."
+
+msgid "A wrong value gives incorrect extrusion and layer height limits."
+msgstr "Um valor errado causa extrusão incorreta e limites de altura de camada inadequados."
+
+msgid "Recommended: 0.4 mm for general use."
+msgstr "Recomendado: 0,4 mm para uso geral."
+
+msgid "Defines the bed shape the slicer can place objects on."
+msgstr "Define o formato da mesa onde o fatiador pode posicionar objetos."
+
+msgid "Must match the real bed, otherwise objects may be placed out of reach."
+msgstr "Deve corresponder à mesa real, senão objetos podem ficar fora do alcance."
+
+msgid "Maximum object height the printer can reach."
+msgstr "Altura máxima de objeto que a impressora alcança."
+
+msgid "Prevents slicing models taller than the printer can build."
+msgstr "Impede fatiar modelos mais altos do que a impressora consegue imprimir."
+
+msgid "Marks parts of the bed where nothing should be printed, such as clips."
+msgstr "Marca partes da mesa onde nada deve ser impresso, como presilhas."
+
+msgid "Objects are kept out of these zones when arranging."
+msgstr "Os objetos ficam fora dessas zonas ao organizar."
+
+msgid "Shifts all Z positions to compensate for nozzle-to-bed distance."
+msgstr "Desloca todas as posições em Z para compensar a distância entre bico e mesa."
+
+msgid "Use small steps; adjust only if the first layer is consistently too high or too low."
+msgstr "Use passos pequenos; ajuste só se a primeira camada estiver sempre alta ou baixa demais."
+
+msgid "Selects the firmware dialect for G-code commands."
+msgstr "Seleciona o dialeto de G-code do firmware."
+
+msgid "A wrong flavor can break temperature, retraction or acceleration commands."
+msgstr "Um dialeto errado pode quebrar comandos de temperatura, retração ou aceleração."
+
+msgid "Uses relative extruder moves, which avoids precision loss on long prints."
+msgstr "Usa movimentos relativos do extrusor, evitando perda de precisão em impressões longas."
+
+msgid "Required by some firmware; leave on if your printer supports it."
+msgstr "Exigido por alguns firmwares; deixe ligado se a impressora suportar."
+
+msgid "Lets the firmware handle retraction with G10 and G11 instead of slicer-set moves."
+msgstr "Deixa o firmware cuidar da retração com G10 e G11, em vez de movimentos definidos no fatiador."
+
+msgid "Needs firmware support and tuning; settings come from the firmware."
+msgstr "Exige suporte e ajuste no firmware; os valores vêm do firmware."
+
+msgid "Longer retraction reduces stringing but risks clogs and extruder wear."
+msgstr "Retração maior reduz fiapos, mas arrisca entupimento e desgaste do extrusor."
+
+msgid "Direct drive usually needs 0.5 mm to 2 mm; Bowden setups need more."
+msgstr "Direct drive costuma precisar de 0,5 mm a 2 mm; Bowden precisa de mais."
+
+msgid "Recommended: 0.5 mm to 1 mm for direct drive, 3 mm to 6 mm for Bowden."
+msgstr "Recomendado: de 0,5 mm a 1 mm em direct drive, de 3 mm a 6 mm em Bowden."
+
+msgid "Faster retraction pulls the filament back before it oozes."
+msgstr "Retração mais rápida puxa o filamento antes que escorra."
+
+msgid "Too fast can grind the filament; too slow lets plastic ooze."
+msgstr "Rápida demais pode desgastar o filamento; lenta demais deixa o plástico escorrer."
+
+msgid "Recommended: 30 mm/s to 60 mm/s."
+msgstr "Recomendado: de 30 mm/s a 60 mm/s."
+
+msgid "Travel moves shorter than this skip retraction."
+msgstr "Deslocamentos menores que esse valor não fazem retração."
+
+msgid "Raising it saves time but may leave strings on short hops."
+msgstr "Aumentar economiza tempo, mas pode deixar fiapos em saltos curtos."
+
+msgid "Lifts the nozzle during travel to avoid scraping the print."
+msgstr "Levanta o bico durante o deslocamento para não raspar na peça."
+
+msgid "Reduces collisions but adds time and can increase stringing."
+msgstr "Reduz colisões, mas soma tempo e pode aumentar os fiapos."
+
+msgid "Recommended: 0.2 mm to 0.4 mm, or 0 to disable."
+msgstr "Recomendado: de 0,2 mm a 0,4 mm, ou 0 para desativar."
+
+msgid "Retracts before moving to the next layer to avoid a blob at the layer change."
+msgstr "Retrai antes de subir para a próxima camada, evitando um calombo na troca de camada."
+
+msgid "Minor time cost; helps hide the seam."
+msgstr "Custo de tempo pequeno; ajuda a esconder a costura."
+
+msgid "Moves the nozzle along the path during retraction to wipe ooze off the tip."
+msgstr "Move o bico pelo trajeto durante a retração para limpar o escorrimento da ponta."
+
+msgid "Reduces blobs and strings, with a small time cost."
+msgstr "Reduz calombos e fiapos, com pequeno custo de tempo."
+
+msgid "Retracts part of the length before wiping so the tip is clean as it moves."
+msgstr "Retrai parte do comprimento antes de limpar para que a ponta fique limpa ao se mover."
+
+msgid "Lower values wipe with more pressure; higher values retract earlier."
+msgstr "Valores menores limpam com mais pressão; maiores retraem mais cedo."
+
+msgid "Caps the acceleration the printer may use on this axis."
+msgstr "Limita a aceleração que a impressora pode usar neste eixo."
+
+msgid "Set it to what the firmware and frame handle without skipping steps or ringing."
+msgstr "Defina conforme o que o firmware e a estrutura aguentam sem perder passos nem gerar ondulações."
+
+msgid "Caps the speed the printer may use on this axis."
+msgstr "Limita a velocidade que a impressora pode usar neste eixo."
+
+msgid "Higher limits only help if the motors and frame can sustain them."
+msgstr "Limites maiores só ajudam se os motores e a estrutura aguentarem."
+
+msgid "Runs once before printing, to home, heat and prepare the printer."
+msgstr "Executa uma vez antes de imprimir, para referenciar, aquecer e preparar a impressora."
+
+msgid "Errors here can ruin every print, so test changes on a short print."
+msgstr "Erros aqui podem arruinar todas as impressões; teste alterações em uma impressão curta."
+
+msgid "Runs after the print, to cool down, park the head and turn off heaters."
+msgstr "Executa após a impressão, para esfriar, estacionar o cabeçote e desligar os aquecedores."
+
+msgid "Make sure it turns off heaters and fans to keep the printer safe."
+msgstr "Garanta que desligue aquecedores e ventiladores para manter a impressora segura."
+
+msgid "Runs before every layer change."
+msgstr "Executa antes de cada troca de camada."
+
+msgid "Adds a command per layer, so keep it short to avoid slowing the print."
+msgstr "Soma um comando por camada; mantenha curto para não atrasar a impressão."
+
+msgid "Runs at every layer change, after the move to the new layer."
+msgstr "Executa em cada troca de camada, após o movimento para a nova camada."
+
+msgid "Commonly used for timelapse triggers or progress commands."
+msgstr "Usado com frequência para disparar timelapse ou comandos de progresso."
+
+msgid "Runs during filament changes to unload and load the material."
+msgstr "Executa durante as trocas de filamento para descarregar e carregar o material."
+
+msgid "Required for multi-material setups; errors can cause jams."
+msgstr "Obrigatório em configurações multimaterial; erros podem causar entupimentos."
+
+msgid "Runs when a pause is inserted in the print."
+msgstr "Executa quando uma pausa é inserida na impressão."
+
+msgid "Use it to park the head and beep or notify."
+msgstr "Use para estacionar o cabeçote e emitir aviso sonoro ou notificação."
+
+msgid "Radius around the nozzle used to avoid collisions in print-by-object mode."
+msgstr "Raio em torno do bico usado para evitar colisões no modo de impressão por objeto."
+
+msgid "Larger values leave more space between objects but reduce how many fit."
+msgstr "Valores maiores deixam mais espaço entre objetos, mas reduzem quantos cabem."
+
+msgid "Height at which the gantry clears when printing object by object."
+msgstr "Altura em que o pórtico passa livre ao imprimir objeto por objeto."
+
+msgid "Taller objects than this cannot be printed one after another."
+msgstr "Objetos mais altos que isso não podem ser impressos em sequência."
+
+msgid "Records nozzle hardness for abrasive filament warnings."
+msgstr "Registra a dureza do bico para avisos sobre filamentos abrasivos."
+
+msgid "Enables belt-printer mode, with a tilted slicing plane and transformed G-code coordinates."
+msgstr "Ativa o modo de impressora de esteira, com plano de fatiamento inclinado e coordenadas do G-code transformadas."
+
+msgid "Only for belt printers; leave it off on regular printers."
+msgstr "Somente para impressoras de esteira; deixe desligado em impressoras comuns."
+
+msgid "Sets the preview image sizes embedded in the G-code."
+msgstr "Define os tamanhos das imagens de prévia embutidas no G-code."
+
+msgid "Use only sizes your printer's screen supports."
+msgstr "Use apenas tamanhos que a tela da impressora suporta."
+
+msgid "Stops the slicer from emitting remaining-time commands."
+msgstr "Impede o fatiador de emitir comandos de tempo restante."
+
+msgid "Use it if your firmware does not understand M73 and shows errors."
+msgstr "Use se o firmware não entender o M73 e mostrar erros."
+
+msgid "Starts the fan earlier so it reaches the target speed when needed."
+msgstr "Liga o ventilador mais cedo para atingir a velocidade-alvo quando necessário."
+
+msgid "Compensates for fan spin-up lag on printers with slow fans."
+msgstr "Compensa o atraso de aceleração do ventilador em impressoras com ventiladores lentos."
+
+msgid "Runs the fan at full power briefly before the target speed to get it spinning."
+msgstr "Aciona o ventilador com potência máxima por pouco tempo antes da velocidade-alvo, para que ele gire."
+
+msgid "Useful for fans that stall at low PWM."
+msgstr "Útil para ventiladores que travam em PWM baixo."
+
+msgid "Adds a margin around the print area for adaptive bed mesh probing."
+msgstr "Adiciona uma margem em torno da área de impressão para o sensoriamento adaptativo da malha da mesa."
+
+msgid "Larger margins probe more of the bed and take longer."
+msgstr "Margens maiores medem mais da mesa e levam mais tempo."
+
+msgid "Free text stored with the printer profile."
+msgstr "Texto livre guardado no perfil da impressora."
+
+msgid "Used by some profiles to carry flags or hints, so edit it carefully."
+msgstr "Alguns perfis o usam para guardar marcadores ou dicas, então edite com cuidado."
+
+msgid "Free text stored with the filament profile."
+msgstr "Texto livre guardado no perfil do filamento."
+
+msgid "Use it for reminders such as drying time or tuning results."
+msgstr "Use para lembretes como tempo de secagem ou resultados de ajuste."
+
+msgid "Free text stored with the process profile."
+msgstr "Texto livre guardado no perfil de processo."
+
+msgid "Use it to record what the profile is for."
+msgstr "Use para registrar a finalidade do perfil."
