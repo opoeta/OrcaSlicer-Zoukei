@@ -44,6 +44,9 @@ struct PipelineFixture {
                 if (vertex.y() == 20.0f) vertex.x() = 7.0f + 0.3f * vertex.x();
         }
         config.set_deserialize_strict("seam_position", "back"); // Rear needs no visibility ray tracing.
+        // These tests inspect the classic placer's per-object data (m_seam_per_object); the default
+        // PrusaSlicer 2.9 placer keeps its own state and never fills it.
+        config.set_deserialize_strict("seam_algorithm", "classic");
         config.set_deserialize_strict("layer_height", "0.2");
         config.set_deserialize_strict("initial_layer_print_height", "0.2");
         config.set_deserialize_strict("outer_wall_line_width", "0.4");

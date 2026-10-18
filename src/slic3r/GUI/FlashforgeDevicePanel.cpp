@@ -1,5 +1,6 @@
 #include "FlashforgeDevicePanel.hpp"
 #include "FlashforgeIfsAutoSync.hpp"
+#include "Zoukei/PrintMarkers.hpp"
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
@@ -443,6 +444,10 @@ void FlashforgeDevicePanel::register_routes()
     h["get_lang"]       = [this](const json&) { post_command("get_lang", wxGetApp().current_language_code().ToStdString()); };
     h["device_list"]    = [this](const json&) { send_device_list(); };
     h["moonraker_http"] = [this](const json& j) { route_moonraker_http(j); };
+    // Orca Zoukei: pause / colour change markers of the sliced job the printer reports (see Zoukei/PrintMarkers).
+    h["print_markers"] = [this](const json& j) {
+        post_command("print_markers", Zoukei::PrintMarkers::web_answer(json_string(j, "requestId"), json_string(j, "name")));
+    };
     // Pause / filament-change commands (M600, M601, PAUSE, @pause) of a job file: [[layer, byte offset], ...].
     h["moonraker_pauses"] = [this](const json& j) {
         const std::string request_id = json_string(j, "requestId");

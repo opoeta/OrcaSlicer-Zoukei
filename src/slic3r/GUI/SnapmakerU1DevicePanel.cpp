@@ -1,6 +1,7 @@
 #include "SnapmakerU1DevicePanel.hpp"
 #include "SnapmakerU1AutoSync.hpp"
 #include "FlashforgeIfsAutoSync.hpp"
+#include "Zoukei/PrintMarkers.hpp"
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
@@ -466,6 +467,10 @@ void SnapmakerU1DevicePanel::register_routes()
     h["get_lang"]       = [this](const json&) { post_command("get_lang", wxGetApp().current_language_code().ToStdString()); };
     h["device_list"]    = [this](const json&) { send_device_list(); };
     h["moonraker_http"] = [this](const json& j) { route_moonraker_http(j); };
+    // Orca Zoukei: pause / colour change markers of the sliced job the printer reports (see Zoukei/PrintMarkers).
+    h["print_markers"] = [this](const json& j) {
+        post_command("print_markers", Zoukei::PrintMarkers::web_answer(json_string(j, "requestId"), json_string(j, "name")));
+    };
     // The pause marks of a job file are not read for the U1 (the progress bar simply has no marks).
     h["moonraker_pauses"] = [this](const json& j) {
         post_command("moonraker_pauses", {{"requestId", json_string(j, "requestId")}, {"ok", false}, {"error", "not supported"}});

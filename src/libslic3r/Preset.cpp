@@ -1388,6 +1388,8 @@ static std::vector<std::string> s_Preset_print_options{
     "neostitch_skip_layers", "neostitch_fill_margin",
     "neowave_roof", "neowave_roof_shape", "neowave_roof_order", "neowave_roof_reverse",
     "multipass_prime_volume",
+    // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko)
+    "neotko_true_objects", "gravity_contact_gap_ratio", "neotko_assemble_boolean",
     "infill_combination",
     "infill_combination_max_layer_height", /*"adaptive_layer_height",*/
     "support_bottom_interface_spacing",

@@ -7,6 +7,7 @@
 #include <wx/string.h>
 #include <wx/window.h>
 #include "../wxExtensions.hpp"
+#include <vector>
 
 class ProgressBar : public wxWindow
 {
@@ -37,7 +38,15 @@ public:
     wxColour m_progress_colour            = {0, 150, 136};
     wxColour m_progress_colour_disable    = {255, 111, 0};
     wxString m_disable_text;
-    
+
+    // Orca Zoukei: ticks on the bar (pause / colour change positions), frac 0..1 along the bar.
+    struct Mark
+    {
+        double   frac{0.};
+        wxColour colour;
+    };
+    std::vector<Mark> m_marks;
+    wxColour          m_mark_outline{255, 255, 255};
 
 public:
     void         ShowNumber(bool shown);
@@ -46,6 +55,7 @@ public:
     void         Reset();
     void         SetProgress(int step);
     void         SetRadius(double radius);
+    void         SetMarks(const std::vector<Mark> &marks);
     void         SetProgressForedColour(wxColour colour);
     void         SetProgressBackgroundColour(wxColour colour);
     void         Rescale();

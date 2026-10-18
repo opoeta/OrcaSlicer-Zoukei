@@ -171,7 +171,10 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 .file, .fname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pct { font-variant-numeric: tabular-nums; }
 .progress { position: relative; height: 6px; margin: 12px 0 10px; border-radius: 3px; background: var(--panel); overflow: hidden; }
-.progress .marks b { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #f5a623; }
+.progress .marks b { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #f5a623; box-shadow: 0 0 0 1px var(--panel); }
+.progress .marks b.k-tool { background: #2d9cdb; }
+.progress .marks b.k-custom { background: #9b59b6; }
+.progress .marks b.k-color { background: #00ae42; }
 .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
 .meta { display: flex; gap: 18px; min-height: 34px; }
 .meta small { display: block; color: var(--muted); }

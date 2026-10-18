@@ -118,6 +118,7 @@
 
 #include "ThermalPreconditioningDialog.hpp"
 #include <wx/dcgraph.h>
+#include "Zoukei/PrintMarkers.hpp"
 
 
 namespace Slic3r { namespace GUI {
@@ -888,6 +889,13 @@ void PrintingTaskPanel::create_panel(wxWindow* parent)
 
 
     progress_left_sizer->Add(penel_finish_time, 0, wxEXPAND |wxALL, 0);
+
+    // Orca Zoukei: time until the next pause / colour change of the sliced job.
+    m_staticText_next_stop = new wxStaticText(progress_lr_panel, wxID_ANY, wxEmptyString);
+    m_staticText_next_stop->SetFont(::Label::Body_12);
+    m_staticText_next_stop->SetForegroundColour(wxColour(146, 146, 146));
+    m_staticText_next_stop->Hide();
+    progress_left_sizer->Add(m_staticText_next_stop, 0, wxEXPAND | wxTOP, FromDIP(4));
     // progress_left_sizer->SetMaxSize(wxSize(FromDIP(600), -1));
 
     progress_right_sizer->Add(0, 0, 0, wxEXPAND | wxLEFT, FromDIP(18));
@@ -1119,8 +1127,53 @@ void PrintingTaskPanel::show_error_msg(wxString msg)
     m_error_text->SetLabel(msg);
 }
 
+void PrintingTaskPanel::update_print_markers(const std::string &job_name, int progress_percent, int left_seconds)
+{
+    using namespace Slic3r::GUI::Zoukei;
+    PrintMarkers::MarkerSet set;
+    const bool              found = !job_name.empty() && PrintMarkers::enabled() && PrintMarkers::find_job(job_name, set) && !set.empty();
+    if (!found) {
+        m_gauge_progress->SetMarks({});
+        if (!m_gauge_progress->GetToolTipText().IsEmpty())
+            m_gauge_progress->SetToolTip(wxEmptyString);
+        if (m_staticText_next_stop && m_staticText_next_stop->IsShown()) {
+            m_staticText_next_stop->Hide();
+            Layout();
+        }
+        return;
+    }
+    std::vector<ProgressBar::Mark> marks;
+    for (const auto &m : set.markers)
+        marks.push_back({double(m.frac), PrintMarkers::colour(m)});
+    m_gauge_progress->SetMarks(marks);
+
+    const double progress = std::max(0, std::min(100, progress_percent)) / 100.0;
+    double       secs     = -1.;
+    const auto  *next     = PrintMarkers::next_marker(set, progress, double(left_seconds), &secs);
+    wxString     text;
+    if (next) {
+        text = wxString::Format(_L("Next stop: %s, layer %d"), PrintMarkers::kind_label(next->kind), next->layer);
+        if (secs >= 0.)
+            text += wxString::Format(_L(", in %s"), PrintMarkers::format_duration(float(secs)));
+    } else {
+        text = wxString::Format(_L("%d stops, none left"), int(set.markers.size()));
+    }
+    wxString tip;
+    for (const auto &m : set.markers)
+        tip += (tip.IsEmpty() ? wxString() : wxString("\n")) + PrintMarkers::describe(m);
+    if (m_gauge_progress->GetToolTipText() != tip)
+        m_gauge_progress->SetToolTip(tip);
+    if (m_staticText_next_stop->GetLabelText() != text)
+        m_staticText_next_stop->SetLabelText(text);
+    if (!m_staticText_next_stop->IsShown()) {
+        m_staticText_next_stop->Show();
+        Layout();
+    }
+}
+
 void PrintingTaskPanel::reset_printing_value()
 {
+    update_print_markers(std::string(), 0, 0);
     this->set_thumbnail_img(m_thumbnail_placeholder.bmp(), m_thumbnail_placeholder.name());
     this->set_plate_index(-1);
 }
@@ -3910,6 +3963,7 @@ void StatusPanel::update_subtask(MachineObject *obj)
             m_project_task_panel->enable_partskip_button(obj, true);
             // update printing stage
             m_project_task_panel->update_left_time(obj->mc_left_time);
+            m_project_task_panel->update_print_markers(obj->subtask_name, obj->subtask_ ? obj->subtask_->task_progress : 0, obj->mc_left_time);
             if (obj->subtask_) {
                 m_project_task_panel->update_stage_value_with_machine(obj->get_curr_stage(), obj->subtask_->task_progress, obj);
                 m_project_task_panel->update_progress_percent(wxString::Format("%d", obj->subtask_->task_progress), "%");

@@ -3,6 +3,7 @@
 #include "OptionsGroup.hpp"
 #include "GUI_App.hpp"
 #include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
+#include "Zoukei/PrintMarkerTimeline.hpp"
 #include "MainFrame.hpp"
 #include "WebViewDialog.hpp"
 #include "Plater.hpp"
@@ -1110,6 +1111,9 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                 }
             }
         }
+        else if (param == "zoukei_print_markers") {
+            Zoukei::PrintMarkerTimeline::refresh_all();
+        }
         else if (param == "zoukei_libre_mode") {
             // Mirror the switch into the preset bundle (slice-time key) and invalidate the plate result.
             LibreMode::sync_to_bundle();
@@ -1813,6 +1817,11 @@ void PreferencesDialog::create_items()
         _L("Show a rich card (description, illustration and notes) when hovering a setting name. If disabled, plain tooltips are used."),
         "param_tip_cards");
     g_sizer->Add(item_param_tip_cards);
+
+    auto item_zoukei_markers = create_item_checkbox(_L("Show pause and color change markers"),
+        _L("Marks on the print progress bars and in the slice summary where the print will pause, ask for a color change, switch tool or run custom G-code, with the time of each stop."),
+        "zoukei_print_markers");
+    g_sizer->Add(item_zoukei_markers);
 
 #ifdef __linux__
     auto item_window_button_pos  = create_item_checkbox(_L("Use window buttons on left side"), "", "window_buttons_on_left", _L("(Requires restart)"));

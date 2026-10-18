@@ -39688,3 +39688,27 @@ msgstr "Liberar"
 
 msgid "Click a face to paint the active recipe. Shift + click erases. Recipes print on top surfaces only."
 msgstr "Clique numa face para pintar a receita ativa. Shift + clique apaga. As receitas só são impressas nas superfícies superiores."
+
+msgid "Show pause and color change markers"
+msgstr "Mostrar marcadores de pausa e troca de cor"
+
+msgid "Marks on the print progress bars and in the slice summary where the print will pause, ask for a color change, switch tool or run custom G-code, with the time of each stop."
+msgstr "Marca nas barras de progresso da impressão e no resumo do fatiamento onde a impressão vai pausar, pedir troca de cor, trocar de ferramenta ou executar G-code personalizado, com o horário de cada parada."
+
+msgid "Tool change"
+msgstr "Troca de ferramenta"
+
+msgid "Stops: %d"
+msgstr "Paradas: %d"
+
+msgid "%s, layer %d, at %s"
+msgstr "%s, camada %d, aos %s"
+
+msgid "Next stop: %s, layer %d"
+msgstr "Próxima parada: %s, camada %d"
+
+msgid ", in %s"
+msgstr ", em %s"
+
+msgid "%d stops, none left"
+msgstr "%d paradas, nenhuma restante"

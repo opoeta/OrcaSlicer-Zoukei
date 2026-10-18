@@ -6,6 +6,7 @@
 #include <wx/gdicmn.h>
 #include <wx/string.h>
 #include "Label.hpp"
+#include <algorithm>
 
 
 
@@ -69,6 +70,18 @@ void ProgressBar::create(wxWindow *parent, wxWindowID id, const wxPoint &pos,  w
 
 void ProgressBar::SetRadius(double radius) {
     m_radius = radius;
+    Refresh();
+}
+
+void ProgressBar::SetMarks(const std::vector<Mark> &marks)
+{
+    if (marks.size() == m_marks.size()) {
+        bool same = true;
+        for (size_t i = 0; i < marks.size() && same; ++i)
+            same = marks[i].frac == m_marks[i].frac && marks[i].colour == m_marks[i].colour;
+        if (same) return;
+    }
+    m_marks = marks;
     Refresh();
 }
 
@@ -236,6 +249,16 @@ void ProgressBar::doRender(wxDC &dc)
         }
     }
 
+    // Orca Zoukei: stop markers (pause / colour change) over the bar.
+    if (!m_marks.empty()) {
+        const double r = std::max(3.0, double(size.y) / 2.0 - 1.0);
+        dc.SetPen(wxPen(m_mark_outline, 2));
+        for (const Mark &mk : m_marks) {
+            const double x = std::max(r, std::min(double(size.x) - r, double(size.x) * mk.frac));
+            dc.SetBrush(wxBrush(mk.colour));
+            dc.DrawCircle(wxPoint(int(x), size.y / 2), int(r));
+        }
+    }
 }
 
 

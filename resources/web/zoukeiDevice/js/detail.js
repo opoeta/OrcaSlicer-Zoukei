@@ -238,11 +238,17 @@
                 pct.textContent = Math.round(d.progress) + '%';
                 fill.style.width = d.progress + '%';
                 const left = leftSeconds(s.printLeftTime);
-                const pm = d.busy && Array.isArray(s.pauseMarks) ? s.pauseMarks : [];
-                const mk = pm.map(p => p.frac.toFixed(4)).join(',');
+                // Markers of the sliced job (remembered by Orca when the plate was sent); the Moonraker file scan is the fallback.
+                const local = d.busy ? Z.Markers.get(job, schedule) : null;
+                const pm = local && !local.enabled ? [] : local && local.list.length ? local.list : d.busy && Array.isArray(s.pauseMarks) ? s.pauseMarks : [];
+                const mk = pm.map(p => p.frac.toFixed(4) + (p.kind || '') + (p.color || '')).join(',');
                 if (mk !== marksKey) {
                     marksKey = mk;
-                    marks.replaceChildren(...pm.map(p => h('b', { title: Z.t('layer') + ' ' + p.layer, style: 'left:' + (p.frac * 100).toFixed(2) + '%' })));
+                    marks.replaceChildren(...pm.map(p => h('b', {
+                        class: 'k-' + (p.kind || 'pause'),
+                        title: Z.t('mk_' + (p.kind || 'pause')) + ' - ' + Z.t('layer') + ' ' + p.layer + (p.t ? ' - ' + Z.fmt.duration(p.t) : '') + (p.text ? ' (' + p.text + ')' : ''),
+                        style: 'left:' + (p.frac * 100).toFixed(2) + '%' + (p.kind === 'color' && /^#[0-9a-f]{6}$/i.test(p.color || '') ? ';background:' + p.color : '')
+                    })));
                 }
                 const frac = d.progress / 100;
                 const passed = pm.filter(p => p.frac <= frac).length;
@@ -252,8 +258,8 @@
                     [[Z.t('layer'), Number(s.TotalLayer) ? (s.layer || 0) + ' / ' + s.TotalLayer : '--'],
                         [Z.t('elapsed'), Z.fmt.duration(s.printJobTime)],
                         [Z.t('remaining'), d.busy ? Z.fmt.duration(left) : '--']]
-                        .concat(pm.length && d.busy ? [[Z.t('pause_n'), passed + '/' + pm.length],
-                            [Z.t('next_pause'), nextP && left > 0 ? Z.fmt.duration(left * (nextP.frac - frac) / Math.max(0.0001, 1 - frac)) : '--']] : []).forEach(kv => meta.appendChild(h('div', h('small', { text: kv[0] }), h('b', { text: kv[1] }))));
+                        .concat(pm.length && d.busy ? [[Z.t('stop_n'), passed + '/' + pm.length],
+                            [Z.t('next_stop'), nextP && left > 0 ? Z.fmt.duration(left * (nextP.frac - frac) / Math.max(0.0001, 1 - frac)) : '--']] : []).forEach(kv => meta.appendChild(h('div', h('small', { text: kv[0] }), h('b', { text: kv[1] }))));
                 }
                 const showThumb = !!job && (d.busy || d.phase === 'done' || d.phase === 'stopped');
                 const url = !showThumb ? '' : mr ? link.currentThumb() : Z.Host.imageUrl(dev, '/downloads/original/current_print_image.png', (s.printStartTime || '') + job);

@@ -1291,6 +1291,8 @@ struct ExportFixture {
     explicit ExportFixture(const std::string &seam_position, int raft_layers = 0)
     {
         config.set_deserialize_strict("seam_position", seam_position);
+        // Precise Seam modifiers always use the classic placer; compare an unmarked object with it too.
+        config.set_deserialize_strict("seam_algorithm", "classic");
         config.set_deserialize_strict("seam_slope_type", "none"); // The loop then starts exactly at the seam.
         config.set_deserialize_strict("layer_height", "0.2");
         config.set_deserialize_strict("initial_layer_print_height", "0.2");

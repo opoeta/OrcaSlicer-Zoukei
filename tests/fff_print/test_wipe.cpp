@@ -59,6 +59,8 @@ DynamicPrintConfig wipe_config(const char *wall_generator, bool wipe_inward,
         { "bottom_shell_layers",         "0" },
         { "sparse_infill_density",       sparse_infill_density },
         { "seam_position",               seam_position },
+        // The expected seam corners are those of the classic placer, not the PrusaSlicer 2.9 default.
+        { "seam_algorithm",              "classic" },
         { "seam_gap",                    seam_gap },
         { "wipe",                        "1" },
         { "wipe_distance",               "2" },

@@ -47,6 +47,7 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/MultiMaterialSegmentation.hpp"
 #include "slic3r/GUI/GCodeViewer.hpp"
+#include "slic3r/GUI/Zoukei/PrintMarkerTimeline.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/Selection.hpp"
 
@@ -264,6 +265,8 @@ Preview::Preview(
 void Preview::update_gcode_result(GCodeProcessorResult* gcode_result)
 {
     m_gcode_result = gcode_result;
+    if (m_marker_timeline != nullptr)
+        m_marker_timeline->set_result(m_gcode_result);
 
     return;
 }
@@ -302,6 +305,9 @@ bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
     // sizer, m_canvas_widget
     wxBoxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
     main_sizer->Add(m_canvas_widget, 1, wxALL | wxEXPAND, 0);
+    // Orca Zoukei: the timeline stays hidden until the sliced plate has stops to show.
+    m_marker_timeline = new Zoukei::PrintMarkerTimeline(this);
+    main_sizer->Add(m_marker_timeline, 0, wxEXPAND, 0);
 
     SetSizer(main_sizer);
     SetMinSize(GetSize());
@@ -352,6 +358,9 @@ void Preview::load_print(bool keep_z_range, bool only_gcode)
     PrinterTechnology tech = m_process->current_printer_technology();
     if (tech == ptFFF)
         load_print_as_fff(keep_z_range, only_gcode);
+
+    if (m_marker_timeline != nullptr)
+        m_marker_timeline->set_result(tech == ptFFF ? m_gcode_result : nullptr);
 
     Layout();
 }

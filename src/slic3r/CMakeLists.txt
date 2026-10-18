@@ -89,6 +89,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/GLGizmoSupportZones.hpp
     GUI/Zoukei/GLGizmoColorStitchPainter.cpp
     GUI/Zoukei/GLGizmoColorStitchPainter.hpp
+    GUI/Zoukei/PrintMarkers.cpp
+    GUI/Zoukei/PrintMarkers.hpp
+    GUI/Zoukei/PrintMarkerTimeline.cpp
+    GUI/Zoukei/PrintMarkerTimeline.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp

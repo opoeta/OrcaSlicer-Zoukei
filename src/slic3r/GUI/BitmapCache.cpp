@@ -305,6 +305,8 @@ NSVGimage* BitmapCache::nsvgParseFromFileWithReplace(const char* filename, const
     data[size] = '\0';	// Must be null terminated.
     fclose(fp);
 
+    // Orca Zoukei: <mask> only for the setting tip illustrations (Orca's own icons keep their masks-ignored look).
+    nsvg_masks_enabled = std::strstr(filename, "param_tips") != nullptr ? 1 : 0;
     if (replaces.empty())
         image = nsvgParse(data, units, dpi);
     else {
@@ -313,6 +315,7 @@ NSVGimage* BitmapCache::nsvgParseFromFileWithReplace(const char* filename, const
             boost::replace_all(str, val.first, val.second);
         image = nsvgParse(str.data(), units, dpi);
     }
+    nsvg_masks_enabled = 0;
     free(data);
     return image;
 

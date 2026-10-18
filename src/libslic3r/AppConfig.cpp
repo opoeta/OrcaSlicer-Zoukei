@@ -500,6 +500,9 @@ void AppConfig::set_defaults()
         set_bool("zoukei_update_check", true);
     if (get("zoukei_update_beta").empty())
         set_bool("zoukei_update_beta", false);
+    // Orca Zoukei: markers for pauses / colour changes on the print progress bars and the slice summary.
+    if (get("zoukei_print_markers").empty())
+        set_bool("zoukei_print_markers", true);
 
     // Orca
     if(get("show_splash_screen").empty()) {

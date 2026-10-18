@@ -330,6 +330,11 @@ private:
 
     // Cache for the colors to reduce the need to recalculate colors of all the vertices.
     std::vector<float> m_vertices_colors;
+    // Orca Zoukei: coaxial filaments are drawn as side by side stripes by the segment shader. Per vertex, 0 = plain
+    // colour, k > 0 = the k-th entry of m_stripe_palette. Uploaded with the colours (second channel of the colours buffer).
+    std::vector<uint8_t> m_vertices_stripe;
+    // STRIPE_MAX_IDS entries of 4 colours, 4 floats each: rgb 0..1, and in the w of the first colour the stripes count.
+    std::vector<float> m_stripe_palette;
 
     //
     // Variables used for toolpaths visibiliity
@@ -390,6 +395,7 @@ private:
         int reverse_order{ -1 };
         int instances_count{ -1 };
         int clipping_plane{ -1 };
+        int stripe_palette{ -1 };
 
         void init(unsigned int shader_id);
     };

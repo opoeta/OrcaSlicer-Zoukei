@@ -193,6 +193,7 @@
 #include "GUI.hpp"
 #include "BoxPrintMappingDialog.hpp"
 #include "GUI_App.hpp"
+#include "Zoukei/PrintMarkers.hpp"
 #include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
 #include "PostProcessor.hpp"
 #include "CrealityCfsUi.hpp"
@@ -21773,6 +21774,13 @@ void Plater::send_gcode_legacy(int plate_idx, Export3mfProgressFn proFn)
         }
 
         upload_job.upload_data.source_path = p->m_print_job_data._3mf_path;
+    }
+
+    // Orca Zoukei: remember where this plate pauses / changes colour, for the device panel progress bars.
+    if (PartPlate* sent_plate = get_partplate_list().get_plate(resolved_plate_idx)) {
+        std::string sent_name = upload_job.upload_data.upload_path.empty() ? default_output_file.filename().string() :
+                                                                           upload_job.upload_data.upload_path.filename().string();
+        Zoukei::PrintMarkers::remember_job(sent_name, sent_plate->get_slice_result());
     }
 
     p->export_gcode(fs::path(), false, std::move(upload_job));

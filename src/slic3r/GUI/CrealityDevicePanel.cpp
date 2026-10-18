@@ -1,6 +1,7 @@
 #include "CrealityDevicePanel.hpp"
 
 #include "CrealityDevice/DeviceStore.hpp"
+#include "Zoukei/PrintMarkers.hpp"
 #include "CrealityDevice/ImageServer.hpp"
 #include "CrealityDevice/LanDeviceProbe.hpp"
 #include "CrealityDevice/WsProxy.hpp"
@@ -795,6 +796,10 @@ void CrealityDevicePanel::register_routes()
     // Camera signalling and the Orca filament presets.
     h["get_webrtc_local_param"] = [this](const json& j) { route_get_webrtc_local_param(j); };
     h["get_filament_presets"]   = [this](const json& j) { route_get_filament_presets(j); };
+    // Orca Zoukei: pause / colour change markers of the sliced job the printer reports (see Zoukei/PrintMarkers).
+    h["print_markers"] = [this](const json& j) {
+        post_command("print_markers", Zoukei::PrintMarkers::web_answer(json_string(j, "requestId"), json_string(j, "name")));
+    };
     h["download_video"]         = [this](const json& j) { route_download_video(j); };
 }
 

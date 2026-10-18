@@ -137,6 +137,7 @@
 #include "slic3r/GUI/Widgets/ComboBox.hpp"
 #include "slic3r/GUI/Widgets/PopupWindow.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
+#include "slic3r/GUI/Zoukei/PrintMarkers.hpp"
 #include <boost/filesystem.hpp>
 
 using json = nlohmann::json;
@@ -3914,6 +3915,11 @@ void SelectMachineDialog::on_send_print()
         BOOST_LOG_TRIVIAL(info) << "print_job: m_print_type = from_normal";
         m_print_job->m_print_type = "from_normal";
         m_print_job->set_project_name(m_current_project_name.utf8_string());
+        // Orca Zoukei: remember where this plate pauses / changes colour, for the printer progress bars.
+        if (m_plater != nullptr) {
+            if (PartPlate* sent_plate = m_plater->get_partplate_list().get_plate(m_print_plate_idx))
+                Zoukei::PrintMarkers::remember_job(m_current_project_name.utf8_string(), sent_plate->get_slice_result());
+        }
     }
     else if(m_print_type == PrintFromType::FROM_SDCARD_VIEW){
         BOOST_LOG_TRIVIAL(info) << "print_job: m_print_type = from_sdcard_view";

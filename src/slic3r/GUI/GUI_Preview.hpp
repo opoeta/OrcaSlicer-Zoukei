@@ -38,6 +38,7 @@ namespace GUI {
 
 class GLCanvas3D;
 class GLToolbar;
+namespace Zoukei { class PrintMarkerTimeline; }
 class Bed3D;
 struct Camera;
 class Plater;
@@ -98,6 +99,8 @@ class Preview : public wxPanel
     DynamicPrintConfig* m_config;
     BackgroundSlicingProcess* m_process;
     GCodeProcessorResult* m_gcode_result;
+    // Orca Zoukei: pause / colour change timeline under the canvas.
+    Zoukei::PrintMarkerTimeline* m_marker_timeline{nullptr};
 
     // Calling this function object forces Plater::schedule_background_process.
     std::function<void()> m_schedule_background_process;

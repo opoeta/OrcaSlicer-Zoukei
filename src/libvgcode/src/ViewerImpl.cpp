@@ -758,6 +758,8 @@ void ViewerImpl::SegmentsUniforms::init(unsigned int shader_id)
     instances_count        = glGetUniformLocation(shader_id, "instances_count");
     // ORCA: section view
     clipping_plane         = glGetUniformLocation(shader_id, "clipping_plane");
+    // Orca Zoukei: colours of the coaxial stripes, only the main segments shader has it
+    stripe_palette         = glGetUniformLocation(shader_id, "stripe_pal");
 }
 
 void ViewerImpl::init(const std::string& opengl_context_version)
@@ -932,6 +934,7 @@ void ViewerImpl::reset()
     // should go back, not sit reserved until the next load
     std::vector<PathVertex>().swap(m_vertices);
     std::vector<float>().swap(m_vertices_colors);
+    std::vector<uint8_t>().swap(m_vertices_stripe);
     for (std::vector<float>& times : m_layer_start_times)
         std::vector<float>().swap(times);
     std::vector<uint32_t>().swap(m_layer_first_vertex);
@@ -1332,11 +1335,17 @@ void ViewerImpl::update_colors_texture()
             // update gpu buffer for colors
             m_texture_data.set_colors(m_vertices_colors);
     #else
-        m_colors_tex_size = m_vertices_colors.size() * sizeof(float);
+        // Orca Zoukei: two floats per vertex, the colour and the coaxial stripes id (0 = none), see apply_tool_multi_colors()
+        std::vector<float> colors_and_stripes(2 * m_vertices_colors.size());
+        for (size_t i = 0; i < m_vertices_colors.size(); ++i) {
+            colors_and_stripes[2 * i]     = m_vertices_colors[i];
+            colors_and_stripes[2 * i + 1] = i < m_vertices_stripe.size() ? static_cast<float>(m_vertices_stripe[i]) : 0.0f;
+        }
+        m_colors_tex_size = colors_and_stripes.size() * sizeof(float);
 
         // update gpu buffer for colors
         glsafe(glBindBuffer(GL_TEXTURE_BUFFER, m_colors_buf_id));
-        glsafe(glBufferData(GL_TEXTURE_BUFFER, m_vertices_colors.size() * sizeof(float), m_vertices_colors.data(), GL_STATIC_DRAW));
+        glsafe(glBufferData(GL_TEXTURE_BUFFER, colors_and_stripes.size() * sizeof(float), colors_and_stripes.data(), GL_STATIC_DRAW));
         glsafe(glBindBuffer(GL_TEXTURE_BUFFER, 0));
     #endif // ENABLE_OPENGL_ES
 }
@@ -1403,6 +1412,10 @@ void ViewerImpl::update_colors()
     // the "normal" color on every slider move.
     for (size_t i = 0; i < m_vertices.size(); ++i)
         m_vertices_colors[i] = encode_color(get_vertex_color(m_vertices[i]));
+
+    // Orca Zoukei: coaxial stripes are set by apply_tool_multi_colors() only
+    m_vertices_stripe.assign(m_vertices.size(), 0);
+    m_stripe_palette.clear();
 
     // Tool view, and the colour-print view a multi-material plate opens in (Summary is the same view)
     if ((m_settings.view_type == EViewType::Tool || m_settings.view_type == EViewType::ColorPrint ||
@@ -1764,11 +1777,51 @@ void ViewerImpl::set_realcolor(const RealColorParams& params)
 }
 
 // Orca Zoukei: coextruded / gradient filaments in the "Filament" (tool) view. CPU only, one pass over the
-// vertices while the colour buffer is rebuilt, so rendering costs nothing extra.
+// vertices while the colour buffer is rebuilt, so rendering costs nothing extra. Gradient filaments get one
+// colour per segment from here. Coextruded (2 to 4 colours) filaments mark their vertices with a stripes id and
+// the segment shader splits the bead into side by side stripes (colour 1 on the left of the travel direction);
+// the vertex colour then holds the mean of the colours, which is what RealColor, the OpenGL ES build and any
+// reader of the colour buffer see. Where the stripes cannot be drawn (OpenGL ES, RealColor on, more than
+// STRIPE_MAX_IDS coextruded filaments) the whole segment takes one colour chosen by the travel direction.
 void ViewerImpl::apply_tool_multi_colors()
 {
     constexpr float filament_area = 2.405f; // mm2 of 1.75 mm filament
+    constexpr size_t STRIPE_MAX_IDS = 16;   // as the stripe_pal array of the segments fragment shader (16 x 4 colours)
     std::vector<float> used_mm(m_tool_multi.size(), 0.0f);
+
+    // stripes id of every coextruded filament (0 = none)
+    std::vector<uint8_t> stripe_id(m_tool_multi.size(), 0);
+    std::vector<Color> stripe_mean(m_tool_multi.size(), Color{ 0, 0, 0 });
+#ifndef ENABLE_OPENGL_ES
+    if (!m_realcolor.enabled) {
+        m_stripe_palette.assign(STRIPE_MAX_IDS * 4 * 4, 0.0f);
+        size_t next_id = 1;
+        for (size_t t = 0; t < m_tool_multi.size() && next_id <= STRIPE_MAX_IDS; ++t) {
+            const ToolMultiColor& tm = m_tool_multi[t];
+            const size_t n = std::min<size_t>(tm.colors.size(), 4);
+            if (n < 2 || tm.gradient)
+                continue;
+            float* entry = &m_stripe_palette[(next_id - 1) * 16];
+            std::array<int, 3> sum{ 0, 0, 0 };
+            for (size_t k = 0; k < 4; ++k) {
+                const Color& c = tm.colors[std::min(k, n - 1)];
+                for (size_t j = 0; j < 3; ++j) {
+                    entry[4 * k + j] = float(c[j]) / 255.0f;
+                    if (k < n)
+                        sum[j] += c[j];
+                }
+            }
+            entry[3] = float(n);
+            stripe_mean[t] = Color{ static_cast<uint8_t>((sum[0] + int(n) / 2) / int(n)),
+                                    static_cast<uint8_t>((sum[1] + int(n) / 2) / int(n)),
+                                    static_cast<uint8_t>((sum[2] + int(n) / 2) / int(n)) };
+            stripe_id[t] = static_cast<uint8_t>(next_id++);
+        }
+        if (next_id == 1)
+            m_stripe_palette.clear();
+    }
+#endif // ENABLE_OPENGL_ES
+
     for (size_t i = 1; i < m_vertices.size(); ++i) {
         const PathVertex& v = m_vertices[i];
         if (!v.is_extrusion() || size_t(v.extruder_id) >= m_tool_multi.size())
@@ -1782,6 +1835,11 @@ void ViewerImpl::apply_tool_multi_colors()
         if (m_settings.view_type != EViewType::Tool && size_t(v.extruder_id) < m_tool_colors.size() &&
             m_vertices_colors[i] != encode_color(m_tool_colors[v.extruder_id]))
             continue;
+        if (!tm.gradient && stripe_id[v.extruder_id] != 0) {
+            m_vertices_stripe[i] = stripe_id[v.extruder_id];
+            m_vertices_colors[i] = encode_color(stripe_mean[v.extruder_id]);
+            continue;
+        }
         const PathVertex& p = m_vertices[i - 1];
         const float dx = v.position[0] - p.position[0];
         const float dy = v.position[1] - p.position[1];
@@ -1920,6 +1978,7 @@ size_t ViewerImpl::get_used_cpu_memory() const
     ret += sizeof(m_options_colors);
     ret += STDVEC_MEMSIZE(m_vertices, PathVertex);
     ret += STDVEC_MEMSIZE(m_vertices_colors, float);
+    ret += STDVEC_MEMSIZE(m_vertices_stripe, uint8_t);
     for (const std::vector<float>& times : m_layer_start_times)
         ret += STDVEC_MEMSIZE(times, float);
     ret += STDVEC_MEMSIZE(m_layer_first_vertex, uint32_t);
@@ -2223,6 +2282,9 @@ void ViewerImpl::render_segments(const Mat4x4& view_matrix, const Mat4x4& projec
         glsafe(glUniform1f(m_uni_segments_saturation_id, m_saturation));
         glsafe(glUniform3fv(m_uni_segments_light_top_dir_id, 1, m_light_top_dir.data()));
         set_layer_colors(m_uni_segments_layer_colors);
+        // Orca Zoukei: coaxial stripes colours
+        if (!m_stripe_palette.empty() && uni.stripe_palette != -1)
+            glsafe(glUniform4fv(uni.stripe_palette, static_cast<GLsizei>(m_stripe_palette.size() / 4), m_stripe_palette.data()));
     }
 
     glsafe(glDisable(GL_CULL_FACE));
@@ -2277,7 +2339,7 @@ void ViewerImpl::render_segments(const Mat4x4& view_matrix, const Mat4x4& projec
     glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, m_heights_widths_angles_buf_id));
     glsafe(glActiveTexture(GL_TEXTURE2));
     glsafe(glBindTexture(GL_TEXTURE_BUFFER, m_colors_tex_id));
-    glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, m_colors_buf_id));
+    glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, m_colors_buf_id));
     glsafe(glActiveTexture(GL_TEXTURE3));
     glsafe(glBindTexture(GL_TEXTURE_BUFFER, m_enabled_segments_tex_id));
     glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_R32UI, m_enabled_segments_buf_id));
@@ -2366,7 +2428,7 @@ void ViewerImpl::render_options(const Mat4x4& view_matrix, const Mat4x4& project
     glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, m_heights_widths_angles_buf_id));
     glsafe(glActiveTexture(GL_TEXTURE2));
     glsafe(glBindTexture(GL_TEXTURE_BUFFER, m_colors_tex_id));
-    glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, m_colors_buf_id));
+    glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, m_colors_buf_id));
     glsafe(glActiveTexture(GL_TEXTURE3));
     glsafe(glBindTexture(GL_TEXTURE_BUFFER, m_enabled_options_tex_id));
     glsafe(glTexBuffer(GL_TEXTURE_BUFFER, GL_R32UI, m_enabled_options_buf_id));

@@ -345,6 +345,7 @@ private:
     int m_part_skipped_dirty{ 0 };
 
     ProgressBar*    m_gauge_progress;
+    wxStaticText*   m_staticText_next_stop{nullptr}; // Orca Zoukei: "Next pause in ..."
     Label* m_error_text;
     PrintingTaskType m_type;
     int m_brightness_value{ -1 };
@@ -371,6 +372,8 @@ public:
     void update_progress_percent(wxString percent, wxString icon);
     void update_left_time(wxString time);
     void update_left_time(int mc_left_time);
+    // Orca Zoukei: stop markers (pause / colour change) of the job being printed on the progress bar.
+    void update_print_markers(const std::string &job_name, int progress_percent, int left_seconds);
     void show_layers_num(bool show) { m_staticText_layers->Show(show); }
     void update_layers_num(bool show, wxString num = wxEmptyString);
     void show_priting_use_info(bool show, wxString time = wxEmptyString, wxString weight = wxEmptyString);
