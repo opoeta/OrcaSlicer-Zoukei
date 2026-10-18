@@ -1150,6 +1150,48 @@ SurfacePassStack SurfacePassStack::resolve(const PrintObjectConfig &cfg)
     return st;
 }
 
+SurfacePassStack SurfacePassStack::resolve_zone(const PrintObjectConfig &cfg, SurfaceZone zone)
+{
+    if (zone == SurfaceZone::Top)
+        return resolve(cfg);
+    const bool         penu = zone == SurfaceZone::Penultimate;
+    const std::string &json = penu ? cfg.neotko_surface_passes_penu.value : cfg.neotko_surface_passes_bottom.value;
+    SurfacePassStack   st   = SurfacePassStack::from_json(json);
+    if (!st.passes.empty())
+        return st;
+    const SandwichZoneMode mode = penu ? cfg.penu_zone_mode.value : cfg.bottom_zone_mode.value;
+    const int              fil  = penu ? cfg.penu_zone_filament.value : cfg.bottom_zone_filament.value;
+    SurfacePass            p;
+    p.ratio = 1.0;
+    switch (mode) {
+    case SandwichZoneMode::Solid:
+        p.kind       = SurfacePassKind::Solid;
+        p.solid_tool = fil - 1; // 0 -> -1: the object's own filament
+        break;
+    case SandwichZoneMode::ColorStitch:
+        p.kind                = SurfacePassKind::ColorStitch;
+        p.colorstitch.present = true; // empty kv: the object's interlayer_colormix_* values
+        break;
+    case SandwichZoneMode::SameAsTop:
+        return resolve(cfg);
+    default:
+        return st;
+    }
+    st.passes.push_back(std::move(p));
+    st.enabled = true;
+    return st;
+}
+
+bool SurfacePassStack::config_has_zone(const PrintObjectConfig &cfg, SurfaceZone zone)
+{
+    switch (zone) {
+    case SurfaceZone::Top:         return config_has_sandwich(cfg);
+    case SurfaceZone::Penultimate: return !cfg.neotko_surface_passes_penu.value.empty() || cfg.penu_zone_mode.value != SandwichZoneMode::Off;
+    case SurfaceZone::Bottom:      return !cfg.neotko_surface_passes_bottom.value.empty() || cfg.bottom_zone_mode.value != SandwichZoneMode::Off;
+    }
+    return false;
+}
+
 bool SurfacePassStack::config_has_sandwich(const PrintObjectConfig &cfg)
 {
     return !cfg.neotko_surface_passes_top.value.empty() || cfg.multipass_enabled.value || cfg.interlayer_colormix_enabled.value ||

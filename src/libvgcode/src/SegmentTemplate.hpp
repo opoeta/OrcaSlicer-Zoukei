@@ -28,6 +28,13 @@ public:
     //
     void shutdown();
     void render(size_t count);
+    //
+    // ORCA: PrusaSlicer 3.0 preview renderer - draw 'count' segments without instancing, in batches
+    // of PULLING_BATCH segments sharing one index buffer (8 * s + corner). Before each batch the
+    // index of its first segment is written to the 'segment_offset' uniform of the bound program.
+    //
+    static constexpr size_t PULLING_BATCH = 8000;
+    void render_pulled(size_t count, int segment_offset_location);
 
     //
     // Return the size of the data sent to gpu, in bytes.
@@ -41,6 +48,9 @@ private:
     unsigned int m_vao_id{ 0 };
     unsigned int m_vbo_id{ 0 };
     unsigned int m_ibo_id{ 0 };
+    // ORCA: PrusaSlicer 3.0 preview renderer, see render_pulled()
+    unsigned int m_pulling_vao_id{ 0 };
+    unsigned int m_pulling_ibo_id{ 0 };
     //
     // Size of the data sent to gpu, in bytes.
     //

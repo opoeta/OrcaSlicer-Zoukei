@@ -362,7 +362,9 @@ private:
     std::vector<ProjectedHeightRange> get_projected_height_range(const Vec2d& mouse_position, double resolution, const std::vector<const ModelVolume*>& part_volumes, const std::vector<Transform3d>& trafo_matrices) const;
 
     bool is_mesh_point_clipped(const Vec3d& point, const Transform3d& trafo) const;
-    // World transforms of the model parts, in mo->volumes order.
+protected:
+    // World transforms of the model parts, in mo->volumes order. (Protected for the ColorStitch Painter stickers,
+    // which raycast the face a sticker is placed on.)
     std::vector<Transform3d> mesh_trafo_matrices() const;
     void update_raycast_cache(const Vec2d& mouse_position,
                               const Camera& camera,

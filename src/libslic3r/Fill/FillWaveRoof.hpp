@@ -1,4 +1,5 @@
-// Ported from OrcaFS-NeotkoCM (Neotko), AGPL-3.0: NeoWave roof. Only the roof fill is ported (no separate support type, hollow pillar or contact ripple).
+// Ported from OrcaFS-NeotkoCM (Neotko), AGPL-3.0: NeoWave roof. Used by neowave_roof on any normal / organic support and
+// by support_style = NeoWave (with the hollow pillar in SupportCommon.cpp and the contact layer in GCode/NeoWaveContact).
 ///|/ Wave-Huygens support-roof fill (FillWaveRoof) - WAVESUPPORT_PLAN.md Fase 3.
 ///|/
 ///|/ Repurposes the wave-overhang wavefront algorithm from "imprimir la superficie

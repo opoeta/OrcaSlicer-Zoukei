@@ -2,6 +2,7 @@
 #include "ColorStitchPaint.hpp"
 
 #include "ClipperUtils.hpp"
+#include "ColorStitchSticker.hpp"
 #include "Config.hpp"
 #include "Model.hpp"
 #include "Print.hpp"
@@ -123,6 +124,8 @@ uint64_t profiles_fingerprint(const ModelVolume &mv)
         f.add(pid);
         if (const SurfaceEffectProfile *p = mgr.find(pid)) {
             f.add(p->stack_top_json);
+            f.add(p->stack_penu_json);
+            f.add(p->stack_bottom_json);
             add_payload(f, p->colorstitch);
             add_payload(f, p->pathblend);
             add_payload(f, p->multipass);
@@ -311,7 +314,9 @@ ExPolygons union_triangle_soup(Polygons &&tris)
 std::shared_ptr<const ColorStitchPaintIndex> ColorStitchPaintIndex::build(const PrintObject &po)
 {
     const ModelObject *mo = po.model_object();
-    if (mo == nullptr || !ColorStitchPaint::object_has_paint(*mo))
+    const bool has_stickers = mo != nullptr && std::any_of(mo->colorstitch_stickers.begin(), mo->colorstitch_stickers.end(),
+                                                         [](const ColorStitchSticker &st) { return !st.hidden && !st.svg_data.empty(); });
+    if (mo == nullptr || (!ColorStitchPaint::object_has_paint(*mo) && !has_stickers))
         return nullptr;
 
     auto                               index = std::make_shared<ColorStitchPaintIndex>();
@@ -334,7 +339,10 @@ std::shared_ptr<const ColorStitchPaintIndex> ColorStitchPaintIndex::build(const 
             // A recipe saved as payload keys only (no stack): rebuild its stack from those keys.
             if (r.top.passes.empty() && (p->multipass.present || p->colorstitch.present || p->pathblend.present))
                 r.top = SurfacePassStack::synthesize_from_config(r.config);
-            if (r.top.any_effect()) {
+            r.penu   = SurfacePassStack::from_json(p->stack_penu_json);
+            r.bottom = SurfacePassStack::from_json(p->stack_bottom_json);
+            // A recipe is kept when any of its zones prints something.
+            if (r.top.any_effect() || r.penu.any_effect() || r.bottom.any_effect()) {
                 idx = int(index->recipes.size());
                 index->recipes.push_back(std::move(r));
             }
@@ -361,18 +369,19 @@ std::shared_ptr<const ColorStitchPaintIndex> ColorStitchPaintIndex::build(const 
             }
             const int ri = recipe_index(pid);
             if (ri < 0)
-                continue; // a recipe without any effect on the Top zone
+                continue; // a recipe without any effect in any zone
             for (const stl_triangle_vertex_indices &tri : its.indices) {
                 const Vec3d v0 = vt * its.vertices[size_t(tri[0])].cast<double>();
                 const Vec3d v1 = vt * its.vertices[size_t(tri[1])].cast<double>();
                 const Vec3d v2 = vt * its.vertices[size_t(tri[2])].cast<double>();
                 const Vec3d n  = (v1 - v0).cross(v2 - v0);
                 const double len = n.norm();
-                // Upward facing only: the Top zone of a recipe prints on top surfaces.
-                if (len <= 0. || n.z() / len < 0.05)
+                // Upward facets carry the Top and Penultimate zones of a recipe, downward facets its Bottom zone.
+                if (len <= 0. || std::abs(n.z()) / len < 0.05)
                     continue;
                 Facet f;
-                f.z      = std::max({ v0.z(), v1.z(), v2.z() });
+                f.down   = n.z() < 0.;
+                f.z      = f.down ? std::min({ v0.z(), v1.z(), v2.z() }) : std::max({ v0.z(), v1.z(), v2.z() });
                 f.recipe = ri;
                 f.poly.points = { Point(scale_(v0.x()), scale_(v0.y())), Point(scale_(v1.x()), scale_(v1.y())),
                                   Point(scale_(v2.x()), scale_(v2.y())) };
@@ -383,7 +392,36 @@ std::shared_ptr<const ColorStitchPaintIndex> ColorStitchPaintIndex::build(const 
             }
         }
     }
-    if (index->facets.empty() && index->orphan_facets == 0)
+    // Stickers, topmost first. Frame: the sticker lives in the object frame like a volume, so it goes through the
+    // same trafo_sliced() as the painted facets.
+    if (has_stickers)
+        for (size_t k = mo->colorstitch_stickers.size(); k-- > 0;) {
+            const ColorStitchSticker &st = mo->colorstitch_stickers[k];
+            if (st.hidden || st.svg_data.empty())
+                continue;
+            const Transform3d to_slice = frame * st.transform;
+            const Vec3d       origin   = to_slice * Vec3d::Zero();
+            const bool        down     = to_slice.linear().col(2).z() < 0.;
+            for (const ColorStitchStickerTools::ColorMask &mask : ColorStitchStickerTools::color_masks(st, to_slice)) {
+                int pid = st.profile_id;
+                if (mask.color_index >= 0 && size_t(mask.color_index) < st.colors.size()) {
+                    const ColorStitchStickerColor &col = st.colors[size_t(mask.color_index)];
+                    pid = col.hidden ? 0 : col.profile_id;
+                }
+                if (pid <= 0 || mgr.find(pid) == nullptr)
+                    continue;
+                const int ri = recipe_index(pid);
+                if (ri < 0)
+                    continue;
+                StickerArea area;
+                area.z      = origin.z();
+                area.down   = down;
+                area.recipe = ri;
+                area.area   = mask.area;
+                index->sticker_areas.push_back(std::move(area));
+            }
+        }
+    if (index->facets.empty() && index->sticker_areas.empty() && index->orphan_facets == 0)
         return nullptr;
     std::stable_sort(index->facets.begin(), index->facets.end(), [](const Facet &a, const Facet &b) { return a.z < b.z; });
     return index;
@@ -397,16 +435,22 @@ const ColorStitchPaintIndex::Recipe *ColorStitchPaintIndex::recipe(int profile_i
     return nullptr;
 }
 
-std::vector<std::pair<int, ExPolygons>> ColorStitchPaintIndex::footprints(double z_lo, double z_hi) const
+std::vector<std::pair<int, ExPolygons>> ColorStitchPaintIndex::footprints(double z_lo, double z_hi, SurfaceZone zone) const
 {
     std::vector<std::pair<int, ExPolygons>> out;
-    if (facets.empty())
+    if (facets.empty() && sticker_areas.empty())
         return out;
     constexpr double z_tol = 0.02; // floating point slack around the layer band (NeotkoCM value)
+    const bool       down  = zone == SurfaceZone::Bottom;
+    // Stickers first, topmost first: the caller peels them off the surface in this order, so the topmost wins.
+    for (const StickerArea &s : sticker_areas)
+        if (s.down == down && s.z >= z_lo - z_tol && s.z <= z_hi + z_tol && recipes[size_t(s.recipe)].stack(zone).any_effect())
+            out.emplace_back(recipes[size_t(s.recipe)].profile_id, s.area);
     auto it = std::lower_bound(facets.begin(), facets.end(), z_lo - z_tol, [](const Facet &f, double z) { return f.z < z; });
     std::vector<Polygons> per_recipe(recipes.size());
     for (; it != facets.end() && it->z <= z_hi + z_tol; ++it)
-        per_recipe[size_t(it->recipe)].push_back(it->poly);
+        if (it->down == down && recipes[size_t(it->recipe)].stack(zone).any_effect())
+            per_recipe[size_t(it->recipe)].push_back(it->poly);
     for (size_t r = 0; r < per_recipe.size(); ++r)
         if (!per_recipe[r].empty()) {
             ExPolygons fp = union_triangle_soup(std::move(per_recipe[r]));

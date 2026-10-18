@@ -12,8 +12,11 @@
 //
 // Differences from NeotkoCM (kept on purpose, see the WIKI section 6):
 //  - 32 slots per volume (the TriangleSelector state range of this fork) instead of 254;
-//  - only the Top zone of a recipe is printed (the engine port has no Penultimate / Bottom zone);
-//  - no stickers, no MixedFilament Object mode, no preview outside the gizmo.
+//  - the Penultimate zone (the solid layer under a top surface, the area covered by that top) and the
+//    Bottom zone (supported bottom surfaces, painted from below) are printed by the same engine as the
+//    Top zone, in a reduced form: see SurfaceZone and FillSandwich.cpp;
+//  - SVG stickers (ColorStitchSticker.hpp) are a rough port: a flat colour region per SVG colour;
+//  - no MixedFilament Object mode, no preview outside the gizmo.
 // Everything here is inert while nothing is painted: no index is built and no surface is split.
 
 #include "ColorStitch.hpp"
@@ -84,25 +87,45 @@ struct ColorStitchPaintIndex
     {
         int               profile_id = 0;
         PrintObjectConfig config; // the object config with the recipe payload keys applied
-        SurfacePassStack  top;    // the Top zone stack (non empty, with an effect)
+        SurfacePassStack  top;    // the Top zone stack (may be empty: then the Top zone is not printed)
+        SurfacePassStack  penu;   // the Penultimate zone stack
+        SurfacePassStack  bottom; // the Bottom zone stack
+
+        const SurfacePassStack &stack(SurfaceZone zone) const
+        {
+            return zone == SurfaceZone::Penultimate ? penu : (zone == SurfaceZone::Bottom ? bottom : top);
+        }
     };
     struct Facet
     {
-        double  z      = 0.;      // top of the facet in the slicing frame (mm)
+        double  z      = 0.;      // top of an upward facet / bottom of a downward one, slicing frame (mm)
         int     recipe = -1;      // index into recipes
+        bool    down   = false;   // facing down (Bottom zone) instead of up (Top and Penultimate zones)
         Polygon poly;             // XY projection, slicing frame, scaled, CCW
     };
+    // An SVG sticker resolved at build time: one footprint per recipe (ColorStitchSticker.hpp).
+    struct StickerArea
+    {
+        double     z    = 0.;     // anchor of the sticker in the slicing frame (mm)
+        bool       down = false;
+        int        recipe = -1;   // index into recipes
+        ExPolygons area;          // slicing frame, scaled
+    };
 
-    std::vector<Recipe> recipes;
-    std::vector<Facet>  facets;           // sorted by z
-    size_t              orphan_facets = 0; // painted with a slot whose recipe is missing
+    std::vector<Recipe>      recipes;
+    std::vector<Facet>       facets;           // sorted by z
+    std::vector<StickerArea> sticker_areas;    // topmost sticker first
+    size_t                   orphan_facets = 0; // painted with a slot whose recipe is missing
 
-    // Null when the object has no usable paint.
+    // Null when the object has no usable paint and no sticker.
     static std::shared_ptr<const ColorStitchPaintIndex> build(const PrintObject &po);
 
     const Recipe *recipe(int profile_id) const;
-    // Painted footprint of every recipe whose upward facets top out in [z_lo, z_hi] (slicing frame).
-    std::vector<std::pair<int, ExPolygons>> footprints(double z_lo, double z_hi) const;
+    // Footprint of every recipe that prints something in `zone`, whose upward facets top out (Top and
+    // Penultimate: facets facing up, z = their top) or whose downward facets start (Bottom: facets facing
+    // down, z = their bottom) in [z_lo, z_hi] (slicing frame). Sticker areas come first, topmost sticker
+    // first, with the part hidden by the stickers above it removed; then the painted facets.
+    std::vector<std::pair<int, ExPolygons>> footprints(double z_lo, double z_hi, SurfaceZone zone = SurfaceZone::Top) const;
 };
 
 } // namespace Slic3r

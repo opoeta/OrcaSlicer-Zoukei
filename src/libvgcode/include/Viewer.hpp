@@ -131,6 +131,10 @@ public:
     // ORCA: realistic toolpath shading (after PrusaSlicer 3.0) vs the classic one
     bool is_realistic_shading() const;
     void set_realistic_shading(bool value);
+    // ORCA: PrusaSlicer 3.0 preview renderer: toolpaths drawn by vertex pulling instead of instancing,
+    // option markers lit per fragment like the toolpaths (with their shadows). Off by default.
+    bool is_prusa3_renderer() const;
+    void set_prusa3_renderer(bool value);
     //
     // Returns true if the given option is visible.
     //

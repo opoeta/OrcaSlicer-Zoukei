@@ -161,6 +161,10 @@ set(lisbslic3r_sources
     NeoArachne/NeoArachneBeadingStrategy.hpp
     NeoArachne/NeoArachneHybrid.cpp
     NeoArachne/NeoArachneHybrid.hpp
+    NeoArachne/NeoArachneSpine.cpp
+    NeoArachne/NeoArachneSpine.hpp
+    GCode/NeoWaveContact.cpp
+    GCode/NeoWaveContact.hpp
     Fill/FillWaveRoof.cpp
     Fill/FillWaveRoof.hpp
     # Ported from OrcaFS-NeotkoCM (Neotko): Gravity / True Objects (Libre Mode)
@@ -237,6 +241,8 @@ set(lisbslic3r_sources
     ColorStitch.hpp
     ColorStitchPaint.cpp
     ColorStitchPaint.hpp
+    ColorStitchSticker.cpp
+    ColorStitchSticker.hpp
     Fill/FillSandwich.cpp
     Fill/FillSandwich.hpp
     GCode/SandwichEmit.cpp

@@ -87,7 +87,14 @@ public:
 
     bool   use_firmware_retraction() const;
 
+    // Per-object retraction override (PrintObjectConfig object_retraction_length / _speed): length < 0 and
+    // speed <= 0 keep the configured values. Speed applies to both retraction and deretraction.
+    void   set_retraction_override(double length, double speed) { m_retraction_length_override = length; m_retract_speed_override = speed; }
+    double retract_speed_override() const { return m_retract_speed_override; }
+
 private:
+    double       m_retraction_length_override = -1.;
+    double       m_retract_speed_override     = 0.;
     // Private constructor to create a key for a search in std::set.
     Extruder(unsigned int id) : m_id(id) {}
 

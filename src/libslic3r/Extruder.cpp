@@ -197,6 +197,8 @@ double Extruder::retract_after_wipe() const
 
 double Extruder::retraction_length() const
 {
+    if (m_retraction_length_override >= 0.)
+        return m_retraction_length_override;
     return m_config->retraction_length.get_at(m_config_index);
 }
 
@@ -207,6 +209,8 @@ double Extruder::retract_lift() const
 
 int Extruder::retract_speed() const
 {
+    if (m_retract_speed_override > 0.)
+        return int(floor(m_retract_speed_override + 0.5));
     return int(floor(m_config->retraction_speed.get_at(m_config_index)+0.5));
 }
 
@@ -217,6 +221,8 @@ bool Extruder::use_firmware_retraction() const
 
 int Extruder::deretract_speed() const
 {
+    if (m_retract_speed_override > 0.)
+        return int(floor(m_retract_speed_override + 0.5));
     int speed = int(floor(m_config->deretraction_speed.get_at(m_config_index)+0.5));
     return (speed > 0) ? speed : this->retract_speed();
 }

@@ -122,6 +122,9 @@ public:
     void set_dim_previous_layers_brightness(float value);
     bool is_realistic_shading() const { return m_settings.realistic_shading; }
     void set_realistic_shading(bool value) { m_settings.realistic_shading = value; }
+    // ORCA: PrusaSlicer 3.0 preview renderer, see Settings::prusa3_renderer
+    bool is_prusa3_renderer() const { return m_settings.prusa3_renderer; }
+    void set_prusa3_renderer(bool value) { m_settings.prusa3_renderer = value; }
 
     bool is_spiral_vase_mode() const { return m_settings.spiral_vase_mode; }
 
@@ -396,6 +399,9 @@ private:
         int instances_count{ -1 };
         int clipping_plane{ -1 };
         int stripe_palette{ -1 };
+        // ORCA: PrusaSlicer 3.0 preview renderer, only the main segments shader has it
+        int vertex_pulling{ -1 };
+        int segment_offset{ -1 };
 
         void init(unsigned int shader_id);
     };
@@ -431,6 +437,15 @@ private:
     int m_uni_options_segment_index_tex_id{ -1 };
     int m_uni_options_clipping_plane_id{ -1 };
     LayerColorsUniforms m_uni_options_layer_colors;
+    // ORCA: PrusaSlicer 3.0 preview renderer - markers lit like the toolpaths
+    int m_uni_options_prusa3_id{ -1 };
+    int m_uni_options_light_key_dir_id{ -1 };
+    int m_uni_options_shadow_map_id{ -1 };
+    int m_uni_options_shadow_light_vp_id{ -1 };
+    int m_uni_options_shadow_intensity_id{ -1 };
+    int m_uni_options_shadow_map_texel_id{ -1 };
+    int m_uni_options_exposure_id{ -1 };
+    int m_uni_options_saturation_id{ -1 };
 #if VGCODE_ENABLE_COG_AND_TOOL_MARKERS
     //
     // Caches for OpenGL uniforms id for cog marker shader 

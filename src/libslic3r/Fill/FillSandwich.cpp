@@ -94,28 +94,98 @@ void scale_to_band(ExtrusionEntityCollection &coll, double ratio)
         });
 }
 
+// The zone a piece of a SurfaceFill can carry, false for everything else (sparse infill, bridges, ...).
+bool sandwich_zone_of(const Surface &surface, const FillParams &params, SurfaceZone &zone)
+{
+    if (surface.is_bridge())
+        return false;
+    switch (params.extrusion_role) {
+    case erTopSolidInfill: zone = SurfaceZone::Top; return true;
+    case erBottomSurface:  zone = SurfaceZone::Bottom; return surface.is_bottom();
+    case erSolidInfill:    zone = SurfaceZone::Penultimate; return surface.is_solid_infill();
+    default:               return false;
+    }
+}
+
+// Penultimate zone: the part of the layer under a visible top surface, i.e. the sub-top islands (the
+// internal solid fill that carries a top, see PrintObject::discover_sub_top_surfaces) that the top
+// surfaces of the layer above cover, grown by `grow` so the zone reaches the edge of that top.
+// Reads fill_surfaces of the layer above, which make_fills never modifies.
+ExPolygons penultimate_area(const Layer &layer, coord_t grow)
+{
+    const Layer *upper = layer.upper_layer;
+    if (upper == nullptr)
+        return ExPolygons();
+    ExPolygons tops;
+    for (const LayerRegion *lr : upper->regions())
+        for (const Surface &s : lr->fill_surfaces.surfaces)
+            if (s.surface_type == stTop)
+                tops.push_back(s.expolygon);
+    if (tops.empty())
+        return ExPolygons();
+    ExPolygons sub;
+    for (const LayerRegion *lr : layer.regions())
+        for (const Surface &s : lr->fill_surfaces.surfaces)
+            if (s.surface_type == stSubTop)
+                sub.push_back(s.expolygon);
+    if (sub.empty())
+        return ExPolygons();
+    return intersection_ex(sub, offset_ex(union_ex(tops), float(grow)));
+}
+
 } // namespace
 
 bool sandwich_split_painted(const Layer &layer, const Surface &surface, const FillParams &params, ExPolygons &expolygons,
                             std::vector<int> &recipe_of)
 {
-    const PrintObject           *po    = layer.object();
-    const ColorStitchPaintIndex *index = po != nullptr ? po->colorstitch_paint() : nullptr;
-    if (index == nullptr || expolygons.empty())
+    const PrintObject *po = layer.object();
+    if (po == nullptr || expolygons.empty())
         return false;
-    if (params.extrusion_role != erTopSolidInfill || surface.is_bridge())
+    SurfaceZone zone = SurfaceZone::Top;
+    if (!sandwich_zone_of(surface, params, zone))
         return false;
-    if (po->layers().empty() || po->layers().front() == &layer)
-        return false; // as the Sandwich: never on the first object layer
-    // The painted top faces of this layer top out inside its slab (slicing frame).
-    const double half = 0.5 * layer.height;
-    std::vector<std::pair<int, ExPolygons>> prints = index->footprints(layer.slice_z - half, layer.slice_z + half);
-    if (prints.empty())
+    // As the Sandwich: never on the first object layer, except the Bottom zone (the face on the bed).
+    if (zone != SurfaceZone::Bottom && (po->layers().empty() || po->layers().front() == &layer))
+        return false;
+
+    const ColorStitchPaintIndex *index = po->colorstitch_paint();
+    // Penultimate: the object's own settings of the zone only apply under a top, so they need the cut too.
+    const bool object_penu = zone == SurfaceZone::Penultimate && SurfacePassStack::config_has_zone(po->config(), zone);
+    if (index == nullptr && !object_penu)
+        return false;
+
+    // Z band, slicing frame, in which the painted faces of the zone are looked for.
+    //  Top         : upward facets that top out in the slab of this layer.
+    //  Penultimate : the same facets, in the slab of the layer ABOVE (the top that this layer carries).
+    //  Bottom      : downward facets that start between the slice plane of the layer below and this one.
+    double z_lo = 0., z_hi = 0.;
+    if (zone == SurfaceZone::Top) {
+        z_lo = layer.slice_z - 0.5 * layer.height;
+        z_hi = layer.slice_z + 0.5 * layer.height;
+    } else if (zone == SurfaceZone::Penultimate) {
+        if (layer.upper_layer == nullptr)
+            return false;
+        z_lo = layer.upper_layer->slice_z - 0.5 * layer.upper_layer->height;
+        z_hi = layer.upper_layer->slice_z + 0.5 * layer.upper_layer->height;
+    } else {
+        z_hi = layer.slice_z;
+        z_lo = layer.lower_layer != nullptr ? layer.lower_layer->slice_z : layer.slice_z - layer.height;
+    }
+    std::vector<std::pair<int, ExPolygons>> prints;
+    if (index != nullptr)
+        prints = index->footprints(z_lo, z_hi, zone);
+    if (prints.empty() && !object_penu)
         return false;
 
     // Pieces thinner than about two lines are not worth a recipe: they stay with the rest.
     const double spacing  = std::max(0.1, double(params.flow.spacing()));
     const double min_area = 4.0 * scale_(spacing) * scale_(spacing);
+    ExPolygons   under;
+    if (zone == SurfaceZone::Penultimate) {
+        under = penultimate_area(layer, coord_t(scale_(0.5 * spacing)));
+        if (under.empty())
+            return false;
+    }
     ExPolygons       rest = expolygons;
     ExPolygons       out;
     std::vector<int> recipes;
@@ -123,6 +193,8 @@ bool sandwich_split_painted(const Layer &layer, const Surface &surface, const Fi
         if (rest.empty())
             break;
         ExPolygons piece = intersection_ex(rest, fp.second);
+        if (zone == SurfaceZone::Penultimate && !piece.empty())
+            piece = intersection_ex(piece, under);
         piece.erase(std::remove_if(piece.begin(), piece.end(), [min_area](const ExPolygon &e) { return e.area() < min_area; }), piece.end());
         if (piece.empty())
             continue;
@@ -132,13 +204,30 @@ bool sandwich_split_painted(const Layer &layer, const Surface &surface, const Fi
             recipes.push_back(fp.first);
         }
     }
-    if (out.empty())
+    // The part of a penultimate surface that is under a top uses the object's own zone settings; the
+    // rest (and a zone the object does not set) is plain solid infill.
+    ExPolygons plain;
+    if (zone == SurfaceZone::Penultimate && !rest.empty()) {
+        ExPolygons mine;
+        if (object_penu) {
+            mine = intersection_ex(rest, under);
+            mine.erase(std::remove_if(mine.begin(), mine.end(), [min_area](const ExPolygon &e) { return e.area() < min_area; }), mine.end());
+        }
+        plain = mine.empty() ? rest : diff_ex(rest, mine);
+        rest  = std::move(mine);
+    }
+    if (out.empty() && rest.empty())
         return false;
     const double sliver = 0.25 * scale_(spacing) * scale_(spacing);
     for (ExPolygon &e : rest)
         if (e.area() >= sliver) {
             out.push_back(std::move(e));
             recipes.push_back(0);
+        }
+    for (ExPolygon &e : plain)
+        if (e.area() >= sliver) {
+            out.push_back(std::move(e));
+            recipes.push_back(-1);
         }
     expolygons = std::move(out);
     recipe_of  = std::move(recipes);
@@ -149,9 +238,9 @@ bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, con
                            int painted_profile)
 {
     const PrintObject *po = layer.object();
-    if (po == nullptr)
+    if (po == nullptr || painted_profile < 0)
         return false;
-    // ColorStitch Painter: a painted piece uses its recipe (config with the recipe keys + Top stack).
+    // ColorStitch Painter: a painted piece uses its recipe (config with the recipe keys + the stack of the zone).
     const ColorStitchPaintIndex::Recipe *painted = nullptr;
     if (painted_profile > 0) {
         painted = po->colorstitch_paint() != nullptr ? po->colorstitch_paint()->recipe(painted_profile) : nullptr;
@@ -161,14 +250,17 @@ bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, con
     // The Sandwich keys are per object (PrintObjectConfig). Cheap gates first: with the feature
     // off nothing below runs.
     const PrintObjectConfig &cfg = painted != nullptr ? painted->config : po->config();
-    if (painted == nullptr && !SurfacePassStack::config_has_sandwich(cfg))
+    SurfaceZone              zone = SurfaceZone::Top;
+    if (!sandwich_zone_of(surface, params, zone))
         return false;
-    if (params.extrusion_role != erTopSolidInfill || surface.is_bridge())
+    if (painted == nullptr && !SurfacePassStack::config_has_zone(cfg, zone))
         return false;
-    if (po->layers().empty() || po->layers().front() == &layer)
-        return false; // NeotkoCM: never on the first object layer (no tool changes on layer 0)
+    // NeotkoCM: never on the first object layer (no tool changes on layer 0), except the Bottom zone,
+    // whose whole point is the face on the bed.
+    if (zone != SurfaceZone::Bottom && (po->layers().empty() || po->layers().front() == &layer))
+        return false;
 
-    SurfacePassStack stack = painted != nullptr ? painted->top : SurfacePassStack::resolve(cfg);
+    SurfacePassStack stack = painted != nullptr ? painted->stack(zone) : SurfacePassStack::resolve_zone(cfg, zone);
     if (!stack.any_effect())
         return false;
 
@@ -179,17 +271,23 @@ bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, con
 
     // Filaments: 0-based; anything out of range falls back to the region's top surface filament.
     const int n_filaments  = int(po->print()->config().filament_diameter.values.size());
-    const int natural_tool = std::clamp(int(layerm.region().extruder(frTopSolidInfill)) - 1, 0, std::max(0, n_filaments - 1));
+    const PrintRegionConfig &region_cfg = layerm.region().config();
+    const int natural_raw = zone == SurfaceZone::Top ? int(layerm.region().extruder(frTopSolidInfill)) :
+                            zone == SurfaceZone::Bottom ? int(region_cfg.bottom_surface_filament_id.value) :
+                                                          int(layerm.region().extruder(frSolidInfill));
+    const int natural_tool = std::clamp(natural_raw - 1, 0, std::max(0, n_filaments - 1));
     auto      valid_tool   = [n_filaments](int t) { return t >= 0 && t < n_filaments; };
 
-    // PathBlend is always a single full height gradient: when present it is the whole stack.
+    // PathBlend is always a single full height gradient: when present it is the whole stack. Not in the
+    // Bottom zone: its ramp starts above the bed, so the first beads would print in the air.
     std::vector<SurfacePass> passes;
-    for (const SurfacePass &p : stack.passes)
-        if (p.kind == SurfacePassKind::PathBlend) {
-            passes.assign(1, p);
-            passes.front().ratio = 1.0;
-            break;
-        }
+    if (zone != SurfaceZone::Bottom)
+        for (const SurfacePass &p : stack.passes)
+            if (p.kind == SurfacePassKind::PathBlend) {
+                passes.assign(1, p);
+                passes.front().ratio = 1.0;
+                break;
+            }
     if (passes.empty())
         for (const SurfacePass &p : stack.passes)
             if (p.kind == SurfacePassKind::None || p.kind == SurfacePassKind::Solid || p.kind == SurfacePassKind::ColorStitch)
@@ -272,6 +370,7 @@ bool sandwich_fill_surface(Layer &layer, const LayerRegion &layerm, Fill &f, con
         sub.pass_idx   = global_pass++;
         sub.island_key = island_key;
         sub.effect     = kind;
+        sub.zone       = zone;
         sub.region     = region;
         sub.fills      = std::move(fills);
         layer.sandwich_sublayers.push_back(std::move(sub));

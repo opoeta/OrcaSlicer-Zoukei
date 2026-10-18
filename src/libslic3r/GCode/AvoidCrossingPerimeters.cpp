@@ -1119,12 +1119,33 @@ static ExPolygons inner_offset(const ExPolygons &ex_polygons, double offset_dis)
 //#define INCLUDE_SUPPORTS_IN_BOUNDARY
 
 // called by AvoidCrossingPerimeters::travel_to()
-static ExPolygons get_boundary(const Layer &layer, float perimeter_spacing)
+// Support footprint of the support layer at the same print_z (Bambu "avoid_crossing_wall_includes_support").
+static ExPolygons get_support_polygons_at(const Layer &layer, float offset)
+{
+    const SupportLayer *support_layer = layer.object()->get_support_layer_at_printz(layer.print_z, EPSILON);
+    if (support_layer == nullptr)
+        return {};
+    if (!support_layer->support_islands.empty())
+        return offset_ex(support_layer->support_islands, offset);
+    ExPolygons support_infill_polygons;
+    for (const ExPolygon &ex_poly : union_ex(support_layer->support_fills.polygons_covered_by_spacing(offset)))
+        support_infill_polygons.emplace_back(ex_poly.contour);
+    return support_infill_polygons;
+}
+
+static ExPolygons get_boundary(const Layer &layer, float perimeter_spacing, bool include_supports_in_boundary = false)
 {
     // const float perimeter_spacing = get_perimeter_spacing(layer);
     const float perimeter_offset  = perimeter_spacing / 2.f;
     auto const *support_layer     = dynamic_cast<const SupportLayer *>(&layer);
     ExPolygons  boundary          = union_ex(inner_offset(layer.lslices, 1.5 * perimeter_spacing));
+    if (include_supports_in_boundary && !support_layer) {
+        ExPolygons support_polygons = get_support_polygons_at(layer, perimeter_spacing);
+        if (!support_polygons.empty()) {
+            append(boundary, inner_offset(support_polygons, 1.5 * perimeter_spacing));
+            boundary = union_ex(boundary);
+        }
+    }
     if(support_layer) {
 #ifdef INCLUDE_SUPPORTS_IN_BOUNDARY
         append(boundary, inner_offset(support_layer->support_islands, 1.5 * perimeter_spacing));
@@ -1272,11 +1293,11 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCode &gcodegen, const Point &
     if (!use_external && (is_support_layer || (!m_lslices_offset.empty() && !any_expolygon_contains(m_lslices_offset, m_lslices_offset_bboxes, m_grid_lslice, travel)))) {
         // Initialize m_internal only when it is necessary.
         if (m_internal.boundaries.empty()) {
-            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), get_perimeter_spacing(*gcodegen.layer()))), {start, end});
+            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), get_perimeter_spacing(*gcodegen.layer()), gcodegen.config().avoid_crossing_wall_includes_support.value)), {start, end});
         } else if (!(m_internal.bbox.contains(startf) && m_internal.bbox.contains(endf))) {
             // check if start and end are in bbox, if not, merge start and end points to bbox
             m_internal.clear();
-            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), get_perimeter_spacing(*gcodegen.layer()))), {start, end});
+            init_boundary(&m_internal, to_polygons(get_boundary(*gcodegen.layer(), get_perimeter_spacing(*gcodegen.layer()), gcodegen.config().avoid_crossing_wall_includes_support.value)), {start, end});
         }
 
         if (!m_internal.boundaries.empty()) {

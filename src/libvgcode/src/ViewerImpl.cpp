@@ -760,6 +760,9 @@ void ViewerImpl::SegmentsUniforms::init(unsigned int shader_id)
     clipping_plane         = glGetUniformLocation(shader_id, "clipping_plane");
     // Orca Zoukei: colours of the coaxial stripes, only the main segments shader has it
     stripe_palette         = glGetUniformLocation(shader_id, "stripe_pal");
+    // ORCA: PrusaSlicer 3.0 preview renderer
+    vertex_pulling         = glGetUniformLocation(shader_id, "vertex_pulling");
+    segment_offset         = glGetUniformLocation(shader_id, "segment_offset");
 }
 
 void ViewerImpl::init(const std::string& opengl_context_version)
@@ -836,6 +839,15 @@ void ViewerImpl::init(const std::string& opengl_context_version)
     // ORCA: section view
     m_uni_options_clipping_plane_id         = glGetUniformLocation(m_options_shader_id, "clipping_plane");
     m_uni_options_layer_colors.init(m_options_shader_id);
+    // ORCA: PrusaSlicer 3.0 preview renderer
+    m_uni_options_prusa3_id                 = glGetUniformLocation(m_options_shader_id, "prusa3");
+    m_uni_options_light_key_dir_id          = glGetUniformLocation(m_options_shader_id, "light_key_dir");
+    m_uni_options_shadow_map_id             = glGetUniformLocation(m_options_shader_id, "shadow_map");
+    m_uni_options_shadow_light_vp_id        = glGetUniformLocation(m_options_shader_id, "shadow_light_vp");
+    m_uni_options_shadow_intensity_id       = glGetUniformLocation(m_options_shader_id, "shadow_intensity");
+    m_uni_options_shadow_map_texel_id       = glGetUniformLocation(m_options_shader_id, "shadow_map_texel");
+    m_uni_options_exposure_id               = glGetUniformLocation(m_options_shader_id, "exposure");
+    m_uni_options_saturation_id             = glGetUniformLocation(m_options_shader_id, "saturation");
     glcheck();
     assert(m_uni_options_view_matrix_id != -1 &&
            m_uni_options_projection_matrix_id != -1 &&
@@ -1176,8 +1188,8 @@ void ViewerImpl::load(GCodeInputData&& gcode_data)
         // create and fill height, width and angle textures
         m_texture_data.set_heights_widths_angles(heights_widths_angles);
 #else
-        m_positions_tex_size = positions.size() * sizeof(Vec3);
-        m_height_width_angle_tex_size = heights_widths_angles.size() * sizeof(Vec3);
+        m_positions_tex_size = positions.size() * sizeof(Vec4);
+        m_height_width_angle_tex_size = heights_widths_angles.size() * sizeof(Vec4);
 
         int old_bound_texture = 0;
         glsafe(glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &old_bound_texture));
@@ -2217,8 +2229,15 @@ void ViewerImpl::update_heights_widths()
 
     glsafe(glBindBuffer(GL_TEXTURE_BUFFER, m_heights_widths_angles_buf_id));
 
-    Vec3* buffer = static_cast<Vec3*>(glMapBuffer(GL_TEXTURE_BUFFER, GL_WRITE_ONLY));
+    // ORCA: the buffer holds one Vec4 (height, width, angle, bias) per vertex, see extract_pos_and_or_hwa().
+    // Walking it as Vec3, as PrusaSlicer 2.x did, wrote the radii of every vertex past the first one into the
+    // wrong vertices; PrusaSlicer 3.0 maps it as Vec4 too.
+    Vec4* buffer = static_cast<Vec4*>(glMapBuffer(GL_TEXTURE_BUFFER, GL_WRITE_ONLY));
     glcheck();
+    if (buffer == nullptr) {
+        glsafe(glBindBuffer(GL_TEXTURE_BUFFER, 0));
+        return;
+    }
 
     for (size_t i = 0; i < m_vertices.size(); ++i) {
         const PathVertex& v = m_vertices[i];
@@ -2292,7 +2311,17 @@ void ViewerImpl::render_segments(const Mat4x4& view_matrix, const Mat4x4& projec
     auto draw = [this, &uni](size_t count) {
         glsafe(glUniform1i(uni.instances_count, static_cast<int>(count)));
         if (!m_rendering_shadow_casters) {
-            m_segment_template.render(count);
+            // ORCA: PrusaSlicer 3.0 preview renderer (AGPL-3.0, Prusa Research): vertex pulling, plain indexed
+            // draws of batches of segments instead of one 8 vertex instance per segment, which many GPUs run
+            // poorly (an instance that small leaves most of a shader wave idle). The shader picks the segment
+            // and its corner from gl_VertexID, see SegmentTemplate::render_pulled() and Shaders.hpp.
+            const bool pulling = m_settings.prusa3_renderer && uni.vertex_pulling != -1 && uni.segment_offset != -1;
+            if (uni.vertex_pulling != -1)
+                glsafe(glUniform1i(uni.vertex_pulling, pulling ? 1 : 0));
+            if (pulling)
+                m_segment_template.render_pulled(count, uni.segment_offset);
+            else
+                m_segment_template.render(count);
             return;
         }
         // ORCA: realistic view. 6 vertices per caster ribbon.
@@ -2391,6 +2420,26 @@ void ViewerImpl::render_options(const Mat4x4& view_matrix, const Mat4x4& project
     glsafe(glUniformMatrix4fv(m_uni_options_projection_matrix_id, 1, GL_FALSE, projection_matrix.data()));
     glsafe(glUniform4fv(m_uni_options_clipping_plane_id, 1, m_clipping_plane.data()));
     set_layer_colors(m_uni_options_layer_colors);
+    // ORCA: PrusaSlicer 3.0 preview renderer - markers lit like the toolpaths. The shadow map sampler is
+    // pointed at its own unit even when unused, so that it never shares unit 0 with the buffer textures.
+    if (m_uni_options_prusa3_id != -1)
+        glsafe(glUniform1i(m_uni_options_prusa3_id, m_settings.prusa3_renderer ? 1 : 0));
+    if (m_uni_options_shadow_map_id != -1)
+        glsafe(glUniform1i(m_uni_options_shadow_map_id, m_shadow_map_texture_unit));
+    if (m_settings.prusa3_renderer) {
+        if (m_uni_options_light_key_dir_id != -1)
+            glsafe(glUniform3fv(m_uni_options_light_key_dir_id, 1, m_light_top_dir.data()));
+        if (m_uni_options_shadow_light_vp_id != -1)
+            glsafe(glUniformMatrix4fv(m_uni_options_shadow_light_vp_id, 1, GL_FALSE, m_shadow_light_vp.data()));
+        if (m_uni_options_shadow_intensity_id != -1)
+            glsafe(glUniform1f(m_uni_options_shadow_intensity_id, m_shadow_intensity));
+        if (m_uni_options_shadow_map_texel_id != -1)
+            glsafe(glUniform1f(m_uni_options_shadow_map_texel_id, m_shadow_map_texel));
+        if (m_uni_options_exposure_id != -1)
+            glsafe(glUniform1f(m_uni_options_exposure_id, m_exposure));
+        if (m_uni_options_saturation_id != -1)
+            glsafe(glUniform1f(m_uni_options_saturation_id, m_saturation));
+    }
 
     glsafe(glEnable(GL_CULL_FACE));
 

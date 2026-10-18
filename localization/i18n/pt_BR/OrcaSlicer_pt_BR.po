@@ -39712,3 +39712,306 @@ msgstr ", em %s"
 
 msgid "%d stops, none left"
 msgstr "%d paradas, nenhuma restante"
+
+#: Bambu avoid_crossing_wall_includes_support
+msgid "Avoid crossing walls - Include support"
+msgstr "Evitar cruzar paredes - Incluir suportes"
+
+msgid "When avoiding crossing walls on object layers, also treat the support of the same layer as printable ground, so the detour planner can travel over support instead of leaving it."
+msgstr "Ao evitar cruzar paredes nas camadas do objeto, considera tambem o suporte da mesma camada como area percorrivel, para o desvio poder passar sobre o suporte em vez de sair dele."
+
+#: Per-object calibration overrides (Layer Slayer, made native)
+msgid "Per-object calibration overrides"
+msgstr "Ajustes de calibração por objeto"
+
+msgid "Object first layer speed"
+msgstr "Velocidade da primeira camada do objeto"
+
+msgid "Speed of every extrusion on this object's first layer (walls, infill, bottom surface and the object's own support), replacing the first layer speeds of the process. The filament's maximum volumetric speed still caps it. 0 keeps the process speeds."
+msgstr "Velocidade de todas as extrusões da primeira camada deste objeto (paredes, preenchimento, superfície inferior e o suporte do próprio objeto), no lugar das velocidades de primeira camada do processo. A velocidade volumétrica máxima do filamento continua limitando. 0 mantém as velocidades do processo."
+
+msgid "Object first layer temperature"
+msgstr "Temperatura da primeira camada do objeto"
+
+msgid "Nozzle temperature for this object's first layer. Before the object is printed the nozzle retracts and waits (M109) for the new temperature, and it waits again for the filament temperature before the next object without an override. When all objects are printed at once (by layer) every switch between temperatures waits, so the first layer takes longer. 0 keeps the filament temperature."
+msgstr "Temperatura do bico na primeira camada deste objeto. Antes de imprimir o objeto o bico retrai e espera (M109) a nova temperatura, e espera de novo a temperatura do filamento antes do próximo objeto sem ajuste. Imprimindo todos os objetos juntos (por camada), cada troca de temperatura espera, então a primeira camada demora mais. 0 mantém a temperatura do filamento."
+
+msgid "Object nozzle temperature"
+msgstr "Temperatura do bico do objeto"
+
+msgid "Nozzle temperature for this object's layers after the first one, applied the same way as the first layer override (retract, wait with M109, restore before the next object). Best used with the by object print sequence: by layer, every layer waits for the nozzle twice per object. 0 keeps the filament temperature."
+msgstr "Temperatura do bico nas camadas deste objeto depois da primeira, aplicada como o ajuste da primeira camada (retrai, espera com M109, restaura antes do próximo objeto). Melhor com a sequência de impressão por objeto: por camada, cada camada espera o bico duas vezes por objeto. 0 mantém a temperatura do filamento."
+
+msgid "Object retraction length"
+msgstr "Comprimento de retração do objeto"
+
+msgid "Retraction length used while this object is printed, including the travel into it. 0 disables retraction for the object. -1 keeps the filament / printer value."
+msgstr "Comprimento de retração usado enquanto este objeto é impresso, incluindo o deslocamento até ele. 0 desliga a retração no objeto. -1 mantém o valor do filamento / impressora."
+
+msgid "Object retraction speed"
+msgstr "Velocidade de retração do objeto"
+
+msgid "Retraction and deretraction speed used while this object is printed. 0 keeps the filament / printer speeds."
+msgstr "Velocidade de retração e de desretração usada enquanto este objeto é impresso. 0 mantém as velocidades do filamento / impressora."
+
+msgid "Object Z offset"
+msgstr "Deslocamento Z do objeto"
+
+msgid "Moves every layer of this object up (positive) or down (negative) by this amount, like the printer Z offset but for this object only. Used by the Z offset calibration. The first layer is never sent closer than 0.03 mm to the bed. 0 keeps the object at its layer heights."
+msgstr "Sobe (positivo) ou desce (negativo) todas as camadas deste objeto por este valor, como o deslocamento Z da impressora, mas só neste objeto. Usado pela calibração de deslocamento Z. A primeira camada nunca fica a menos de 0,03 mm da mesa. 0 mantém o objeto nas alturas das camadas."
+
+#: NeoArachne per region engine choice / v3 spine (ported from OrcaFS-NeotkoCM, Neotko)
+msgid "Arachne (NeotkoEdge)"
+msgstr "Arachne (NeotkoEdge)"
+
+msgid "NeoArachne outer wall"
+msgstr "NeoArachne: parede externa"
+
+msgid "Engine of the outer wall. Classic gives a constant width, clean visible surface (the NeoArachne recipes). Arachne (either variant) hands the whole region to stock Arachne, since a variable width outer wall needs the Arachne interior too."
+msgstr "Motor da parede externa. Clássico dá largura constante e superfície visível limpa (as receitas do NeoArachne). Arachne (qualquer variante) entrega a região inteira ao Arachne padrão, pois uma parede externa de largura variável também precisa do interior Arachne."
+
+msgid "NeoArachne inner walls"
+msgstr "NeoArachne: paredes internas"
+
+msgid "Engine of the inner walls when the outer wall is Classic.\nArachne (default, Hybrid v2): variable width beads with integrated gap fill, widening capped at the nominal width.\nArachne (NeotkoEdge): the same plus a pinned bead width in 1-2 bead regions and a bead count hysteresis against width breathing.\nClassic (v3): constant width walls placed only where they fit whole; the pocket left inside is printed as one variable width line (single-line fill)."
+msgstr "Motor das paredes internas quando a parede externa é Clássica.\nArachne (padrão, Hybrid v2): cordões de largura variável com preenchimento de vãos integrado, alargamento limitado à largura nominal.\nArachne (NeotkoEdge): o mesmo, mais largura do cordão fixa nas regiões de 1-2 cordões e histerese na contagem de cordões contra a largura que \"respira\".\nClássico (v3): paredes de largura constante só onde cabem inteiras; o bolsão que sobra dentro é impresso como uma única linha de largura variável (preenchimento em linha única)."
+
+msgid "NeoArachne minimum feature"
+msgstr "NeoArachne: detalhe mínimo"
+
+msgid "Geometry thinner than this percentage of the nozzle diameter is dropped by the Arachne interior. Keep it low and at or below the minimum line width."
+msgstr "Geometria mais fina que esta porcentagem do diâmetro do bico é descartada pelo interior Arachne. Mantenha baixo e no máximo igual à largura mínima de linha."
+
+msgid "NeoArachne preserve thin edges"
+msgstr "NeoArachne: preservar bordas finas"
+
+msgid "Keeps the short closure tails Arachne would remove next to the classic outer wall, for cleaner seams. Disable only if very short speckles appear."
+msgstr "Mantém as caudas curtas de fechamento que o Arachne removeria junto à parede externa clássica, para costuras mais limpas. Desative só se aparecerem pontinhos muito curtos."
+
+msgid "NeoArachne pin bead width"
+msgstr "NeoArachne: fixar largura do cordão"
+
+msgid "Inner walls = Arachne (NeotkoEdge) only. In regions of 1 or 2 beads keep the bead at the nominal width instead of letting it breathe as thickness / bead count."
+msgstr "Só com paredes internas = Arachne (NeotkoEdge). Em regiões de 1 ou 2 cordões mantém o cordão na largura nominal em vez de deixá-lo variar como espessura / número de cordões."
+
+msgid "NeoArachne wall count stability"
+msgstr "NeoArachne: estabilidade da contagem de paredes"
+
+msgid "Inner walls = Arachne (NeotkoEdge) only. Delays every bead count transition by this percentage of the wall width, so borderline strokes stop alternating between bead counts along their length. 0 disables; typical 10-25%."
+msgstr "Só com paredes internas = Arachne (NeotkoEdge). Atrasa cada transição de contagem de cordões nesta porcentagem da largura da parede, para que traços no limite parem de alternar entre contagens ao longo do comprimento. 0 desativa; típico 10-25%."
+
+msgid "NeoArachne single-line fill"
+msgstr "NeoArachne: preenchimento em linha única"
+
+msgid "Inner walls = Classic only. Whatever is left inside the walls is printed as ONE line along its centre, with a width that follows the gap, whenever the whole gap fits in a line no wider than the maximum below (Simplify3D style). Wider areas go to infill. Off = plain Classic walls and gap fill."
+msgstr "Só com paredes internas = Clássico. O que sobra dentro das paredes é impresso como UMA linha pelo centro, com largura que acompanha o vão, sempre que o vão inteiro cabe numa linha não mais larga que o máximo abaixo (estilo Simplify3D). Áreas mais largas vão para o preenchimento. Desligado = paredes Clássicas e preenchimento de vãos normais."
+
+msgid "NeoArachne single-line minimum width"
+msgstr "NeoArachne: largura mínima da linha única"
+
+msgid "Floor of the single-line fill, in % of the inner wall line width. Narrower gaps are still printed at this width, so pocket tips get filled."
+msgstr "Piso do preenchimento em linha única, em % da largura de linha da parede interna. Vãos mais estreitos ainda são impressos com esta largura, para as pontas dos bolsões serem preenchidas."
+
+msgid "NeoArachne single-line maximum width"
+msgstr "NeoArachne: largura máxima da linha única"
+
+msgid "Ceiling of the single-line fill, in % of the inner wall line width. A gap that fits entirely under it becomes one line; otherwise the area goes to infill. The line is never split in two."
+msgstr "Teto do preenchimento em linha única, em % da largura de linha da parede interna. Um vão que cabe inteiro abaixo dele vira uma linha; senão a área vai para o preenchimento. A linha nunca é dividida em duas."
+
+msgid "NeoArachne single-line minimum length"
+msgstr "NeoArachne: comprimento mínimo da linha única"
+
+msgid "Single-line fill paths shorter than this are dropped."
+msgstr "Trajetos de linha única mais curtos que isto são descartados."
+
+msgid "NeoArachne single-line sliver limit"
+msgstr "NeoArachne: limite de fresta da linha única"
+
+msgid "A gap that never gets this wide (in % of the inner wall line width) is a crack between two passes of the same wall, not a pocket, and is not filled. 0 = fill every crack, like Simplify3D."
+msgstr "Um vão que nunca chega a esta largura (em % da largura de linha da parede interna) é uma fresta entre duas passadas da mesma parede, não um bolsão, e não é preenchido. 0 = preencher toda fresta, como o Simplify3D."
+
+#: NeoWave support (ported from OrcaFS-NeotkoCM, Neotko)
+msgid "NeoWave"
+msgstr "NeoWave"
+
+msgid "NeoWave hollow pillar walls"
+msgstr "NeoWave: paredes do pilar oco"
+
+msgid "Only with support style NeoWave. Number of perimeter walls of the support body, printed with no infill (a hollow pillar) so the wave roof caps a lightweight support. 0 keeps the normal support body. The first layer stays solid for bed adhesion. Upstream prints: 1-2 walls under a Wave roof with 2 top interface layers close cleanly."
+msgstr "Só com o estilo de suporte NeoWave. Número de paredes de perímetro do corpo do suporte, impressas sem preenchimento (um pilar oco) para o teto em onda fechar um suporte leve. 0 mantém o corpo normal do suporte. A primeira camada continua sólida para aderir à mesa. Impressões do autor original: 1-2 paredes sob um teto Onda com 2 camadas de interface superior fecham bem."
+
+msgid "NeoWave contact layer"
+msgstr "NeoWave: camada de contato"
+
+msgid "Experimental, not print-tested upstream (ported from OrcaFS-NeotkoCM by Neotko). Ripples the Z of the object's bridges that rest on a support roof: valleys touch the roof, crests lift by the amplitude, leaving micro gaps so the support comes off more easily. Only Z moves, upwards only; the bridge path, width and flow do not change. Works with any support type. The preview does not show the Z wave. Off by default."
+msgstr "Experimental, sem teste de impressão no original (portado do OrcaFS-NeotkoCM, de Neotko). Ondula o Z das pontes do objeto apoiadas num teto de suporte: os vales tocam o teto, as cristas sobem pela amplitude, deixando microfrestas para o suporte soltar com mais facilidade. Só o Z se move, e só para cima; o trajeto, a largura e o fluxo da ponte não mudam. Funciona com qualquer tipo de suporte. A pré-visualização não mostra a onda em Z. Desligado por padrão."
+
+msgid "NeoWave contact amplitude"
+msgstr "NeoWave: amplitude do contato"
+
+msgid "Peak upward Z lift of the contact wave. Typical 0.05-0.2 mm; keep it at or below half the layer height."
+msgstr "Subida máxima em Z da onda de contato. Típico 0,05-0,2 mm; mantenha no máximo metade da altura de camada."
+
+msgid "NeoWave contact period"
+msgstr "NeoWave: período do contato"
+
+msgid "Distance between two wave crests along the bridge line. Floored to the line width (a finer wave is unprintable). 0 = line width."
+msgstr "Distância entre duas cristas da onda ao longo da linha da ponte. Limitada por baixo à largura de linha (uma onda mais fina não é imprimível). 0 = largura de linha."
+
+#: Preferences > Graphics > G-code Preview (PrusaSlicer 3.0 preview renderer)
+msgid "PrusaSlicer 3.0 preview renderer"
+msgstr "Renderizador de pré-visualização do PrusaSlicer 3.0"
+
+msgid ""
+"Draw the G-code preview the way PrusaSlicer 3.0 does: the toolpaths are drawn by vertex pulling in large batches "
+"instead of one small instance per segment, which is faster on GPUs that handle many small instances poorly, "
+"and the seam, retraction and other markers are lit like the toolpaths and receive their shadows.\n"
+"The image of the toolpaths is the same. Disable it if the preview shows glitches on your graphics card."
+msgstr ""
+"Desenha a pré-visualização do G-code como o PrusaSlicer 3.0: as trajetórias são desenhadas por vertex pulling em lotes grandes "
+"em vez de uma pequena instância por segmento, o que é mais rápido em GPUs que lidam mal com muitas instâncias pequenas, "
+"e os marcadores de costura, retração e outros são iluminados como as trajetórias e recebem as sombras delas.\n"
+"A imagem das trajetórias é a mesma. Desative se a pré-visualização apresentar falhas na sua placa de vídeo."
+
+#: G-code preview legend: thickness of travel / wipe moves
+msgid "Right click to edit the thickness"
+msgstr "Clique com o botão direito para editar a espessura"
+
+msgid "Travel moves radius (mm)"
+msgstr "Raio dos movimentos de deslocamento (mm)"
+
+msgid "Wipe moves radius (mm)"
+msgstr "Raio dos movimentos de limpeza (mm)"
+
+#: Penultimate / Bottom zones and SVG stickers of the ColorStitch Painter, ported from OrcaFS-NeotkoCM (Neotko)
+msgid "Penultimate zone stack (JSON)"
+msgstr "Pilha da zona penultima (JSON)"
+
+msgid "Advanced: the Sandwich stack of the penultimate zone as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the penultimate zone quick mode."
+msgstr "Avancado: a pilha do Sandwich da zona penultima em JSON, no formato do OrcaFS-NeotkoCM. Quando definida, substitui o modo rapido da zona penultima."
+
+msgid "Bottom zone stack (JSON)"
+msgstr "Pilha da zona de base (JSON)"
+
+msgid "Advanced: the Sandwich stack of the bottom zone as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the bottom zone quick mode."
+msgstr "Avancado: a pilha do Sandwich da zona de base em JSON, no formato do OrcaFS-NeotkoCM. Quando definida, substitui o modo rapido da zona de base."
+
+msgid "Penultimate zone"
+msgstr "Zona penultima"
+
+msgid "Bottom zone"
+msgstr "Zona de base"
+
+msgid "Penultimate zone filament"
+msgstr "Filamento da zona penultima"
+
+msgid "Bottom zone filament"
+msgstr "Filamento da zona de base"
+
+msgid "The solid layer right under a top surface, printed as a Sandwich: Solid prints it in one filament, ColorStitch with the ColorStitch settings, Same as top repeats the top surface recipe. It needs a top surface with a solid layer under it (top shell layers of 2 or more). Not applied on the first layer of the object."
+msgstr "A camada solida logo abaixo de uma superficie superior, impressa como Sandwich: Solido imprime em um filamento, ColorStitch usa os ajustes do ColorStitch, Igual ao topo repete a receita da superficie superior. Precisa de uma superficie superior com camada solida abaixo (camadas de casca superior 2 ou mais). Nao se aplica a primeira camada do objeto."
+
+msgid "The bottom surface on the bed or on supports, printed as a Sandwich: Solid prints it in one filament, ColorStitch with the ColorStitch settings, Same as top repeats the top surface recipe. The first pass touches the bed. Bridges are not changed."
+msgstr "A superficie inferior sobre a mesa ou sobre suportes, impressa como Sandwich: Solido imprime em um filamento, ColorStitch usa os ajustes do ColorStitch, Igual ao topo repete a receita da superficie superior. A primeira passada toca a mesa. Pontes nao sao alteradas."
+
+msgid "Filament of the Solid mode (1 = first filament). 0 uses the object's own filament."
+msgstr "Filamento do modo Solido (1 = primeiro filamento). 0 usa o filamento do proprio objeto."
+
+msgid "Penultimate and bottom zones"
+msgstr "Zonas penultima e de base"
+
+msgid "Zone"
+msgstr "Zona"
+
+msgid "Penultimate"
+msgstr "Penultima"
+
+msgid "Top: the visible top surface. Penultimate: the solid layer under a top surface, only where a top covers it. Bottom: the bottom surface on the bed or on supports (paint it from below). * = the zone prints something."
+msgstr "Topo: a superficie superior visivel. Penultima: a camada solida sob uma superficie superior, apenas onde um topo a cobre. Base: a superficie inferior sobre a mesa ou suportes (pinte olhando por baixo). * = a zona imprime algo."
+
+msgid "Needs a top surface with a solid layer under it (top shell layers 2 or more) and a top larger than 3 mm."
+msgstr "Precisa de uma superficie superior com camada solida abaixo (camadas de casca superior 2 ou mais) e um topo maior que 3 mm."
+
+msgid "Pass #1 touches the bed. Bridges are not changed and PathBlend is not available here."
+msgstr "A passada n.1 toca a mesa. Pontes nao sao alteradas e o PathBlend nao esta disponivel aqui."
+
+msgid "Penultimate layer passes (bottom to top)"
+msgstr "Passadas da camada penultima (de baixo para cima)"
+
+msgid "Bottom surface passes (from the bed up)"
+msgstr "Passadas da superficie inferior (da mesa para cima)"
+
+msgid "Click a face to paint the active recipe. Shift + click erases. Top and Penultimate zones print on top surfaces, the Bottom zone on bottom surfaces: look at the part from below to paint them."
+msgstr "Clique numa face para pintar a receita ativa. Shift + clique apaga. As zonas Topo e Penultima imprimem em superficies superiores, a zona Base em superficies inferiores: olhe a peca por baixo para pinta-las."
+
+msgid "SVG stickers"
+msgstr "Adesivos SVG"
+
+msgid "Load SVG..."
+msgstr "Carregar SVG..."
+
+msgid "A drawing placed on a flat top or bottom face. Every colour of the SVG prints with a recipe of its own (flat filament recipes by default). Rough: flat colours only, no gradients."
+msgstr "Um desenho colocado numa face plana superior ou inferior. Cada cor do SVG imprime com uma receita propria (receitas de filamento liso por padrao). Experimental: so cores lisas, sem gradientes."
+
+msgid "Choose an SVG file"
+msgstr "Escolha um arquivo SVG"
+
+msgid "Cannot read that file."
+msgstr "Nao foi possivel ler esse arquivo."
+
+msgid "That SVG has no shape the sticker can use."
+msgstr "Esse SVG nao tem nenhuma forma que o adesivo possa usar."
+
+msgid "Flat"
+msgstr "Liso"
+
+msgid "Add ColorStitch sticker"
+msgstr "Adicionar adesivo ColorStitch"
+
+msgid "Sticker added on the top. Use \"Place on a face\" and click a flat top or bottom face to move it."
+msgstr "Adesivo adicionado no topo. Use \"Colocar numa face\" e clique numa face plana superior ou inferior para move-lo."
+
+msgid "Click on the model."
+msgstr "Clique no modelo."
+
+msgid "Stickers go on flat top or bottom faces: pick a horizontal face."
+msgstr "Adesivos vao em faces planas superiores ou inferiores: escolha uma face horizontal."
+
+msgid "Place ColorStitch sticker"
+msgstr "Colocar adesivo ColorStitch"
+
+msgid "Show or hide ColorStitch sticker"
+msgstr "Mostrar ou ocultar adesivo ColorStitch"
+
+msgid "Edit ColorStitch sticker"
+msgstr "Editar adesivo ColorStitch"
+
+msgid "Edit ColorStitch sticker colours"
+msgstr "Editar cores do adesivo ColorStitch"
+
+msgid "Reorder ColorStitch stickers"
+msgstr "Reordenar adesivos ColorStitch"
+
+msgid "Delete ColorStitch sticker"
+msgstr "Excluir adesivo ColorStitch"
+
+msgid "Width (mm)"
+msgstr "Largura (mm)"
+
+msgid "Click a face..."
+msgstr "Clique numa face..."
+
+msgid "Place on a face"
+msgstr "Colocar numa face"
+
+msgid "Up"
+msgstr "Subir"
+
+msgid "Moves the sticker up the pile: the topmost sticker wins where they overlap."
+msgstr "Sobe o adesivo na pilha: o adesivo de cima vence onde se sobrepoem."
+
+msgid "(not printed)"
+msgstr "(nao impresso)"
+
+msgid "A sticker on a bottom face needs recipes with a Bottom zone."
+msgstr "Um adesivo numa face inferior precisa de receitas com zona Base."

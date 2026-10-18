@@ -225,7 +225,7 @@ void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRe
 
     if (this->layer()->object()->config().neoarachne_hybrid.value && !spiral_mode)
         // NeoArachne Hybrid v2 (ported from OrcaFS-NeotkoCM, Neotko): classic outer wall + Arachne interior.
-        NeoArachne::run_hybrid(g);
+        NeoArachne::run_hybrid(g, this->layer()->object()->neo_config());
     else if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)
         g.process_arachne();
     else

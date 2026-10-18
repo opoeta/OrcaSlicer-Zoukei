@@ -22,6 +22,16 @@ enum class SurfacePassKind : int {
     ZBump       = 4,
 };
 
+// The zone of a surface a Sandwich stack belongs to (NeotkoCM: Top, Penultimate, Bottom).
+//  Top         : the visible top surface (stTop).
+//  Penultimate : the solid layer right under a top surface (stSubTop), the area covered by that top.
+//  Bottom      : the supported bottom surface (on the bed or on supports); bridges are left alone.
+enum class SurfaceZone : int {
+    Top         = 0,
+    Penultimate = 1,
+    Bottom      = 2,
+};
+
 } // namespace Slic3r
 
 #endif // slic3r_SurfacePassKind_hpp_

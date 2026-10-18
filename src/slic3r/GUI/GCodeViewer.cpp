@@ -1425,6 +1425,10 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     }
 
     m_viewer.set_realistic_shading(get_app_config()->get_bool("realistic_gcode_preview"));
+    // ORCA: PrusaSlicer 3.0 preview renderer, off unless enabled in Preferences > Graphics
+    m_viewer.set_prusa3_renderer(get_app_config()->get_bool("gcode_preview_prusa3_renderer"));
+    // ORCA: travel and wipe thickness, set from the legend (right click on Travel / Wipe), see render_legend()
+    apply_moves_radii_from_config();
     // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM, Neotko)
     m_zk_tool_colors = str_tool_colors;
     refresh_realcolor();
@@ -4179,7 +4183,8 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         bool checkbox = true,
         float checkbox_pos = 0.f, // ORCA use calculated value for eye icon. Aligned to "Display" header or end of combo box
         bool visible = true,
-        std::function<void()> callback = nullptr)
+        std::function<void()> callback = nullptr,
+        std::function<void()> right_click_callback = nullptr) // ORCA: PrusaSlicer 3.0 style "edit thickness" of travels and wipes
     {
         // render icon
         ImVec2 pos = ImVec2(ImGui::GetCursorScreenPos().x + window_padding * 3, ImGui::GetCursorScreenPos().y);
@@ -4225,10 +4230,18 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                     max_height = ImGui::CalcTextSize(column_offset.first.c_str()).y;
             }
             bool b_menu_item = ImGui::BBLMenuItem(("##" + columns_offsets[0].first).c_str(), nullptr, false, true, max_height);
+            // ORCA: after PrusaSlicer 3.0 (AGPL-3.0, Prusa Research), whose legend edits the thickness of the travel
+            // and wipe moves. A left click here already toggles the visibility, so the editor opens on a right click.
+            const bool item_hovered = right_click_callback != nullptr && ImGui::IsItemHovered();
             ImGui::PopStyleVar(2);
             ImGui::PopStyleColor(3);
             if (b_menu_item)
                 callback();
+            if (item_hovered) {
+                imgui.tooltip(_u8L("Right click to edit the thickness"), ImGui::GetFontSize() * 20.0f);
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                    right_click_callback();
+            }
             if (checkbox) {
                 // ORCA replace checkboxes with eye icon
                 // Use calculated position from argument. this method has predictable result compared to alingning button using window width
@@ -4810,10 +4823,13 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                 columns_offsets.push_back({ distance_text, offsets[3] });
             if (full_layout && !count_text.empty())
                 columns_offsets.push_back({ count_text, distance_text.empty() ? offsets[3] : offsets[4] });
+            std::function<void()> edit_thickness = nullptr;
+            if (type == libvgcode::EOptionType::Travels || type == libvgcode::EOptionType::Wipes)
+                edit_thickness = [this, type]() { open_moves_radius_popup(type == libvgcode::EOptionType::Wipes); };
             append_item(EItemType::Rect, color, columns_offsets, true, offsets.back()/*ORCA checkbox_pos*/, visible, [this, type]() {
                 m_viewer.toggle_option_visibility(type);
                 update_moves_slider();
-                });
+                }, edit_thickness);
         };
         const bool visible = m_viewer.is_option_visible(type);
         if (type == libvgcode::EOptionType::Travels) {
@@ -4909,7 +4925,7 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             m_viewer.toggle_option_visibility(libvgcode::EOptionType::Travels);
             // refresh(*m_gcode_result, wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result));
             update_moves_slider();
-            });
+            }, [this]() { open_moves_radius_popup(false); });
         ImGui::PopStyleVar(1);
         break;
     }
@@ -4926,7 +4942,7 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             m_viewer.toggle_option_visibility(libvgcode::EOptionType::Travels);
             // refresh(*m_gcode_result, wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result));
             update_moves_slider();
-            });
+            }, [this]() { open_moves_radius_popup(false); });
         ImGui::PopStyleVar(1);
         break;
     }
@@ -4942,7 +4958,7 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         append_item(EItemType::None, libvgcode::convert(m_viewer.get_option_color(libvgcode::EOptionType::Travels)), { {_u8L("Travel"), offsets[0] }}, true, predictable_icon_pos/*ORCA checkbox_pos*/, travel_visible, [this]() {
             m_viewer.toggle_option_visibility(libvgcode::EOptionType::Travels);
             update_moves_slider();
-            });
+            }, [this]() { open_moves_radius_popup(false); });
         ImGui::PopStyleVar(1);
         break;
     }
@@ -4958,7 +4974,7 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         append_item(EItemType::None, libvgcode::convert(m_viewer.get_option_color(libvgcode::EOptionType::Travels)), { {_u8L("Travel"), offsets[0] }}, true, predictable_icon_pos/*ORCA checkbox_pos*/, travel_visible, [this]() {
             m_viewer.toggle_option_visibility(libvgcode::EOptionType::Travels);
             update_moves_slider();
-            });
+            }, [this]() { open_moves_radius_popup(false); });
         ImGui::PopStyleVar(1);
         break;
     }
@@ -5682,10 +5698,104 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         }
     }
 
+    // ORCA: travel / wipe thickness editor, opened by a right click on their legend rows
+    render_moves_radius_popup(m_scale);
+
     legend_height = ImGui::GetCurrentWindow()->Size.y;
     imgui.end();
     ImGui::PopStyleColor(7);
     ImGui::PopStyleVar(2);
+}
+
+// ORCA: thickness of the travel and wipe moves, after PrusaSlicer 3.0 (AGPL-3.0, Prusa Research), whose legend
+// edits it ("Edit moves thickness"). Kept in the app config as whole micrometres.
+static constexpr const char* PREVIEW_TRAVEL_RADIUS_KEY = "preview_travel_radius_um";
+static constexpr const char* PREVIEW_WIPE_RADIUS_KEY   = "preview_wipe_radius_um";
+
+static float moves_radius_from_config(const char* key, float default_radius)
+{
+    const AppConfig* cfg = get_app_config();
+    if (cfg == nullptr)
+        return default_radius;
+    const std::string value = cfg->get(key);
+    if (value.empty())
+        return default_radius;
+    try {
+        const int micrometres = std::stoi(value);
+        if (micrometres > 0)
+            return 0.001f * static_cast<float>(micrometres);
+    }
+    catch (...) {}
+    return default_radius;
+}
+
+void GCodeViewer::apply_moves_radii_from_config()
+{
+    const float travels = moves_radius_from_config(PREVIEW_TRAVEL_RADIUS_KEY, libvgcode::DEFAULT_TRAVELS_RADIUS_MM);
+    const float wipes   = moves_radius_from_config(PREVIEW_WIPE_RADIUS_KEY, libvgcode::DEFAULT_WIPES_RADIUS_MM);
+    // only when changed: each call rewrites the thickness of every travel / wipe vertex on the gpu
+    if (std::abs(m_viewer.get_travels_radius() - travels) > 1e-5f)
+        m_viewer.set_travels_radius(travels);
+    if (std::abs(m_viewer.get_wipes_radius() - wipes) > 1e-5f)
+        m_viewer.set_wipes_radius(wipes);
+}
+
+void GCodeViewer::open_moves_radius_popup(bool wipe)
+{
+    m_moves_radius_popup        = wipe ? EMovesRadiusPopup::Wipe : EMovesRadiusPopup::Travel;
+    m_moves_radius_popup_opened = false;
+}
+
+void GCodeViewer::render_moves_radius_popup(float scale)
+{
+    if (m_moves_radius_popup == EMovesRadiusPopup::None)
+        return;
+
+    static const char* POPUP_ID = "##MovesRadiusPopup";
+    if (!m_moves_radius_popup_opened) {
+        ImGui::OpenPopup(POPUP_ID);
+        m_moves_radius_popup_opened = true;
+    }
+
+    const bool wipe = m_moves_radius_popup == EMovesRadiusPopup::Wipe;
+    if (!ImGui::BeginPopup(POPUP_ID, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+        // closed by a click outside of it or by Esc
+        m_moves_radius_popup        = EMovesRadiusPopup::None;
+        m_moves_radius_popup_opened = false;
+        return;
+    }
+
+    const float min_radius     = wipe ? libvgcode::MIN_WIPES_RADIUS_MM : libvgcode::MIN_TRAVELS_RADIUS_MM;
+    const float max_radius     = wipe ? libvgcode::MAX_WIPES_RADIUS_MM : libvgcode::MAX_TRAVELS_RADIUS_MM;
+    const float default_radius = wipe ? libvgcode::DEFAULT_WIPES_RADIUS_MM : libvgcode::DEFAULT_TRAVELS_RADIUS_MM;
+    float       radius         = wipe ? m_viewer.get_wipes_radius() : m_viewer.get_travels_radius();
+
+    ImGuiWrapper::text(wipe ? _u8L("Wipe moves radius (mm)") : _u8L("Travel moves radius (mm)"));
+    bool edited = false;
+    ImGui::SetNextItemWidth(220.0f * scale);
+    if (ImGui::SliderFloat("##MovesRadius", &radius, min_radius, max_radius, "%.2f"))
+        edited = true;
+    ImGui::SameLine();
+    if (ImGui::Button(_u8L("Reset").c_str())) {
+        radius = default_radius;
+        edited = true;
+    }
+
+    if (edited) {
+        radius = std::clamp(radius, min_radius, max_radius);
+        if (wipe)
+            m_viewer.set_wipes_radius(radius);
+        else
+            m_viewer.set_travels_radius(radius);
+        if (AppConfig* cfg = get_app_config(); cfg != nullptr)
+            cfg->set(wipe ? PREVIEW_WIPE_RADIUS_KEY : PREVIEW_TRAVEL_RADIUS_KEY, std::to_string(static_cast<int>(std::lround(radius * 1000.0f))));
+        if (GLCanvas3D* canvas = wxGetApp().plater() != nullptr ? wxGetApp().plater()->get_current_canvas3D() : nullptr; canvas != nullptr) {
+            canvas->set_as_dirty();
+            canvas->request_extra_frame();
+        }
+    }
+
+    ImGui::EndPopup();
 }
 
 void GCodeViewer::push_combo_style()

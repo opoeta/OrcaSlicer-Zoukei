@@ -1743,7 +1743,8 @@ void generate_support_toolpaths(
                     // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): the top contact / interface layers of the
                     // supports get the Wave-Huygens front fill. Off by default. If the wave engine returns nothing
                     // for a region the normal interface fill below runs, so a roof is never left empty.
-                    if (config.neowave_roof.value && !raft_contact && !interface_as_base && !bottom_interface && !layer_ex.layer->bridging) {
+                    // Support style NeoWave always gets the wave roof.
+                    if ((config.neowave_roof.value || support_params.neowave) && !raft_contact && !interface_as_base && !bottom_interface && !layer_ex.layer->bridging) {
                         FillWaveRoofParams wave_params;
                         wave_params.flow          = interface_flow;
                         wave_params.role          = ExtrusionRole::erSupportMaterialInterface;
@@ -1846,6 +1847,22 @@ void generate_support_toolpaths(
                     filler->link_max_length = coord_t(scale_(filler->spacing * link_max_length_factor / density));
                     sheath  = true;
                     no_sort = true;
+                } else if (support_params.neowave && support_params.neowave_pillar_walls > 0) {
+                    // NeoWave hollow pillar (ported from OrcaFS-NeotkoCM, Neotko): N concentric perimeters and no infill,
+                    // so the wave roof caps a lightweight support. The first layer flange above stays solid.
+                    const double wall_spacing = flow.scaled_spacing();
+                    const double clip_length  = wall_spacing * 0.15;
+                    const ExPolygons body     = union_ex(base_layer.polygons_to_extrude());
+                    for (int w = 0; w < support_params.neowave_pillar_walls; ++w) {
+                        // Inset the body boundary by (w + 0.5) line spacings and draw that perimeter.
+                        const ExPolygons loops = offset_ex(body, -(float(w) + 0.5f) * float(wall_spacing));
+                        if (loops.empty())
+                            break;
+                        for (const ExPolygon &loop : loops)
+                            extrusion_entities_append_paths(base_layer.extrusions, draw_perimeters(loop, clip_length),
+                                ExtrusionRole::erSupportMaterial, flow.mm3_per_mm(), flow.width(), flow.height());
+                    }
+                    done = true;
                 } else if (support_params.support_style == SupportMaterialStyle::smsTreeOrganic &&
                            (config.support_base_pattern == smpNone || config.support_base_pattern == smpDefault)) {
                     // Orca: A special case for the hollow Organic supports

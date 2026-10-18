@@ -2894,6 +2894,17 @@ void TabPrint::build()
         optgroup->append_single_option_line("neoarachne_overlap_pct");
         optgroup->append_single_option_line("neoarachne_min_bead_pct");
         optgroup->append_single_option_line("neoarachne_max_bead_pct");
+        optgroup->append_single_option_line("neoarachne_outer_wall");
+        optgroup->append_single_option_line("neoarachne_inner_walls");
+        optgroup->append_single_option_line("neoarachne_min_feature_pct");
+        optgroup->append_single_option_line("neoarachne_keep_short_tails");
+        optgroup->append_single_option_line("neoarachne_pin_outer_width");
+        optgroup->append_single_option_line("neoarachne_hysteresis_pct");
+        optgroup->append_single_option_line("neoarachne_spine");
+        optgroup->append_single_option_line("neoarachne_spine_min_width_pct");
+        optgroup->append_single_option_line("neoarachne_spine_max_width_pct");
+        optgroup->append_single_option_line("neoarachne_spine_min_length");
+        optgroup->append_single_option_line("neoarachne_spine_sliver_pct");
 
         optgroup = page->new_optgroup(L("Walls and surfaces"), L"param_wall_surface");
         optgroup->append_single_option_line("wall_sequence", "quality_settings_wall_and_surfaces#walls-printing-order");
@@ -2917,6 +2928,7 @@ void TabPrint::build()
         optgroup->append_single_option_line("min_width_top_surface", "quality_settings_wall_and_surfaces#threshold");
         optgroup->append_single_option_line("reduce_crossing_wall", "quality_settings_wall_and_surfaces#avoid-crossing-walls");
         optgroup->append_single_option_line("max_travel_detour_distance", "quality_settings_wall_and_surfaces#max-detour-length");
+        optgroup->append_single_option_line("avoid_crossing_wall_includes_support", "quality_settings_wall_and_surfaces#avoid-crossing-walls");
 
         optgroup->append_single_option_line("small_area_infill_flow_compensation", "quality_settings_wall_and_surfaces#small-area-flow-compensation");
         Option option = optgroup->get_option("small_area_infill_flow_compensation_model");
@@ -3171,6 +3183,10 @@ void TabPrint::build()
         optgroup->append_single_option_line("neowave_roof_shape");
         optgroup->append_single_option_line("neowave_roof_order");
         optgroup->append_single_option_line("neowave_roof_reverse");
+        optgroup->append_single_option_line("neowave_pillar_walls");
+        optgroup->append_single_option_line("neowave_contact");
+        optgroup->append_single_option_line("neowave_contact_amplitude");
+        optgroup->append_single_option_line("neowave_contact_period");
 
         optgroup = page->new_optgroup(L("Tree supports"), L"param_support_tree");
         optgroup->append_single_option_line("tree_support_tip_diameter", "support_settings_tree#tip-diameter");
@@ -3290,6 +3306,11 @@ void TabPrint::build()
         optgroup->append_single_option_line("pathblend_floor_mm");
         optgroup->append_single_option_line("pathblend_ramp_end_mm");
         optgroup->append_single_option_line("pathblend_fill_angle");
+        optgroup = page->new_optgroup(L("Penultimate and bottom zones"), L"param_filament_for_features");
+        optgroup->append_single_option_line("penu_zone_mode");
+        optgroup->append_single_option_line("penu_zone_filament");
+        optgroup->append_single_option_line("bottom_zone_mode");
+        optgroup->append_single_option_line("bottom_zone_filament");
 
     page = add_options_page(L("Others"), "custom-gcode_other"); // ORCA: icon only visible on placeholders
         optgroup = page->new_optgroup(L("Skirt"), L"param_skirt");
@@ -3365,6 +3386,16 @@ void TabPrint::build()
         optgroup->append_single_option_line("zbump_edge_margin");
         optgroup->append_single_option_line("zbump_max_slope");
         optgroup->append_single_option_line("zbump_segment");
+
+        // Per-object overrides (Layer Slayer calibrations, made native). Meant for the object list ("Add settings" >
+        // Calibration); a value set here applies to every object.
+        optgroup = page->new_optgroup(L("Per-object calibration overrides"), L"param_advanced");
+        optgroup->append_single_option_line("object_initial_layer_speed");
+        optgroup->append_single_option_line("object_initial_layer_temperature");
+        optgroup->append_single_option_line("object_nozzle_temperature");
+        optgroup->append_single_option_line("object_retraction_length");
+        optgroup->append_single_option_line("object_retraction_speed");
+        optgroup->append_single_option_line("object_z_offset");
 
         optgroup = page->new_optgroup(L("G-code output"), L"param_gcode");
         optgroup->append_single_option_line("reduce_infill_retraction", "others_settings_g_code_output#reduce-infill-retraction");
@@ -3542,7 +3573,7 @@ void TabPrint::toggle_options()
     auto   support_type = m_config->opt_enum<SupportType>("support_type");
     if (auto choice = dynamic_cast<Choice*>(field)) {
         auto def = print_config_def.get("support_style");
-        std::vector<int> enum_set_normal = {smsDefault, smsGrid, smsSnug };
+        std::vector<int> enum_set_normal = {smsDefault, smsGrid, smsSnug, smsNeoWave /* ported from OrcaFS-NeotkoCM (Neotko) */ };
         std::vector<int> enum_set_tree   = { smsDefault, smsTreeSlim, smsTreeStrong, smsTreeHybrid, smsTreeOrganic };
         auto &           set             = is_tree(support_type) ? enum_set_tree : enum_set_normal;
         auto &           opt             = const_cast<ConfigOptionDef &>(field->m_opt);
@@ -4250,7 +4281,7 @@ void TabPrintPlate::update_custom_dirty(std::vector<std::string> &dirty_options,
 }
 
 TabPrintObject::TabPrintObject(ParamsPanel* parent) :
-    TabPrintModel(parent, concat(PrintObjectConfig().keys(), PrintRegionConfig().keys()))
+    TabPrintModel(parent, concat(concat(concat(PrintObjectConfig().keys(), PrintRegionConfig().keys()), PrintObjectCalibConfig().keys()), PrintObjectNeoConfig().keys()))
 {
     m_parent_tab = wxGetApp().get_tab(Preset::TYPE_PRINT);
 }

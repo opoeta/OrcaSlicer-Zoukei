@@ -4,7 +4,10 @@
 
 #include "libslic3r/ColorStitch.hpp"
 #include "libslic3r/ColorStitchPaint.hpp"
+#include "libslic3r/ColorStitchSticker.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/NSVGUtils.hpp"
+#include "libslic3r/Tesselate.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/SurfaceEffectProfile.hpp"
@@ -25,9 +28,11 @@
 #include <cstring>
 #include <set>
 
+#include <boost/filesystem.hpp>
 #include <glad/gl.h>
 #include <imgui.h>
 #include <wx/busycursor.h>
+#include <wx/filedlg.h>
 
 namespace Slic3r::GUI {
 
@@ -114,6 +119,54 @@ std::vector<std::pair<ModelVolume *, int>> slots_of_profile(ModelObject &mo, int
     return out;
 }
 
+// The stack of a zone (0 Top, 1 Penultimate, 2 Bottom) is stored in one of three JSON strings of the recipe.
+std::string SurfaceEffectProfile::*zone_field(int zone)
+{
+    return zone == 1 ? &SurfaceEffectProfile::stack_penu_json : (zone == 2 ? &SurfaceEffectProfile::stack_bottom_json : &SurfaceEffectProfile::stack_top_json);
+}
+
+// Pose of a sticker in the world frame (the frame of the bed): position of its centre on the face, spin
+// about the vertical, size factor, mirror and the side (down = on the bottom face, seen from below).
+struct StickerPose
+{
+    Vec3d  pos    = Vec3d::Zero();
+    double spin   = 0.;
+    double scale  = 1.;
+    bool   mirror = false;
+    bool   down   = false;
+};
+
+Transform3d compose_pose(const StickerPose &p)
+{
+    Eigen::Matrix3d L = Eigen::AngleAxisd(p.spin, Vec3d::UnitZ()).toRotationMatrix();
+    if (p.mirror)
+        L = L * Eigen::Vector3d(-1., 1., 1.).asDiagonal();
+    L *= std::max(1e-6, p.scale);
+    if (p.down)
+        L = Eigen::Vector3d(1., -1., -1.).asDiagonal() * L; // a half turn about X: the drawing reads from below
+    Transform3d t   = Transform3d::Identity();
+    t.linear()      = L;
+    t.translation() = p.pos;
+    return t;
+}
+
+StickerPose decompose_pose(const Transform3d &t)
+{
+    StickerPose p;
+    p.pos             = t.translation();
+    Eigen::Matrix3d L = t.linear();
+    p.down            = L.col(2).z() < 0.;
+    if (p.down)
+        L = Eigen::Vector3d(1., -1., -1.).asDiagonal() * L;
+    Eigen::Matrix2d A = L.topLeftCorner<2, 2>();
+    p.mirror          = A.determinant() < 0.;
+    if (p.mirror)
+        A.col(0) = -A.col(0);
+    p.scale = std::sqrt(std::max(1e-12, std::abs(A.determinant())));
+    p.spin  = std::atan2(A(1, 0), A(0, 0));
+    return p;
+}
+
 EnforcerBlockerStateMap erase_state_map(int slot)
 {
     EnforcerBlockerStateMap map;
@@ -160,7 +213,10 @@ wxString GLGizmoColorStitchPainter::handle_snapshot_action_name(bool shift_down,
 void GLGizmoColorStitchPainter::on_opening()
 {
     m_status.clear();
-    m_active_slot = 0;
+    m_active_slot           = 0;
+    m_sticker_sel           = -1;
+    m_sticker_placing       = false;
+    m_sticker_preview_dirty = true;
     if (m_active_profile > 0 && SurfaceEffectProfileManager::get().find(m_active_profile) == nullptr)
         m_active_profile = 0;
     if (m_active_profile == 0 && SurfaceEffectProfileManager::get().size() > 0)
@@ -185,13 +241,32 @@ void GLGizmoColorStitchPainter::render_painter_gizmo()
     render_triangles(selection);
     m_c->object_clipper()->render_cut();
     m_c->instances_hider()->render_cut();
-    render_cursor();
+    render_sticker_preview();
+    if (!m_sticker_placing)
+        render_cursor();
 
     glsafe(::glDisable(GL_BLEND));
 }
 
 bool GLGizmoColorStitchPainter::gizmo_event(SLAGizmoEventType action, const Vec2d &mouse_position, bool shift_down, bool alt_down, bool control_down)
 {
+    // Sticker placing mode: a click on a face puts the selected sticker there, nothing is painted.
+    if (m_sticker_placing) {
+        const ModelObject *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+        if (action == SLAGizmoEventType::LeftDown) {
+            if (mo != nullptr && m_sticker_sel >= 0 && size_t(m_sticker_sel) < mo->colorstitch_stickers.size()) {
+                if (place_sticker_at_mouse(size_t(m_sticker_sel), mouse_position))
+                    m_sticker_placing = false;
+            }
+            return true;
+        }
+        if (action == SLAGizmoEventType::RightDown) {
+            m_sticker_placing = false;
+            return true;
+        }
+        if (action == SLAGizmoEventType::LeftUp || action == SLAGizmoEventType::Dragging)
+            return true;
+    }
     if (action == SLAGizmoEventType::LeftDown && !shift_down) {
         if (m_active_profile <= 0 || SurfaceEffectProfileManager::get().find(m_active_profile) == nullptr) {
             m_status = _u8L("Pick or create a recipe first.");
@@ -259,7 +334,7 @@ std::vector<ColorRGBA> GLGizmoColorStitchPainter::state_colors(const ModelVolume
         if (pid <= 0)
             continue;
         if (const SurfaceEffectProfile *p = mgr.find(pid))
-            colors[size_t(s)] = argb_to_color(p->preview_argb != 0 ? p->preview_argb : preview_argb(SurfacePassStack::from_json(p->stack_top_json), p));
+            colors[size_t(s)] = argb_to_color(swatch_argb(*p));
         else
             colors[size_t(s)] = ColorRGBA(0.25f, 0.25f, 0.25f, 1.f); // orphan paint
     }
@@ -326,8 +401,11 @@ void GLGizmoColorStitchPainter::update_from_model_object(bool first_update)
     m_filament_colors = wxGetApp().plater()->get_extruder_colors_from_plater_config();
     const ModelObject *mo = m_c->selection_info()->model_object();
     m_triangle_selectors.clear();
-    m_active_slot       = 0;
-    m_used_states_dirty = true;
+    m_active_slot           = 0;
+    m_used_states_dirty     = true;
+    m_sticker_preview_dirty = true;
+    if (mo == nullptr || m_sticker_sel >= int(mo->colorstitch_stickers.size()))
+        m_sticker_sel = -1;
     if (mo == nullptr)
         return;
     for (const ModelVolume *mv : mo->volumes) {
@@ -476,19 +554,23 @@ int GLGizmoColorStitchPainter::capture_recipe_from_object()
     cfg.apply(mo->config.get(), true);
     PrintObjectConfig object_cfg;
     object_cfg.apply(cfg, true);
-    const SurfacePassStack stack = SurfacePassStack::resolve(object_cfg);
-    if (!stack.any_effect()) {
+    const SurfacePassStack stack  = SurfacePassStack::resolve(object_cfg);
+    const SurfacePassStack penu   = SurfacePassStack::resolve_zone(object_cfg, SurfaceZone::Penultimate);
+    const SurfacePassStack bottom = SurfacePassStack::resolve_zone(object_cfg, SurfaceZone::Bottom);
+    if (!stack.any_effect() && !penu.any_effect() && !bottom.any_effect()) {
         m_status = _u8L("This object has no Sandwich, ColorStitch or PathBlend settings to capture (Surface colour page).");
         return 0;
     }
     SurfaceEffectProfileManager &mgr = SurfaceEffectProfileManager::get();
     SurfaceEffectProfile         p;
-    p.name           = mo->name + " " + std::to_string(mgr.next_id());
-    p.stack_top_json = stack.to_json();
-    p.colorstitch    = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::colorstitch_keys());
-    p.pathblend      = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::pathblend_keys());
-    p.multipass      = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::multipass_keys());
-    p.preview_argb   = preview_argb(stack, &p);
+    p.name              = mo->name + " " + std::to_string(mgr.next_id());
+    p.stack_top_json    = stack.to_json();
+    p.stack_penu_json   = penu.any_effect() ? penu.to_json() : std::string();
+    p.stack_bottom_json = bottom.any_effect() ? bottom.to_json() : std::string();
+    p.colorstitch       = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::colorstitch_keys());
+    p.pathblend         = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::pathblend_keys());
+    p.multipass         = SurfaceEffectProfileManager::snapshot_keys(cfg, SurfaceEffectProfileManager::multipass_keys());
+    p.preview_argb      = swatch_argb(p);
     m_status         = _u8L("Recipe captured. Paint it on the faces that should carry it; the object settings themselves are unchanged.");
     return mgr.add(std::move(p));
 }
@@ -542,13 +624,28 @@ void GLGizmoColorStitchPainter::delete_recipe(int profile_id)
     schedule_reslice();
 }
 
-void GLGizmoColorStitchPainter::commit_stack(const SurfacePassStack &stack, bool reslice)
+uint32_t GLGizmoColorStitchPainter::swatch_argb(const SurfaceEffectProfile &p) const
+{
+    if (p.preview_argb != 0)
+        return p.preview_argb;
+    for (const std::string *json : { &p.stack_top_json, &p.stack_penu_json, &p.stack_bottom_json }) {
+        const SurfacePassStack s = SurfacePassStack::from_json(*json);
+        if (s.any_effect())
+            return preview_argb(s, &p);
+    }
+    return 0xFF808080u;
+}
+
+void GLGizmoColorStitchPainter::commit_stack(const SurfacePassStack &stack, int zone, bool reslice)
 {
     SurfaceEffectProfile *p = SurfaceEffectProfileManager::get().find_mut(m_active_profile);
     if (p == nullptr)
         return;
-    p->stack_top_json = stack.to_json();
-    p->preview_argb   = preview_argb(stack, p);
+    p->*zone_field(zone) = stack.to_json();
+    // The swatch shows the Top zone while it prints something, else the zone just edited.
+    const SurfacePassStack top = zone == 0 ? stack : SurfacePassStack::from_json(p->stack_top_json);
+    p->preview_argb            = preview_argb(top.any_effect() ? top : stack, p);
+    m_sticker_preview_dirty    = true;
     refresh_state_colors();
     m_reslice_pending = true;
     if (reslice)
@@ -650,7 +747,7 @@ void GLGizmoColorStitchPainter::render_recipe_list()
     int clicked = 0;
     for (const SurfaceEffectProfile &p : mgr.list()) {
         ImGui::PushID(p.id);
-        const uint32_t argb = p.preview_argb != 0 ? p.preview_argb : preview_argb(SurfacePassStack::from_json(p.stack_top_json), &p);
+        const uint32_t argb = swatch_argb(p);
         ImGui::ColorButton("##sw", argb_to_imvec(argb), ImGuiColorEditFlags_NoTooltip, ImVec2(swatch, swatch));
         ImGui::SameLine();
         if (ImGui::Selectable(p.name.c_str(), p.id == m_active_profile, 0, ImVec2(0.f, swatch)))
@@ -713,7 +810,29 @@ void GLGizmoColorStitchPainter::render_recipe_editor()
         m_reslice_pending = true; // marks the project modified, nothing to re-slice
     }
 
-    SurfacePassStack stack = SurfacePassStack::from_json(profile->stack_top_json);
+    // Zone selector. A zone that prints something is marked.
+    {
+        std::vector<std::string> zone_items { _u8L("Top"), _u8L("Penultimate"), _u8L("Bottom") };
+        for (int z = 0; z < 3; ++z)
+            if (SurfacePassStack::from_json(profile->*zone_field(z)).any_effect())
+                zone_items[size_t(z)] += " *";
+        ImGui::AlignTextToFramePadding();
+        m_imgui->text(_L("Zone"));
+        ImGui::SameLine();
+        combo_items("##cs_zone", m_zone, zone_items, m_imgui->scaled(7.f));
+        if (ImGui::IsItemHovered())
+            m_imgui->tooltip(_L("Top: the visible top surface. Penultimate: the solid layer under a top surface, only where a top covers it. "
+                                "Bottom: the bottom surface on the bed or on supports (paint it from below). * = the zone prints something."),
+                             m_imgui->scaled(16.f));
+        if (m_zone == 1)
+            m_imgui->text_wrapped(_L("Needs a top surface with a solid layer under it (top shell layers 2 or more) and a top larger than 3 mm."),
+                                  m_imgui->scaled(16.f));
+        else if (m_zone == 2)
+            m_imgui->text_wrapped(_L("Pass #1 touches the bed. Bridges are not changed and PathBlend is not available here."), m_imgui->scaled(16.f));
+    }
+    const int zone = m_zone;
+
+    SurfacePassStack stack = SurfacePassStack::from_json(profile->*zone_field(zone));
     if (stack.passes.empty() || !stack.any_effect()) {
         stack.passes.clear();
         stack.enabled = true;
@@ -726,11 +845,14 @@ void GLGizmoColorStitchPainter::render_recipe_editor()
         fil_items.push_back(std::to_string(i));
     std::vector<std::string> solid_items { _u8L("Object") };
     solid_items.insert(solid_items.end(), fil_items.begin(), fil_items.end());
-    const std::vector<std::string> kind_items { _u8L("Natural"), _u8L("Solid"), _u8L("ColorStitch"), _u8L("PathBlend") };
+    std::vector<std::string> kind_items { _u8L("Natural"), _u8L("Solid"), _u8L("ColorStitch"), _u8L("PathBlend") };
+    if (zone == 2)
+        kind_items.pop_back(); // no PathBlend in the Bottom zone
     const std::vector<std::string> cs_modes { "blend2", "stripes", "weave" };
     const std::vector<std::string> cs_mode_items { _u8L("Blend"), _u8L("Stripes"), _u8L("Weave") };
 
-    m_imgui->bold_text(_u8L("Top surface passes (bottom to top)"));
+    m_imgui->bold_text(zone == 0 ? _u8L("Top surface passes (bottom to top)") :
+                       zone == 1 ? _u8L("Penultimate layer passes (bottom to top)") : _u8L("Bottom surface passes (from the bed up)"));
     bool   changed = false, finished = false;
     int    remove  = -1;
     double sum     = 0.;
@@ -886,6 +1008,7 @@ void GLGizmoColorStitchPainter::render_recipe_editor()
     const bool has_pathblend = std::any_of(stack.passes.begin(), stack.passes.end(), [](const SurfacePass &p) { return p.kind == SurfacePassKind::PathBlend; });
     ImGui::Separator();
     m_imgui->disabled_begin(int(stack.passes.size()) >= SurfacePassStack::kMaxPasses || has_pathblend);
+    // (a Bottom stack never prints a PathBlend pass: the combo does not offer it)
     if (m_imgui->button(_L("Add pass"))) {
         SurfacePass pass;
         pass.kind       = SurfacePassKind::Solid;
@@ -902,7 +1025,7 @@ void GLGizmoColorStitchPainter::render_recipe_editor()
     }
     if (changed) {
         stack.enabled = true;
-        commit_stack(stack, finished);
+        commit_stack(stack, zone, finished);
     }
 }
 
@@ -954,6 +1077,391 @@ void GLGizmoColorStitchPainter::render_slots_in_use()
         free_slot(to_free);
 }
 
+const ModelInstance *GLGizmoColorStitchPainter::selected_instance() const
+{
+    const ModelObject *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    if (mo == nullptr)
+        return nullptr;
+    const int idx = m_parent.get_selection().get_instance_idx();
+    return (idx >= 0 && size_t(idx) < mo->instances.size()) ? mo->instances[size_t(idx)] : nullptr;
+}
+
+int GLGizmoColorStitchPainter::nearest_filament(uint32_t rgb) const
+{
+    int    best   = 0;
+    double best_d = 1e30;
+    for (size_t i = 0; i < m_filament_colors.size(); ++i) {
+        ColorRGBA c(0.5f, 0.5f, 0.5f, 1.f);
+        decode_color(m_filament_colors[i], c);
+        const double dr = double(c.r()) * 255. - double((rgb >> 16) & 0xFFu);
+        const double dg = double(c.g()) * 255. - double((rgb >> 8) & 0xFFu);
+        const double db = double(c.b()) * 255. - double(rgb & 0xFFu);
+        const double d  = dr * dr + dg * dg + db * db;
+        if (d < best_d) {
+            best_d = d;
+            best   = int(i);
+        }
+    }
+    return best;
+}
+
+int GLGizmoColorStitchPainter::flat_recipe_for_filament(int filament0)
+{
+    SurfaceEffectProfileManager &mgr  = SurfaceEffectProfileManager::get();
+    const std::string            name = _u8L("Flat") + " F" + std::to_string(filament0 + 1);
+    for (const SurfaceEffectProfile &p : mgr.list())
+        if (p.name == name)
+            return p.id;
+    SurfacePassStack stack;
+    stack.enabled = true;
+    SurfacePass pass;
+    pass.kind       = SurfacePassKind::Solid;
+    pass.ratio      = 1.0;
+    pass.solid_tool = filament0;
+    stack.passes.push_back(pass);
+    SurfaceEffectProfile p;
+    p.name              = name;
+    p.stack_top_json    = stack.to_json();
+    p.stack_bottom_json = stack.to_json(); // the same recipe serves stickers on bottom faces
+    p.auto_generated    = true;
+    p.preview_argb      = preview_argb(stack, nullptr);
+    return mgr.add(std::move(p));
+}
+
+void GLGizmoColorStitchPainter::commit_stickers(const std::string &snapshot_name)
+{
+    m_sticker_preview_dirty = true;
+    Plater::TakeSnapshot snapshot(wxGetApp().plater(), snapshot_name, UndoRedo::SnapshotType::GizmoAction);
+    m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+    m_parent.set_as_dirty();
+}
+
+void GLGizmoColorStitchPainter::load_sticker()
+{
+    ModelObject         *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    const ModelInstance *mi = selected_instance();
+    if (mo == nullptr || mi == nullptr)
+        return;
+    wxFileDialog dlg(wxGetApp().plater(), _L("Choose an SVG file"), wxEmptyString, wxEmptyString, "SVG files (*.svg)|*.svg;*.SVG",
+                     wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+    const std::string path = into_u8(dlg.GetPath());
+    const std::unique_ptr<std::string> text = read_from_disk(path);
+    if (!text || text->empty()) {
+        m_status = _u8L("Cannot read that file.");
+        return;
+    }
+    const std::vector<uint32_t> colors = ColorStitchStickerTools::svg_colors(*text);
+    const Vec2d                 size   = ColorStitchStickerTools::svg_size_mm(*text);
+    if (colors.empty() || size.x() <= 0. || size.y() <= 0.) {
+        m_status = _u8L("That SVG has no shape the sticker can use.");
+        return;
+    }
+    if (m_filament_colors.empty())
+        m_filament_colors = wxGetApp().plater()->get_extruder_colors_from_plater_config();
+
+    ColorStitchSticker st;
+    st.name     = boost::filesystem::path(path).stem().string();
+    st.svg_data = *text;
+    for (uint32_t rgb : colors) {
+        ColorStitchStickerColor col;
+        col.rgb        = rgb;
+        col.profile_id = flat_recipe_for_filament(nearest_filament(rgb));
+        st.colors.push_back(col);
+    }
+    // Start on the top of the object, centred, 60% of its smaller side.
+    const BoundingBoxf3 bb = mo->instance_bounding_box(size_t(m_parent.get_selection().get_instance_idx()));
+    StickerPose         pose;
+    pose.pos   = Vec3d(bb.center().x(), bb.center().y(), bb.max.z());
+    pose.scale = std::max(1e-3, 0.6 * std::min(bb.size().x(), bb.size().y()) / std::max(size.x(), size.y()));
+    st.transform = mi->get_transformation().get_matrix().inverse() * compose_pose(pose);
+
+    Plater::TakeSnapshot snapshot(wxGetApp().plater(), _u8L("Add ColorStitch sticker"), UndoRedo::SnapshotType::GizmoAction);
+    mo->colorstitch_stickers.push_back(std::move(st));
+    m_sticker_sel           = int(mo->colorstitch_stickers.size()) - 1;
+    m_sticker_preview_dirty = true;
+    m_status                = _u8L("Sticker added on the top. Use \"Place on a face\" and click a flat top or bottom face to move it.");
+    m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+    m_parent.set_as_dirty();
+}
+
+bool GLGizmoColorStitchPainter::place_sticker_at_mouse(size_t index, const Vec2d &mouse_position)
+{
+    ModelObject         *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    const ModelInstance *mi = selected_instance();
+    if (mo == nullptr || mi == nullptr || index >= mo->colorstitch_stickers.size())
+        return false;
+    update_raycast_cache(mouse_position, wxGetApp().plater()->get_camera(), mesh_trafo_matrices());
+    if (m_rr.mesh_id < 0) {
+        m_status = _u8L("Click on the model.");
+        return false;
+    }
+    const ModelVolume *mv  = nullptr;
+    int                idx = -1;
+    for (const ModelVolume *v : mo->volumes)
+        if (v->is_model_part() && ++idx == m_rr.mesh_id) {
+            mv = v;
+            break;
+        }
+    if (mv == nullptr)
+        return false;
+    const Transform3d inst = mi->get_transformation().get_matrix();
+    const Transform3d vt   = inst * mv->get_matrix();
+    const Vec3d       hit  = vt * m_rr.hit.cast<double>();
+    const Vec3f       nf   = its_face_normal(mv->mesh().its, int(m_rr.facet));
+    const Vec3d       n    = (vt.linear().inverse().transpose() * nf.cast<double>()).normalized();
+    if (std::abs(n.z()) < 0.7) {
+        m_status = _u8L("Stickers go on flat top or bottom faces: pick a horizontal face.");
+        return false;
+    }
+    ColorStitchSticker &st   = mo->colorstitch_stickers[index];
+    StickerPose         pose = decompose_pose(inst * st.transform);
+    pose.pos                 = hit;
+    pose.down                = n.z() < 0.;
+    Plater::TakeSnapshot snapshot(wxGetApp().plater(), _u8L("Place ColorStitch sticker"), UndoRedo::SnapshotType::GizmoAction);
+    st.transform            = inst.inverse() * compose_pose(pose);
+    m_sticker_preview_dirty = true;
+    m_status.clear();
+    m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+    m_parent.set_as_dirty();
+    return true;
+}
+
+void GLGizmoColorStitchPainter::rebuild_sticker_preview()
+{
+    m_sticker_preview.clear();
+    m_sticker_preview_dirty = false;
+    const ModelObject   *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    const ModelInstance *mi = selected_instance();
+    if (mo == nullptr || mi == nullptr)
+        return;
+    const SurfaceEffectProfileManager &mgr  = SurfaceEffectProfileManager::get();
+    const Transform3d                  inst = mi->get_transformation().get_matrix();
+    m_sticker_preview_inst                  = inst;
+    for (const ColorStitchSticker &st : mo->colorstitch_stickers) {
+        if (st.hidden || st.svg_data.empty())
+            continue;
+        const Transform3d to_world = inst * st.transform;
+        const double      z        = to_world.translation().z() + (st.faces_down() || to_world.linear().col(2).z() < 0. ? -0.03 : 0.03);
+        for (const ColorStitchStickerTools::ColorMask &mask : ColorStitchStickerTools::color_masks(st, to_world)) {
+            int pid = st.profile_id;
+            if (mask.color_index >= 0 && size_t(mask.color_index) < st.colors.size()) {
+                const ColorStitchStickerColor &col = st.colors[size_t(mask.color_index)];
+                pid = col.hidden ? 0 : col.profile_id;
+            }
+            const SurfaceEffectProfile *p = pid > 0 ? mgr.find(pid) : nullptr;
+            if (p == nullptr)
+                continue;
+            const std::vector<Vec3d> tris = triangulate_expolygons_3d(mask.area, z, false);
+            if (tris.size() < 3)
+                continue;
+            indexed_triangle_set its;
+            its.vertices.reserve(tris.size());
+            for (const Vec3d &v : tris)
+                its.vertices.emplace_back(v.cast<float>());
+            for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+                its.indices.emplace_back(int(i), int(i + 1), int(i + 2));
+                its.indices.emplace_back(int(i), int(i + 2), int(i + 1)); // both windings: seen from above and from below
+            }
+            StickerPreviewPart part;
+            part.model = std::make_shared<GLModel>();
+            part.model->init_from(its);
+            part.color = argb_to_color(swatch_argb(*p));
+            part.color.a(0.9f);
+            m_sticker_preview.push_back(std::move(part));
+        }
+    }
+}
+
+void GLGizmoColorStitchPainter::render_sticker_preview()
+{
+    const ModelObject   *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    const ModelInstance *mi = selected_instance();
+    if (mo == nullptr || mi == nullptr || mo->colorstitch_stickers.empty())
+        return;
+    if (m_sticker_preview_dirty || m_sticker_preview_inst.matrix() != mi->get_transformation().get_matrix().matrix())
+        rebuild_sticker_preview();
+    if (m_sticker_preview.empty())
+        return;
+    GLShaderProgram *shader = wxGetApp().get_shader("flat");
+    if (shader == nullptr)
+        return;
+    const Camera &camera = wxGetApp().plater()->get_camera();
+    shader->start_using();
+    shader->set_uniform("view_model_matrix", camera.get_view_matrix());
+    shader->set_uniform("projection_matrix", camera.get_projection_matrix());
+    for (StickerPreviewPart &part : m_sticker_preview) {
+        part.model->set_color(part.color);
+        part.model->render();
+    }
+    shader->stop_using();
+}
+
+void GLGizmoColorStitchPainter::render_stickers()
+{
+    ModelObject         *mo = m_c->selection_info() ? m_c->selection_info()->model_object() : nullptr;
+    const ModelInstance *mi = selected_instance();
+    if (mo == nullptr || mi == nullptr)
+        return;
+    const float width = m_imgui->scaled(16.f);
+    m_imgui->bold_text(_u8L("SVG stickers"));
+    if (m_imgui->button(_L("Load SVG...")))
+        load_sticker();
+    if (ImGui::IsItemHovered())
+        m_imgui->tooltip(_L("A drawing placed on a flat top or bottom face. Every colour of the SVG prints with a recipe of its own (flat filament "
+                            "recipes by default). Rough: flat colours only, no gradients."),
+                         width);
+    std::vector<ColorStitchSticker> &pile = mo->colorstitch_stickers;
+    if (pile.empty())
+        return;
+
+    int to_delete = -1, to_swap = -1;
+    for (size_t i = 0; i < pile.size(); ++i) {
+        ImGui::PushID(int(i) + 1000);
+        bool shown = !pile[i].hidden;
+        if (ImGui::Checkbox("##show", &shown)) {
+            pile[i].hidden = !shown;
+            commit_stickers(_u8L("Show or hide ColorStitch sticker"));
+        }
+        ImGui::SameLine();
+        if (ImGui::Selectable(pile[i].name.c_str(), int(i) == m_sticker_sel))
+            m_sticker_sel = int(i);
+        ImGui::PopID();
+    }
+    if (m_sticker_sel < 0 || size_t(m_sticker_sel) >= pile.size())
+        return;
+
+    ColorStitchSticker &st   = pile[size_t(m_sticker_sel)];
+    const Transform3d   inst = mi->get_transformation().get_matrix();
+    StickerPose         pose = decompose_pose(inst * st.transform);
+    const Vec2d         size = ColorStitchStickerTools::svg_size_mm(st.svg_data);
+    const BoundingBoxf3 bb   = mo->instance_bounding_box(size_t(m_parent.get_selection().get_instance_idx()));
+    ImGui::Separator();
+
+    bool edited = false, finished = false;
+    float x = float(pose.pos.x()), y = float(pose.pos.y()), spin = float(Geometry::rad2deg(pose.spin));
+    float w = float(size.x() * pose.scale);
+    ImGui::PushItemWidth(m_imgui->scaled(5.f));
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text("X");
+    ImGui::SameLine();
+    edited |= ImGui::DragFloat("##st_x", &x, 0.2f, 0.f, 0.f, "%.2f");
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::SameLine();
+    m_imgui->text("Y");
+    ImGui::SameLine();
+    edited |= ImGui::DragFloat("##st_y", &y, 0.2f, 0.f, 0.f, "%.2f");
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(_L("Rotation"));
+    ImGui::SameLine();
+    edited |= ImGui::DragFloat("##st_spin", &spin, 1.f, -360.f, 360.f, "%.0f");
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(_L("Width (mm)"));
+    ImGui::SameLine();
+    edited |= ImGui::DragFloat("##st_w", &w, 0.2f, 0.5f, 1000.f, "%.1f");
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::PopItemWidth();
+    bool mirror = pose.mirror;
+    if (m_imgui->bbl_checkbox(_L("Mirror"), mirror)) {
+        pose.mirror = mirror;
+        edited = finished = true;
+    }
+    ImGui::SameLine();
+    int side = pose.down ? 1 : 0;
+    if (combo_items("##st_side", side, { _u8L("Top"), _u8L("Bottom") }, m_imgui->scaled(5.f))) {
+        pose.down  = side == 1;
+        pose.pos.z() = pose.down ? bb.min.z() : bb.max.z();
+        edited = finished = true;
+    }
+    if (edited) {
+        pose.pos.x() = x;
+        pose.pos.y() = y;
+        pose.spin    = Geometry::deg2rad(double(spin));
+        if (size.x() > 0.)
+            pose.scale = std::max(1e-3, double(w) / size.x());
+        st.transform            = inst.inverse() * compose_pose(pose);
+        m_sticker_preview_dirty = true;
+        m_reslice_pending       = true;
+    }
+    if (finished) {
+        m_reslice_pending = false;
+        commit_stickers(_u8L("Edit ColorStitch sticker"));
+    }
+
+    if (m_imgui->button(m_sticker_placing ? _L("Click a face...") : _L("Place on a face")))
+        m_sticker_placing = !m_sticker_placing;
+    ImGui::SameLine();
+    if (m_imgui->button(_L("Up")) && size_t(m_sticker_sel) + 1 < pile.size())
+        to_swap = m_sticker_sel;
+    if (ImGui::IsItemHovered())
+        m_imgui->tooltip(_L("Moves the sticker up the pile: the topmost sticker wins where they overlap."), width);
+    ImGui::SameLine();
+    if (m_imgui->button(_L("Delete")))
+        to_delete = m_sticker_sel;
+
+    // Recipe of every colour of the drawing.
+    const SurfaceEffectProfileManager &mgr = SurfaceEffectProfileManager::get();
+    std::vector<std::string>           names { _u8L("(not printed)") };
+    std::vector<int>                   ids { 0 };
+    for (const SurfaceEffectProfile &p : mgr.list()) {
+        names.push_back(p.name);
+        ids.push_back(p.id);
+    }
+    bool colors_changed = false;
+    for (size_t c = 0; c < st.colors.size(); ++c) {
+        ColorStitchStickerColor &col = st.colors[c];
+        ImGui::PushID(int(c) + 2000);
+        ImGui::ColorButton("##rgb", ImVec4(float((col.rgb >> 16) & 0xFFu) / 255.f, float((col.rgb >> 8) & 0xFFu) / 255.f, float(col.rgb & 0xFFu) / 255.f, 1.f),
+                           ImGuiColorEditFlags_NoTooltip, ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
+        ImGui::SameLine();
+        int sel = 0;
+        for (size_t k = 0; k < ids.size(); ++k)
+            if (ids[k] == col.profile_id)
+                sel = int(k);
+        if (combo_items("##rec", sel, names, m_imgui->scaled(8.f))) {
+            col.profile_id = ids[size_t(sel)];
+            colors_changed = true;
+        }
+        ImGui::SameLine();
+        bool shown = !col.hidden;
+        if (ImGui::Checkbox("##on", &shown)) {
+            col.hidden     = !shown;
+            colors_changed = true;
+        }
+        ImGui::PopID();
+    }
+    if (colors_changed)
+        commit_stickers(_u8L("Edit ColorStitch sticker colours"));
+    const bool needs_bottom = pose.down;
+    for (const ColorStitchStickerColor &col : st.colors)
+        if (const SurfaceEffectProfile *p = mgr.find(col.profile_id))
+            if (needs_bottom && !SurfacePassStack::from_json(p->stack_bottom_json).any_effect()) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGuiWrapper::COL_WARNING);
+                m_imgui->text_wrapped(_L("A sticker on a bottom face needs recipes with a Bottom zone."), width);
+                ImGui::PopStyleColor();
+                break;
+            }
+
+    if (to_swap >= 0) {
+        Plater::TakeSnapshot snapshot(wxGetApp().plater(), _u8L("Reorder ColorStitch stickers"), UndoRedo::SnapshotType::GizmoAction);
+        std::swap(pile[size_t(to_swap)], pile[size_t(to_swap) + 1]);
+        m_sticker_sel           = to_swap + 1;
+        m_sticker_preview_dirty = true;
+        m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+    }
+    if (to_delete >= 0) {
+        Plater::TakeSnapshot snapshot(wxGetApp().plater(), _u8L("Delete ColorStitch sticker"), UndoRedo::SnapshotType::GizmoAction);
+        pile.erase(pile.begin() + to_delete);
+        m_sticker_sel           = -1;
+        m_sticker_placing       = false;
+        m_sticker_preview_dirty = true;
+        m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
+    }
+}
+
 void GLGizmoColorStitchPainter::on_render_input_window(float x, float y, float bottom_limit)
 {
     ModelObject *mo = m_c->selection_info()->model_object();
@@ -981,9 +1489,12 @@ void GLGizmoColorStitchPainter::on_render_input_window(float x, float y, float b
     ImGui::Separator();
     render_recipe_editor();
     render_slots_in_use();
+    ImGui::Separator();
+    render_stickers();
 
     ImGui::Separator();
-    m_imgui->text_wrapped(_L("Click a face to paint the active recipe. Shift + click erases. Recipes print on top surfaces only."),
+    m_imgui->text_wrapped(_L("Click a face to paint the active recipe. Shift + click erases. Top and Penultimate zones print on top surfaces, "
+                             "the Bottom zone on bottom surfaces: look at the part from below to paint them."),
                           m_imgui->scaled(16.f));
     if (!m_status.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImGuiWrapper::COL_WARNING);

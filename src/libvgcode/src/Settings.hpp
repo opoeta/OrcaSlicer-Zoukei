@@ -29,6 +29,9 @@ struct Settings
 		bool spiral_vase_mode{ false };
 		// ORCA: realistic (PrusaSlicer 3.0 style) toolpath shading instead of the classic one
 		bool realistic_shading{ true };
+		// ORCA: PrusaSlicer 3.0 preview renderer: toolpaths drawn by vertex pulling instead of instancing,
+		// option markers lit per fragment like the toolpaths (with their shadows)
+		bool prusa3_renderer{ false };
 		//
 		// Required update flags
 		//

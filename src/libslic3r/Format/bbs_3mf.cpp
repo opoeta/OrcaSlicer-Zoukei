@@ -24,6 +24,7 @@
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/TextureDisplacement.hpp"
 #include "libslic3r/ColorStitchPaint.hpp" // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
+#include "libslic3r/ColorStitchSticker.hpp" // ColorStitch Painter stickers
 #include "libslic3r_version.h"
 
 #include "bbs_3mf.hpp"
@@ -2275,6 +2276,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     //BBS: add module name
                     else if (metadata.key == "module")
                         model_object->module_name = metadata.value;
+                    else if (metadata.key == ColorStitchStickerTools::MetadataKey) // ColorStitch Painter stickers
+                        ColorStitchStickerTools::parse(metadata.value, model_object->colorstitch_stickers);
                     else
                         model_object->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
                 }
@@ -8353,6 +8356,10 @@ bool _BBS_3MF_Exporter::_add_model_config_file_to_archive(mz_zip_archive& archiv
                 for (const std::string& key : obj->config.keys()) {
                     stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << key << "\" " << VALUE_ATTR << "=\"" << obj->config.opt_serialize(key) << "\"/>\n";
                 }
+
+                // ColorStitch Painter stickers (ported from OrcaFS-NeotkoCM, Neotko): the pile as base64 JSON, NeotkoCM's key.
+                if (const std::string stickers_b64 = ColorStitchStickerTools::serialize(obj->colorstitch_stickers); !stickers_b64.empty())
+                    stream << "    <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << ColorStitchStickerTools::MetadataKey << "\" " << VALUE_ATTR << "=\"" << stickers_b64 << "\"/>\n";
 
                 for (const ModelVolume* volume : obj_metadata.second.object->volumes) {
                     if (volume != nullptr) {

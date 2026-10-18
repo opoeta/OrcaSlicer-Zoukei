@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <algorithm>
+#include <vector>
 
 namespace libvgcode {
 
@@ -65,12 +67,37 @@ void SegmentTemplate::init()
     glsafe(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo_id));
     glsafe(glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_DATA.size() * sizeof(uint16_t), INDEX_DATA.data(), GL_STATIC_DRAW));
 
+    // ORCA: PrusaSlicer 3.0 preview renderer - one batch of segments, no vertex attributes: the shader
+    // pulls everything from gl_VertexID, which an indexed draw sets to the index (8 * s + corner).
+    static_assert(8 * PULLING_BATCH - 1 < 0xFFFF, "the batch indices must fit 16 bits (0xFFFF kept free for primitive restart)");
+    std::vector<uint16_t> batch_indices;
+    batch_indices.reserve(PULLING_BATCH * INDEX_DATA.size());
+    for (size_t s = 0; s < PULLING_BATCH; ++s) {
+        for (const uint16_t corner : INDEX_DATA) {
+            batch_indices.push_back(static_cast<uint16_t>(8 * s + corner));
+        }
+    }
+    glsafe(glGenVertexArrays(1, &m_pulling_vao_id));
+    glsafe(glBindVertexArray(m_pulling_vao_id));
+    glsafe(glGenBuffers(1, &m_pulling_ibo_id));
+    glsafe(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_pulling_ibo_id));
+    glsafe(glBufferData(GL_ELEMENT_ARRAY_BUFFER, batch_indices.size() * sizeof(uint16_t), batch_indices.data(), GL_STATIC_DRAW));
+    m_size_in_bytes_gpu += batch_indices.size() * sizeof(uint16_t);
+
     glsafe(glBindBuffer(GL_ARRAY_BUFFER, curr_array_buffer));
     glsafe(glBindVertexArray(curr_vertex_array));
 }
 
 void SegmentTemplate::shutdown()
 {
+    if (m_pulling_ibo_id != 0) {
+        glsafe(glDeleteBuffers(1, &m_pulling_ibo_id));
+        m_pulling_ibo_id = 0;
+    }
+    if (m_pulling_vao_id != 0) {
+        glsafe(glDeleteVertexArrays(1, &m_pulling_vao_id));
+        m_pulling_vao_id = 0;
+    }
     if (m_ibo_id != 0) {
         glsafe(glDeleteBuffers(1, &m_ibo_id));
         m_ibo_id = 0;
@@ -98,6 +125,23 @@ void SegmentTemplate::render(size_t count)
     glsafe(glBindVertexArray(m_vao_id));
     glsafe(glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(INDEX_DATA.size()), GL_UNSIGNED_SHORT,
                                    nullptr, static_cast<GLsizei>(count)));
+    glsafe(glBindVertexArray(curr_vertex_array));
+}
+
+void SegmentTemplate::render_pulled(size_t count, int segment_offset_location)
+{
+    if (m_pulling_vao_id == 0 || m_pulling_ibo_id == 0 || count == 0)
+        return;
+
+    int curr_vertex_array;
+    glsafe(glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &curr_vertex_array));
+
+    glsafe(glBindVertexArray(m_pulling_vao_id));
+    for (size_t first = 0; first < count; first += PULLING_BATCH) {
+        const size_t batch = std::min(PULLING_BATCH, count - first);
+        glsafe(glUniform1i(segment_offset_location, static_cast<int>(first)));
+        glsafe(glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(batch * INDEX_DATA.size()), GL_UNSIGNED_SHORT, nullptr));
+    }
     glsafe(glBindVertexArray(curr_vertex_array));
 }
 

@@ -54,6 +54,7 @@
 #include "libslic3r/format.hpp"
 #include "Time.hpp"
 #include "GCode/ExtrusionProcessor.hpp"
+#include "GCode/NeoWaveContact.hpp" // NeoWave contact layer (ported from OrcaFS-NeotkoCM, Neotko)
 #include <Eigen/Geometry>
 #include <Shiny/ShinyMacros.h>
 #include <algorithm>
@@ -526,7 +527,8 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         double wipe_path_length = std::min(wipe_path.length(), wipe_dist);
 
         // Calculate the maximum retraction amount during wipe
-        retraction_length_during_wipe = config.retraction_speed.get_at(extruder->config_index()) *
+        retraction_length_during_wipe = (extruder->retract_speed_override() > 0. ? extruder->retract_speed_override() :
+                                                                                   config.retraction_speed.get_at(extruder->config_index())) *
             unscale_(wipe_path_length) / wipe_speed;
 
         // If the maximum retraction amount during wipe is too small,
@@ -7620,6 +7622,9 @@ LayerResult GCode::process_layer(
                     }
                 }
 
+                // Per-object overrides (object_* keys): temperature, retraction, first layer speed, Z offset.
+                gcode += this->object_overrides_begin(instance_to_print.print_object, first_layer, true);
+
                 // Orca(#7946): set current obj regardless of the `enable_overhang_speed` value, because
                 // `enable_overhang_speed` is a PrintRegionConfig and here we don't have a region yet.
                 // And no side effect doing this even if `enable_overhang_speed` is off, so don't bother
@@ -7750,6 +7755,7 @@ LayerResult GCode::process_layer(
                     gcode += this->extrude_infill(print,by_region_specific, true);
                 }
 
+                this->object_overrides_end();
                 if (this->config().gcode_label_objects) {
                     gcode += std::string("; stop printing object ") +
                              instance_to_print.print_object.model_object()->name +
@@ -7851,6 +7857,8 @@ LayerResult GCode::process_layer(
                     }
                 }
 
+                // Per-object overrides; no Z offset here, the sub-layer plan owns the nominal Z.
+                gcode += this->object_overrides_begin(instance_to_print.print_object, first_layer, false);
                 m_extrusion_quality_estimator.set_current_object(&instance_to_print.print_object);
 
                 const Point &offset = inst.shift;
@@ -8061,6 +8069,7 @@ LayerResult GCode::process_layer(
                         gcode += this->extrude_support(*instance_to_print.object_by_extruder.support, erIroning);
                 }
 
+                this->object_overrides_end();
                 // --- Shared instance footer (mirrors Orca's main instance loop) ---
                 if (!m_writer.is_object_start_str_empty()) {
                     m_writer.set_object_start_str("");
@@ -8331,6 +8340,14 @@ void GCode::append_full_config(const Print &print, std::string &str)
         // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko): read at slice time from the object config, never parsed
         // back out of the dump; banned so a print with the feature off keeps a byte-identical G-code.
         "support_cross_object_avoidance"sv,
+        // Per-object overrides (Layer Slayer calibrations, made native): read at slice time from the object
+        // config, never parsed back out of the dump; banned so plates without them keep a byte-identical G-code.
+        "object_initial_layer_speed"sv,
+        "object_initial_layer_temperature"sv,
+        "object_nozzle_temperature"sv,
+        "object_retraction_length"sv,
+        "object_retraction_speed"sv,
+        "object_z_offset"sv,
         // The IMEX (IDEX/IQEX parallel printing) keys are newly-registered printer/process keys whose
         // defaults are non-nil, so leaving them in the dump would add fourteen `; imex_* = <default>`
         // lines to every printer's config block — an ordinary single-nozzle machine included. Excluding
@@ -8377,7 +8394,8 @@ void GCode::append_full_config(const Print &print, std::string &str)
     // the config block while they hold their default, so a print with the feature off keeps a byte-identical
     // G-code. Once one is changed it is listed like any other key.
     auto is_inert_sandwich_default = [&cfg](const std::string &key) {
-        if (key != "neotko_surface_passes_top" && key.rfind("multipass_", 0) != 0 &&
+        if (key != "neotko_surface_passes_top" && key != "neotko_surface_passes_penu" && key != "neotko_surface_passes_bottom" &&
+            key.rfind("penu_zone_", 0) != 0 && key.rfind("bottom_zone_", 0) != 0 && key.rfind("multipass_", 0) != 0 &&
             key.rfind("interlayer_colormix_", 0) != 0 && key.rfind("pathblend_", 0) != 0)
             return false;
         const ConfigOptionDef *def = print_config_def.get(key);
@@ -8470,6 +8488,78 @@ std::string GCode::change_layer(coordf_t print_z)
     //m_wipe.reset_path();
 
     return gcode;
+}
+
+// Per-object overrides (Layer Slayer calibrations, made native; replaces the plugin's object name tags and its
+// G-code post-processor). Called for every object visit once the object's config is applied and before any of
+// its extrusions (support included); object_overrides_end() drops what is scoped to the object. The temperature
+// is not dropped there: it stays until an object asks for another one, so neighbours sharing a temperature
+// do not wait twice. With every object_* key at its default nothing is emitted and no state changes.
+const PrintObjectCalibConfig& GCode::object_calib_config(const PrintObject &object)
+{
+    auto it = m_object_calib_configs.find(&object);
+    if (it == m_object_calib_configs.end()) {
+        PrintObjectCalibConfig cfg;
+        cfg.apply(object.print()->full_print_config(), true);
+        if (const ModelObject *mo = object.model_object(); mo != nullptr)
+            cfg.apply(mo->config.get(), true);
+        it = m_object_calib_configs.emplace(&object, std::move(cfg)).first;
+    }
+    return it->second;
+}
+
+std::string GCode::object_overrides_begin(const PrintObject &object, bool first_layer, bool allow_z_offset)
+{
+    std::string gcode;
+    const PrintObjectCalibConfig &cfg = this->object_calib_config(object);
+    m_object_initial_layer_speed = cfg.object_initial_layer_speed.value;
+
+    if (cfg.object_retraction_length.value >= 0. || cfg.object_retraction_speed.value > 0.) {
+        m_writer.set_retraction_override(cfg.object_retraction_length.value, cfg.object_retraction_speed.value);
+        m_object_retraction_override = true;
+    }
+
+    // Nozzle temperature: retract, then wait (M109) for the object's temperature, or for the filament's
+    // temperature of this layer when an earlier object changed it and this one has no override.
+    if (m_writer.filament() != nullptr) {
+        const int wanted = first_layer ? cfg.object_initial_layer_temperature.value : cfg.object_nozzle_temperature.value;
+        if (wanted > 0 ? wanted != m_object_temp_active : m_object_temp_active > 0) {
+            int target = wanted;
+            if (target <= 0) {
+                const size_t fi = get_filament_config_index(m_writer.filament()->id());
+                target = first_layer ? m_config.nozzle_temperature_initial_layer.get_at(fi) : m_config.nozzle_temperature.get_at(fi);
+            }
+            if (target > 0) {
+                gcode += this->retract();
+                gcode += m_writer.set_temperature((unsigned int) target, true, (int) m_writer.filament()->id());
+            }
+            m_object_temp_active = wanted > 0 ? wanted : 0;
+        }
+    }
+
+    // Z offset: the same lazy Z move change_layer() uses, so the first travel into the object lands at the
+    // shifted height. The first layer never goes closer than 0.03 mm to the bed.
+    if (allow_z_offset && std::abs(cfg.object_z_offset.value) > EPSILON) {
+        m_object_z_base            = m_nominal_z;
+        m_nominal_z                = std::max(m_nominal_z + cfg.object_z_offset.value, m_config.z_offset.value + 0.03);
+        m_need_change_layer_lift_z = true;
+        m_object_z_shifted         = true;
+    }
+    return gcode;
+}
+
+void GCode::object_overrides_end()
+{
+    m_object_initial_layer_speed = 0.;
+    if (m_object_retraction_override) {
+        m_writer.set_retraction_override(-1., 0.);
+        m_object_retraction_override = false;
+    }
+    if (m_object_z_shifted) {
+        m_nominal_z                = m_object_z_base;
+        m_need_change_layer_lift_z = true;
+        m_object_z_shifted         = false;
+    }
 }
 
 
@@ -8863,7 +8953,8 @@ std::string GCode::extrude_entity(const ExtrusionEntity&                     ent
     else if (const ExtrusionLoop* loop = dynamic_cast<const ExtrusionLoop*>(&entity))
         return this->extrude_loop(*loop, description, speed, region_perimeters, nullptr, wipe_support);
     else
-        throw Slic3r::InvalidArgument("Invalid argument supplied to extrude()");
+        throw Slic3r::InvalidArgument(std::string("Invalid argument supplied to extrude(): ") + typeid(entity).name() +
+                                      " (" + description + ")");
     return "";
 }
 
@@ -9530,9 +9621,13 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
             speed = use_first_layer_speed ? NOZZLE_CONFIG(initial_layer_speed) :
                                             NOZZLE_CONFIG(initial_layer_infill_speed);
         }
+        // Per-object first layer speed (object_initial_layer_speed): every role of this object's first layer.
+        if (m_object_initial_layer_speed > 0. && path.role() != erSkirt && path.role() != erBrim)
+            speed = m_object_initial_layer_speed;
     } else if (m_config.slow_down_layers > 1 && m_config.raft_layers == 0) {
         if (_layer > 0 && _layer < m_config.slow_down_layers) {
             const auto first_layer_speed =
+                m_object_initial_layer_speed > 0. ? m_object_initial_layer_speed :
                 is_perimeter(path.role())
                     ? NOZZLE_CONFIG(initial_layer_speed)
                     : NOZZLE_CONFIG(initial_layer_infill_speed);
@@ -9547,7 +9642,8 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
         
         if (_layer > m_config.raft_layers && (_layer - m_config.raft_layers) < m_config.slow_down_layers) {
             const auto first_layer_speed 
-                = is_perimeter(path.role()) ? NOZZLE_CONFIG(initial_layer_speed) :
+                = m_object_initial_layer_speed > 0. ? m_object_initial_layer_speed :
+                  is_perimeter(path.role()) ? NOZZLE_CONFIG(initial_layer_speed) :
                                                                        NOZZLE_CONFIG(initial_layer_infill_speed);
             if (first_layer_speed < speed) {
                 speed = std::min(speed, Slic3r::lerp(first_layer_speed, speed,
@@ -10038,6 +10134,13 @@ std::string GCode::_extrude(const ExtrusionPath &path, const std::string &path_d
 
                 apply_role_based_fan_speed();
             }
+            // NeoWave contact layer (ported from OrcaFS-NeotkoCM, Neotko): a bridge resting on a support roof gets an
+            // upward-only Z wave over the roof. Off by default (neowave_contact); always plain G1, no arcs.
+            const ExPolygons *neowave_roof = (sloped == nullptr && !path.z_contoured) ? NeoWaveContact::roof_below(path, m_layer, m_config) : nullptr;
+            if (neowave_roof != nullptr) {
+                NeoWaveContact::extrude(gcode, m_writer, path, *neowave_roof, m_layer->object()->neo_config(), m_config, m_nominal_z, F, e_per_mm,
+                                        [this](const Point &p) { return this->point_to_gcode(p); }, description);
+            } else
             // BBS: use G1 if not enable arc fitting or has no arc fitting result or in spiral_mode mode or we are doing sloped extrusion
             // Attention: G2 and G3 is not supported in spiral_mode mode
             if (!m_config.enable_arc_fitting || path.polyline.fitting_result.empty() || m_config.spiral_mode || sloped != nullptr || path.z_contoured || this->should_disable_arc_fitting()) {

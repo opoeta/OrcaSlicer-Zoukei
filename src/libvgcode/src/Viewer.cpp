@@ -124,6 +124,16 @@ void Viewer::set_realistic_shading(bool value)
     m_impl->set_realistic_shading(value);
 }
 
+bool Viewer::is_prusa3_renderer() const
+{
+    return m_impl->is_prusa3_renderer();
+}
+
+void Viewer::set_prusa3_renderer(bool value)
+{
+    m_impl->set_prusa3_renderer(value);
+}
+
 float Viewer::get_dim_previous_layers_brightness() const
 {
     return m_impl->get_dim_previous_layers_brightness();

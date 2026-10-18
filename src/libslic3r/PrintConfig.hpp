@@ -277,11 +277,15 @@ enum class ColorStitchPatternMode { Pattern, Blend2, Blend3, StripesMM, Weave };
 enum class ColorStitchEasing { Linear, EaseIn, EaseOut, SCurve, Gamma, HardStep };
 enum class ColorStitchWeaveType { Plain, Twill22, Twill31, Satin5 };
 enum class PathBlendMode { Half, Full };
+// Penultimate / Bottom zone of the Sandwich (ported from OrcaFS-NeotkoCM, Neotko): the quick per object recipe of a zone.
+enum class SandwichZoneMode { Off, Solid, ColorStitch, SameAsTop };
 
 // NeoStitch Interlock and NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko).
 enum class NeoStitchTarget { Disabled, Outermost, SecondWall, ThirdWall, Innermost };
 enum class NeoWaveRoofShape { Concentric, Wave };
 enum class NeoWaveRoofOrder { Smart, ZigZag, Monotonic };
+// NeoArachne (ported from OrcaFS-NeotkoCM, Neotko): engine of the outer / inner walls of a region.
+enum class NeoArachneWallSource { Classic, Arachne, ArachneNeotkoEdge };
 
 // IMEX: physical bed corner where tool T0 sits. Determines how tool indices
 // map to bed zones (front = lower Y near operator, rear = higher Y).
@@ -387,6 +391,8 @@ enum SupportMaterialPattern {
 
 enum SupportMaterialStyle {
     smsDefault, smsGrid, smsSnug, smsTreeOrganic, smsTreeSlim, smsTreeStrong, smsTreeHybrid,
+    // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko): normal supports laid out as Grid, wave roof + hollow pillar.
+    smsNeoWave,
 };
 
 enum LongRectrationLevel
@@ -866,9 +872,11 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchPatternMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchEasing)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ColorStitchWeaveType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PathBlendMode)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SandwichZoneMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoStitchTarget)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoWaveRoofShape)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoWaveRoofOrder)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NeoArachneWallSource)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1255,6 +1263,26 @@ private: \
     } \
 };
 
+// PRINT_CONFIG_CLASS_DEFINE with the option list given in two parts. MSVC gives up (C1009, macros nested too
+// deeply) on a single BOOST_PP_SEQ_FOR_EACH over a list somewhere past 230 options, so the long lists are split.
+#define PRINT_CONFIG_CLASS_DEFINE2(CLASS_NAME, PARAMETER_DEFINITION_SEQ1, PARAMETER_DEFINITION_SEQ2) \
+class CLASS_NAME : public StaticPrintConfig { \
+    STATIC_PRINT_CONFIG_CACHE(CLASS_NAME) \
+public: \
+    BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_DEFINITION, _, PARAMETER_DEFINITION_SEQ1) \
+    BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_DEFINITION, _, PARAMETER_DEFINITION_SEQ2) \
+    template<typename F> void for_each_option_pair(const CLASS_NAME &rhs, F &&f) const { visit_option_pairs(*this, rhs, f); } \
+    /* Defined in PrintConfig.cpp. */ \
+    bool apply_to(ConfigBase &target) const override; \
+    PRINT_CONFIG_CLASS_COMMON_BODY(CLASS_NAME) \
+private: \
+    template<typename Self, typename F> static void visit_option_pairs(Self &self, const CLASS_NAME &rhs, F &&f) \
+    { \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_VISIT_SELF, _, PARAMETER_DEFINITION_SEQ1) \
+        BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_VISIT_SELF, _, PARAMETER_DEFINITION_SEQ2) \
+    } \
+};
+
 #define PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST_ITEM(r, data, i, elem) BOOST_PP_COMMA_IF(i) public elem
 #define PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST(CLASSES_PARENTS_TUPLE) BOOST_PP_SEQ_FOR_EACH_I(PRINT_CONFIG_CLASS_DERIVED_CLASS_LIST_ITEM, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_PARENTS_TUPLE))
 #define PRINT_CONFIG_CLASS_DERIVED_INITIALIZER_ITEM(r, VALUE, i, elem) BOOST_PP_COMMA_IF(i) elem(VALUE)
@@ -1307,7 +1335,8 @@ protected: \
         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CLASS_ELEMENT_VISIT, _, PARAMETER_DEFINITION_SEQ))
 
 // This object is mapped to Perl as Slic3r::Config::PrintObject.
-PRINT_CONFIG_CLASS_DEFINE(
+// Two option lists (see PRINT_CONFIG_CLASS_DEFINE2): the second one starts at default_jerk.
+PRINT_CONFIG_CLASS_DEFINE2(
     PrintObjectConfig,
 
     ((ConfigOptionFloat,               brim_object_gap))
@@ -1458,7 +1487,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatsNullable,           travel_acceleration))
     ((ConfigOptionFloatsOrPercentsNullable, sparse_infill_acceleration))
     ((ConfigOptionFloatsOrPercentsNullable, internal_solid_infill_acceleration))
-
+    , // end of the first option list of PrintObjectConfig (PRINT_CONFIG_CLASS_DEFINE2)
     ((ConfigOptionFloatsNullable,     default_jerk))
     ((ConfigOptionFloatsNullable,     outer_wall_jerk))
     ((ConfigOptionFloatsNullable,     inner_wall_jerk))
@@ -1520,6 +1549,13 @@ PRINT_CONFIG_CLASS_DEFINE(
     // Per object (PrintRegionConfig sits at the Boost.PP sequence limit). All off by default. Filaments
     // are 1-based here (0 = the object's own filament / off); the JSON stack keeps NeotkoCM's 0-based tools.
     ((ConfigOptionString,                       neotko_surface_passes_top))
+    // Penultimate (the solid layer under a top surface) and Bottom zones: JSON stack, or the quick mode below.
+    ((ConfigOptionString,                       neotko_surface_passes_penu))
+    ((ConfigOptionString,                       neotko_surface_passes_bottom))
+    ((ConfigOptionEnum<SandwichZoneMode>,       penu_zone_mode))
+    ((ConfigOptionInt,                          penu_zone_filament))
+    ((ConfigOptionEnum<SandwichZoneMode>,       bottom_zone_mode))
+    ((ConfigOptionInt,                          bottom_zone_filament))
     ((ConfigOptionBool,                         multipass_enabled))
     ((ConfigOptionInt,                          multipass_num_passes))
     ((ConfigOptionEnum<SandwichPassKind>,       multipass_kind_1))
@@ -1584,6 +1620,45 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionEnum<NeoWaveRoofShape>,       neowave_roof_shape))
     ((ConfigOptionEnum<NeoWaveRoofOrder>,       neowave_roof_order))
     ((ConfigOptionBool,                         neowave_roof_reverse))
+)
+
+// Per-object overrides (Layer Slayer calibrations, made native): kept out of PrintObjectConfig, whose option list is
+// at MSVC's macro limit. Part of FullPrintConfig (process preset, 0 / -1 = inherit); GCode resolves them per object
+// from the preset and the ModelObject config (GCode::object_calib_config), and PrintApply invalidates the G-code
+// export when an object's value changes.
+PRINT_CONFIG_CLASS_DEFINE(
+    PrintObjectCalibConfig,
+
+    ((ConfigOptionFloat,                        object_initial_layer_speed))
+    ((ConfigOptionInt,                          object_initial_layer_temperature))
+    ((ConfigOptionInt,                          object_nozzle_temperature))
+    ((ConfigOptionFloat,                        object_retraction_length))
+    ((ConfigOptionFloat,                        object_retraction_speed))
+    ((ConfigOptionFloat,                        object_z_offset))
+)
+
+// NeoArachne engine choice / v3 spine and NeoWave support (ported from OrcaFS-NeotkoCM, Neotko): kept out of
+// PrintObjectConfig / PrintRegionConfig, whose option lists are at MSVC's macro limit. Part of FullPrintConfig
+// (process preset); PrintObject::neo_config() holds the value resolved per object (preset + ModelObject config),
+// refreshed by Print::apply, which invalidates the steps of the keys that changed. Off by default.
+PRINT_CONFIG_CLASS_DEFINE(
+    PrintObjectNeoConfig,
+
+    ((ConfigOptionEnum<NeoArachneWallSource>,   neoarachne_outer_wall))
+    ((ConfigOptionEnum<NeoArachneWallSource>,   neoarachne_inner_walls))
+    ((ConfigOptionPercent,                      neoarachne_min_feature_pct))
+    ((ConfigOptionBool,                         neoarachne_keep_short_tails))
+    ((ConfigOptionBool,                         neoarachne_pin_outer_width))
+    ((ConfigOptionPercent,                      neoarachne_hysteresis_pct))
+    ((ConfigOptionBool,                         neoarachne_spine))
+    ((ConfigOptionPercent,                      neoarachne_spine_min_width_pct))
+    ((ConfigOptionPercent,                      neoarachne_spine_max_width_pct))
+    ((ConfigOptionFloat,                        neoarachne_spine_min_length))
+    ((ConfigOptionPercent,                      neoarachne_spine_sliver_pct))
+    ((ConfigOptionInt,                          neowave_pillar_walls))
+    ((ConfigOptionBool,                         neowave_contact))
+    ((ConfigOptionFloat,                        neowave_contact_amplitude))
+    ((ConfigOptionFloat,                        neowave_contact_period))
 )
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.
@@ -2172,6 +2247,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloats,             first_x_layer_fan_speed))
     ((ConfigOptionBool,               reduce_crossing_wall))
     ((ConfigOptionFloatOrPercent,     max_travel_detour_distance))
+    ((ConfigOptionBool,               avoid_crossing_wall_includes_support))
     ((ConfigOptionPoints,             printable_area))
     ((ConfigOptionPointsGroups,       extruder_printable_area))
     ((ConfigOptionBool,               support_parallel_printheads))
@@ -2372,7 +2448,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
 // This object is mapped to Perl as Slic3r::Config::Full.
 PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
     FullPrintConfig,
-    (PrintObjectConfig, PrintRegionConfig, PrintConfig)
+    (PrintObjectConfig, PrintRegionConfig, PrintConfig, PrintObjectCalibConfig, PrintObjectNeoConfig)
 )
 
 // Validate the FullPrintConfig. Returns an empty string on success, otherwise an error message is returned.

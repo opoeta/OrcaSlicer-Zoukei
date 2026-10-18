@@ -755,6 +755,7 @@ public:
         m_support_material_closing_radius(params.support_closing_radius)
     {
         if (m_style == smsDefault) m_style = smsGrid;
+        if (m_style == smsNeoWave) m_style = smsGrid; // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko): Grid layout
         if (std::set<SupportMaterialStyle>{smsTreeSlim, smsTreeStrong, smsTreeHybrid, smsTreeOrganic}.count(m_style))
             m_style = smsGrid;
         switch (m_style) {
@@ -852,6 +853,7 @@ public:
         case smsTreeStrong:
         case smsTreeHybrid:
         case smsTreeOrganic:
+        case smsNeoWave: // normalised to Grid in the constructor
             assert(false);
             //[[fallthrough]];
             return Polygons();

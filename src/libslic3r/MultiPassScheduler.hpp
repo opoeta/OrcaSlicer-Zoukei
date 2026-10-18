@@ -49,6 +49,9 @@ struct SublayerKey {
     int      pass_idx     = 0;     // 0-based position in the chain (pass 0 before pass 1)
     int      tool_id      = 0;     // 0-based physical filament
     double   z_actual     = 0.;    // nozzle Z, deterministic tie-break within a tool group
+    // Zone of the surface (0 Top, 1 Penultimate, 2 Bottom): breaks ties at the same Z so the bottom
+    // chains of a layer print before the penultimate ones and those before the top ones.
+    int      zone         = 0;
     // When true, every CONSECUTIVE same-tool entry of this chain is drained in one shot before
     // the next chain gets a turn (PathBlend ramps: one object's ramp completes before the next).
     bool     atomic_chain = false;
@@ -147,6 +150,7 @@ inline std::vector<size_t> order_sublayers_by_tool(const std::vector<SublayerKey
                 batch.push_back(ri);
         std::sort(batch.begin(), batch.end(), [&](size_t a, size_t b) {
             if (items[a].z_actual != items[b].z_actual) return items[a].z_actual < items[b].z_actual;
+            if (items[a].zone != items[b].zone) return items[a].zone > items[b].zone;
             if (items[a].chain_key != items[b].chain_key) return items[a].chain_key < items[b].chain_key;
             return a < b;
         });

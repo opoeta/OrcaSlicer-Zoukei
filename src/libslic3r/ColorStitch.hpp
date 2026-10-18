@@ -14,8 +14,11 @@
 //  * PathBlend: the per-scanline staircase. One filament climbs as a real Z ramp inside the layer
 //    (one height per fill line) and an optional second filament caps the rest.
 // What is left out (it depends on NeotkoCM-only infrastructure): the painter / sticker / MMU
-// coexistence paths, MixedFilament virtual digits 5-9, the penultimate and bottom zones,
-// Neoweaving and the legacy count-based line distribution modes.
+// coexistence paths, MixedFilament virtual digits 5-9, Neoweaving and the legacy count-based line
+// distribution modes. The penultimate and bottom zones are ported in a reduced form: each zone has its
+// own stack (neotko_surface_passes_penu / _bottom, the penu_zone_* / bottom_zone_* quick modes, or the
+// painted recipe), is printed by the same engine as the top (FillSandwich.cpp) and goes through the
+// same scheduler, tower plan and G-code emission as the top sub-layers.
 
 #include "libslic3r.h"
 #include "ExtrusionEntity.hpp"
@@ -262,6 +265,12 @@ struct SurfacePassStack
     // neotko_surface_passes_top when set, else synthesize_from_config(). The single entry point
     // used by the fill engine.
     static SurfacePassStack resolve(const PrintObjectConfig &cfg);
+    // Same for a zone. Top = resolve(). Penultimate / Bottom: the zone JSON stack when set, else the
+    // quick mode (penu_zone_mode / bottom_zone_mode: one Solid pass, one ColorStitch pass with the
+    // object's ColorStitch settings, or a copy of the Top stack), else empty.
+    static SurfacePassStack resolve_zone(const PrintObjectConfig &cfg, SurfaceZone zone);
+    // Cheap gate of a zone: false for every object with default settings.
+    static bool config_has_zone(const PrintObjectConfig &cfg, SurfaceZone zone);
     // Cheap test used to gate everything else: false for every object with default settings.
     static bool config_has_sandwich(const PrintObjectConfig &cfg);
 };

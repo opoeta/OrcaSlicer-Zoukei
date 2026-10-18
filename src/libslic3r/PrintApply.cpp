@@ -11,6 +11,7 @@
 #include "Feature/Gravity/GravityFloor.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Gravity::active()
 #include "InstanceContact.hpp" // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
 #include "ColorStitchPaint.hpp" // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko)
+#include "ColorStitchSticker.hpp"
 #include "FilamentMixer.hpp"
 #include "Slicing.hpp"
 #include "libslic3r.h"
@@ -1749,7 +1750,13 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         // Check whether a model part volume was added or removed, their transformations or order changed.
         // Only volume IDs, volume types, transformation matrices and their order are checked, configuration and other parameters are NOT checked.
         // ColorStitch Painter (ported from OrcaFS-NeotkoCM, Neotko): also refreshes the recipe fingerprint cached on the new volumes.
-        const bool colorstitch_paint_differ = model_colorstitch_paint_data_changed(model_object, model_object_new);
+        // The stickers are object level: the pile and the fingerprint of the recipes it uses go to the print's copy.
+        const bool colorstitch_sticker_differ = model_colorstitch_sticker_data_changed(model_object, model_object_new);
+        const bool colorstitch_paint_differ = model_colorstitch_paint_data_changed(model_object, model_object_new) || colorstitch_sticker_differ;
+        if (colorstitch_sticker_differ) {
+            model_object.colorstitch_stickers            = model_object_new.colorstitch_stickers;
+            model_object.colorstitch_sticker_fingerprint = model_object_new.colorstitch_sticker_fingerprint;
+        }
         bool solid_or_modifier_differ   = model_volume_list_changed(model_object, model_object_new, solid_or_modifier_types) ||
                                           model_mmu_segmentation_data_changed(model_object, model_object_new) ||
                                           (model_object_new.is_mm_painted() && num_extruders_changed) ||
@@ -1826,6 +1833,17 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         if (! solid_or_modifier_differ) {
             // Synchronize Object's config.
             bool object_config_changed = ! model_object.config.timestamp_matches(model_object_new.config);
+            // Per-object calibration overrides (PrintObjectCalibConfig) are not part of PrintObjectConfig: the G-code
+            // export reads them straight from the ModelObject config, so a change there only invalidates the export.
+            if (object_config_changed)
+                for (const std::string &key : PrintObjectCalibConfig::defaults().keys()) {
+                    const ConfigOption *opt_old = model_object.config.option(key);
+                    const ConfigOption *opt_new = model_object_new.config.option(key);
+                    if ((opt_old == nullptr) != (opt_new == nullptr) || (opt_old != nullptr && *opt_old != *opt_new)) {
+                        update_apply_status(this->invalidate_step(psGCodeExport));
+                        break;
+                    }
+                }
 			if (object_config_changed)
 				model_object.config.assign_config(model_object_new.config);
             if (! object_diff.empty() || object_config_changed || num_extruders_changed ) {
@@ -2220,6 +2238,21 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                         print_region->m_print_region_id = (*it)->print_region_id();
                     }
             }
+    }
+
+    // NeoArachne / NeoWave support keys (ported from OrcaFS-NeotkoCM, Neotko): PrintObjectNeoConfig lives outside
+    // PrintObjectConfig, so it is resolved here per object (preset + ModelObject config) and only the steps of the
+    // keys that changed are invalidated. With the keys untouched nothing changes.
+    for (PrintObject *object : m_objects) {
+        PrintObjectNeoConfig neo;
+        neo.apply(new_full_config, true);
+        if (const ModelObject *mo = object->model_object(); mo != nullptr)
+            neo.apply(mo->config.get(), true);
+        const t_config_option_keys neo_diff = object->neo_config().diff(neo);
+        if (! neo_diff.empty()) {
+            update_apply_status(object->invalidate_state_by_config_options(object->neo_config(), neo, neo_diff));
+            object->neo_config_apply(neo);
+        }
     }
 
     // Update SlicingParameters for each object where the SlicingParameters is not valid.

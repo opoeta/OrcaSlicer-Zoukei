@@ -205,6 +205,13 @@ struct SupportParameters {
                                                                                                           std::numeric_limits<double>::max();
 
         support_style = object_config.support_style;
+        // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko): normal supports laid out exactly as Grid.
+        if (support_style == smsNeoWave) {
+            neowave       = !is_tree(object_config.support_type);
+            support_style = neowave ? smsGrid : smsDefault;
+            if (neowave)
+                neowave_pillar_walls = std::max(0, object.neo_config().neowave_pillar_walls.value);
+        }
         support_interface_pattern = object_config.support_interface_pattern;
         if (support_style != smsDefault) {
             if ((support_style == smsSnug || support_style == smsGrid) && is_tree(object_config.support_type)) support_style = smsDefault;
@@ -280,6 +287,10 @@ struct SupportParameters {
     // Density of the base support layers.
     coordf_t 				support_density;
     SupportMaterialStyle    support_style = smsDefault;
+    // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko): support_style == NeoWave on normal supports. The layout
+    // is Grid (support_style above is normalised to it); only the toolpaths differ (wave roof, hollow pillar).
+    bool                    neowave = false;
+    int                     neowave_pillar_walls = 0; // hollow pillar walls (0 = normal support body)
     SupportMaterialInterfacePattern support_interface_pattern = smipAuto;
 
     // Pattern of the sparse infill including sparse raft layers.

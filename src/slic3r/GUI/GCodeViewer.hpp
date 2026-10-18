@@ -504,6 +504,8 @@ public:
 
     // ORCA: darken the layers not scrubbed to while using the preview layer slider
     void set_realistic_shading(bool value) { m_viewer.set_realistic_shading(value); }
+    // ORCA: PrusaSlicer 3.0 preview renderer (Preferences > Graphics), see libvgcode::Viewer::set_prusa3_renderer()
+    void set_prusa3_renderer(bool value) { m_viewer.set_prusa3_renderer(value); }
     void set_dim_previous_layers(bool value) { m_viewer.set_dim_previous_layers(value); }
     bool is_dim_previous_layers() const { return m_viewer.is_dim_previous_layers(); }
     // ORCA: brightness of those darkened layers, 1.0 = unchanged, 0.0 = black
@@ -550,6 +552,15 @@ private:
     void render_legend(float &legend_height, int canvas_width, int canvas_height, int right_margin);
     void render_legend_color_arr_recommen(float window_padding);
     void render_slider(int canvas_width, int canvas_height);
+
+    // ORCA: thickness of the travel and wipe moves, edited from the legend as in PrusaSlicer 3.0 and kept in
+    // the app config (whole micrometres, so that the value never depends on the locale)
+    enum class EMovesRadiusPopup : unsigned char { None, Travel, Wipe };
+    EMovesRadiusPopup m_moves_radius_popup{ EMovesRadiusPopup::None };
+    bool m_moves_radius_popup_opened{ false };
+    void open_moves_radius_popup(bool wipe);
+    void render_moves_radius_popup(float scale);
+    void apply_moves_radii_from_config();
 };
 
 } // namespace GUI

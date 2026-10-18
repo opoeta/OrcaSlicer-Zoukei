@@ -126,6 +126,11 @@ std::map<std::string, std::vector<SimpleSettingData>>  SettingsFactory::OBJECT_C
                     {"support_cross_object_avoidance","",36} // PerObject Support (ported from OrcaFS-NeotkoCM, Neotko)
                     }},
     { L("Speed"), {{"support_speed", "",12}, {"support_interface_speed", "",13}
+                  }},
+    // Per-object overrides (Layer Slayer calibrations, made native)
+    { L("Calibration"), {{"object_initial_layer_speed", "",1}, {"object_initial_layer_temperature", "",2},
+                         {"object_nozzle_temperature", "",3}, {"object_retraction_length", "",4},
+                         {"object_retraction_speed", "",5}, {"object_z_offset", "",6}
                   }}
 };
 
@@ -216,6 +221,12 @@ std::vector<std::string> SettingsFactory::get_options(const bool is_part)
         PrintObjectConfig obj_config;
         std::vector<std::string> obj_options = obj_config.keys();
         options.insert(options.end(), obj_options.begin(), obj_options.end());
+        // Per-object calibration overrides (object_*), kept in their own config struct.
+        std::vector<std::string> calib_options = PrintObjectCalibConfig().keys();
+        options.insert(options.end(), calib_options.begin(), calib_options.end());
+        // NeoArachne / NeoWave support keys (ported from OrcaFS-NeotkoCM, Neotko), also in their own struct.
+        std::vector<std::string> neo_options = PrintObjectNeoConfig().keys();
+        options.insert(options.end(), neo_options.begin(), neo_options.end());
     } else if (LibreMode::enabled()) {
         // Libre Mode (ported from OrcaFS-NeotkoCM, Neotko): per-part (volume) XY compensation; the engine applies the delta
         // versus the object value in PrintObject::slice_volumes().

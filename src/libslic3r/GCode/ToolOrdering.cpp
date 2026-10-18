@@ -514,6 +514,7 @@ bool ToolOrdering::plan_sandwich_sublayers(const std::vector<const PrintObject*>
             k.pass_idx     = sub.pass_idx;
             k.tool_id      = int(r.tool);
             k.z_actual     = sub.print_z;
+            k.zone         = int(sub.zone);
             k.atomic_chain = PathBlendSchedulerRuntime::get().chain_atomic && sub.effect == SurfacePassKind::PathBlend;
             keys.push_back(k);
         }

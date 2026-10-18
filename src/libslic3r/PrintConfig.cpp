@@ -417,6 +417,14 @@ static t_config_enum_values s_keys_map_SandwichPassKind{
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SandwichPassKind)
 
+static t_config_enum_values s_keys_map_SandwichZoneMode{
+    { "off",         int(SandwichZoneMode::Off) },
+    { "solid",       int(SandwichZoneMode::Solid) },
+    { "colorstitch", int(SandwichZoneMode::ColorStitch) },
+    { "same_as_top", int(SandwichZoneMode::SameAsTop) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SandwichZoneMode)
+
 static t_config_enum_values s_keys_map_ColorStitchPatternMode{
     { "pattern", int(ColorStitchPatternMode::Pattern) },
     { "blend2",  int(ColorStitchPatternMode::Blend2) },
@@ -471,6 +479,14 @@ static t_config_enum_values s_keys_map_NeoWaveRoofOrder {
     { "monotonic", int(NeoWaveRoofOrder::Monotonic) },
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NeoWaveRoofOrder)
+
+// NeoArachne (ported from OrcaFS-NeotkoCM, Neotko). Same keys as upstream, so its projects load.
+static t_config_enum_values s_keys_map_NeoArachneWallSource {
+    { "classic",            int(NeoArachneWallSource::Classic) },
+    { "arachne_stock",      int(NeoArachneWallSource::Arachne) },
+    { "arachne_neotkoedge", int(NeoArachneWallSource::ArachneNeotkoEdge) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NeoArachneWallSource)
 
 //BBS
 static t_config_enum_values s_keys_map_PrintSequence {
@@ -532,7 +548,8 @@ static t_config_enum_values s_keys_map_SupportMaterialStyle {
     { "organic",        smsTreeOrganic },
     { "tree_slim",      smsTreeSlim },
     { "tree_strong",    smsTreeStrong },
-    { "tree_hybrid",    smsTreeHybrid }
+    { "tree_hybrid",    smsTreeHybrid },
+    { "neowave",        smsNeoWave } // ported from OrcaFS-NeotkoCM (Neotko)
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SupportMaterialStyle)
 
@@ -1378,6 +1395,14 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 1000;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0., false));
+
+    // Bambu Studio: keep travel moves on object layers inside the support footprint as well.
+    def = this->add("avoid_crossing_wall_includes_support", coBool);
+    def->label = L("Avoid crossing walls - Include support");
+    def->category = L("Quality");
+    def->tooltip = L("When avoiding crossing walls on object layers, also treat the support of the same layer as printable ground, so the detour planner can travel over support instead of leaving it.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     // BBS
     def = this->add("supertack_plate_temp", coInts);
@@ -4774,6 +4799,61 @@ void PrintConfigDef::init_fff_params()
     def->mode = comDevelop;
     def->set_default_value(new ConfigOptionString(""));
 
+    // Ported from OrcaFS-NeotkoCM (Neotko): the Penultimate zone (the solid layer under a top surface) and the
+    // Bottom zone (the surface on the bed or on supports) of the Sandwich. Off by default.
+    def = this->add("neotko_surface_passes_penu", coString);
+    def->label = L("Penultimate zone stack (JSON)");
+    def->category = L("Quality");
+    def->tooltip = L("Advanced: the Sandwich stack of the penultimate zone as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the penultimate zone quick mode.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("neotko_surface_passes_bottom", coString);
+    def->label = L("Bottom zone stack (JSON)");
+    def->category = L("Quality");
+    def->tooltip = L("Advanced: the Sandwich stack of the bottom zone as JSON, in the format of OrcaFS-NeotkoCM. When set it replaces the bottom zone quick mode.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString(""));
+
+    {
+        const char *mode_keys[2] = { "penu_zone_mode", "bottom_zone_mode" };
+        const char *fil_keys[2]  = { "penu_zone_filament", "bottom_zone_filament" };
+        const char *mode_lbl[2]  = { L("Penultimate zone"), L("Bottom zone") };
+        const char *fil_lbl[2]   = { L("Penultimate zone filament"), L("Bottom zone filament") };
+        const char *mode_tip[2]  = {
+            L("The solid layer right under a top surface, printed as a Sandwich: Solid prints it in one filament, ColorStitch with the ColorStitch settings, "
+              "Same as top repeats the top surface recipe. It needs a top surface with a solid layer under it (top shell layers of 2 or more). "
+              "Not applied on the first layer of the object."),
+            L("The bottom surface on the bed or on supports, printed as a Sandwich: Solid prints it in one filament, ColorStitch with the ColorStitch settings, "
+              "Same as top repeats the top surface recipe. The first pass touches the bed. Bridges are not changed.") };
+        for (int i = 0; i < 2; ++i) {
+            def = this->add(mode_keys[i], coEnum);
+            def->label = mode_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = mode_tip[i];
+            def->enum_keys_map = &ConfigOptionEnum<SandwichZoneMode>::get_enum_values();
+            def->enum_values.push_back("off");
+            def->enum_values.push_back("solid");
+            def->enum_values.push_back("colorstitch");
+            def->enum_values.push_back("same_as_top");
+            def->enum_labels.push_back(L("Off"));
+            def->enum_labels.push_back(L("Solid"));
+            def->enum_labels.push_back("ColorStitch");
+            def->enum_labels.push_back(L("Same as top"));
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionEnum<SandwichZoneMode>(SandwichZoneMode::Off));
+
+            def = this->add(fil_keys[i], coInt);
+            def->label = fil_lbl[i];
+            def->category = L("Quality");
+            def->tooltip = L("Filament of the Solid mode (1 = first filament). 0 uses the object's own filament.");
+            def->min = 0;
+            def->max = 64;
+            def->mode = comAdvanced;
+            def->set_default_value(new ConfigOptionInt(2));
+        }
+    }
+
     def = this->add("multipass_enabled", coBool);
     def->label = L("Sandwich (top surface passes)");
     def->category = L("Quality");
@@ -5166,6 +5246,120 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionPercent(200));
 
+    // NeoArachne per region engine choice and recipes (ported from OrcaFS-NeotkoCM, Neotko). Read only while
+    // neoarachne_hybrid is on; the defaults reproduce Hybrid v2 (Classic outer + Arachne inner).
+    auto add_neoarachne_wall_source = [this](const char *key, const char *label, const char *tooltip, NeoArachneWallSource def_val) {
+        ConfigOptionDef *d = this->add(key, coEnum);
+        d->label         = label;
+        d->category      = L("Quality");
+        d->tooltip       = tooltip;
+        d->enum_keys_map = &ConfigOptionEnum<NeoArachneWallSource>::get_enum_values();
+        d->enum_values.push_back("classic");
+        d->enum_values.push_back("arachne_stock");
+        d->enum_values.push_back("arachne_neotkoedge");
+        d->enum_labels.push_back(L("Classic"));
+        d->enum_labels.push_back(L("Arachne"));
+        d->enum_labels.push_back(L("Arachne (NeotkoEdge)"));
+        d->mode = comAdvanced;
+        d->set_default_value(new ConfigOptionEnum<NeoArachneWallSource>(def_val));
+    };
+    add_neoarachne_wall_source("neoarachne_outer_wall", L("NeoArachne outer wall"),
+        L("Engine of the outer wall. Classic gives a constant width, clean visible surface (the NeoArachne recipes). "
+          "Arachne (either variant) hands the whole region to stock Arachne, since a variable width outer wall needs the Arachne interior too."),
+        NeoArachneWallSource::Classic);
+    add_neoarachne_wall_source("neoarachne_inner_walls", L("NeoArachne inner walls"),
+        L("Engine of the inner walls when the outer wall is Classic.\n"
+          "Arachne (default, Hybrid v2): variable width beads with integrated gap fill, widening capped at the nominal width.\n"
+          "Arachne (NeotkoEdge): the same plus a pinned bead width in 1-2 bead regions and a bead count hysteresis against width breathing.\n"
+          "Classic (v3): constant width walls placed only where they fit whole; the pocket left inside is printed as one variable width line (single-line fill)."),
+        NeoArachneWallSource::Arachne);
+
+    def = this->add("neoarachne_min_feature_pct", coPercent);
+    def->label = L("NeoArachne minimum feature");
+    def->category = L("Quality");
+    def->tooltip = L("Geometry thinner than this percentage of the nozzle diameter is dropped by the Arachne interior. Keep it low and at or below the minimum line width.");
+    def->sidetext = "%";
+    def->min = 1;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(10));
+
+    def = this->add("neoarachne_keep_short_tails", coBool);
+    def->label = L("NeoArachne preserve thin edges");
+    def->category = L("Quality");
+    def->tooltip = L("Keeps the short closure tails Arachne would remove next to the classic outer wall, for cleaner seams. Disable only if very short speckles appear.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("neoarachne_pin_outer_width", coBool);
+    def->label = L("NeoArachne pin bead width");
+    def->category = L("Quality");
+    def->tooltip = L("Inner walls = Arachne (NeotkoEdge) only. In regions of 1 or 2 beads keep the bead at the nominal width instead of letting it breathe as thickness / bead count.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("neoarachne_hysteresis_pct", coPercent);
+    def->label = L("NeoArachne wall count stability");
+    def->category = L("Quality");
+    def->tooltip = L("Inner walls = Arachne (NeotkoEdge) only. Delays every bead count transition by this percentage of the wall width, "
+                     "so borderline strokes stop alternating between bead counts along their length. 0 disables; typical 10-25%.");
+    def->sidetext = "%";
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(20));
+
+    def = this->add("neoarachne_spine", coBool);
+    def->label = L("NeoArachne single-line fill");
+    def->category = L("Quality");
+    def->tooltip = L("Inner walls = Classic only. Whatever is left inside the walls is printed as ONE line along its centre, with a width that follows "
+                     "the gap, whenever the whole gap fits in a line no wider than the maximum below (Simplify3D style). Wider areas go to infill. "
+                     "Off = plain Classic walls and gap fill.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("neoarachne_spine_min_width_pct", coPercent);
+    def->label = L("NeoArachne single-line minimum width");
+    def->category = L("Quality");
+    def->tooltip = L("Floor of the single-line fill, in % of the inner wall line width. Narrower gaps are still printed at this width, so pocket tips get filled.");
+    def->sidetext = "%";
+    def->min = 1;
+    def->max = 200;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(50));
+
+    def = this->add("neoarachne_spine_max_width_pct", coPercent);
+    def->label = L("NeoArachne single-line maximum width");
+    def->category = L("Quality");
+    def->tooltip = L("Ceiling of the single-line fill, in % of the inner wall line width. A gap that fits entirely under it becomes one line; "
+                     "otherwise the area goes to infill. The line is never split in two.");
+    def->sidetext = "%";
+    def->min = 50;
+    def->max = 1000;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(300));
+
+    def = this->add("neoarachne_spine_min_length", coFloat);
+    def->label = L("NeoArachne single-line minimum length");
+    def->category = L("Quality");
+    def->tooltip = L("Single-line fill paths shorter than this are dropped.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.1));
+
+    def = this->add("neoarachne_spine_sliver_pct", coPercent);
+    def->label = L("NeoArachne single-line sliver limit");
+    def->category = L("Quality");
+    def->tooltip = L("A gap that never gets this wide (in % of the inner wall line width) is a crack between two passes of the same wall, not a pocket, "
+                     "and is not filled. 0 = fill every crack, like Simplify3D.");
+    def->sidetext = "%";
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPercent(35));
+
     // NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko).
     def = this->add("neostitch", coEnum);
     def->label = L("NeoStitch interlock");
@@ -5297,6 +5491,122 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Flips the edge (Wave) or the ring (Concentric) the roof fill starts from.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
+
+    // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko).
+    def = this->add("neowave_pillar_walls", coInt);
+    def->label = L("NeoWave hollow pillar walls");
+    def->category = L("Support");
+    def->tooltip = L("Only with support style NeoWave. Number of perimeter walls of the support body, printed with no infill (a hollow pillar) "
+                     "so the wave roof caps a lightweight support. 0 keeps the normal support body. The first layer stays solid for bed adhesion. "
+                     "Upstream prints: 1-2 walls under a Wave roof with 2 top interface layers close cleanly.");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    def = this->add("neowave_contact", coBool);
+    def->label = L("NeoWave contact layer");
+    def->category = L("Support");
+    def->tooltip = L("Experimental, not print-tested upstream (ported from OrcaFS-NeotkoCM by Neotko). Ripples the Z of the object's bridges "
+                     "that rest on a support roof: valleys touch the roof, crests lift by the amplitude, leaving micro gaps so the support "
+                     "comes off more easily. Only Z moves, upwards only; the bridge path, width and flow do not change. Works with any support "
+                     "type. The preview does not show the Z wave. Off by default.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("neowave_contact_amplitude", coFloat);
+    def->label = L("NeoWave contact amplitude");
+    def->category = L("Support");
+    def->tooltip = L("Peak upward Z lift of the contact wave. Typical 0.05-0.2 mm; keep it at or below half the layer height.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.1));
+
+    def = this->add("neowave_contact_period", coFloat);
+    def->label = L("NeoWave contact period");
+    def->category = L("Support");
+    def->tooltip = L("Distance between two wave crests along the bridge line. Floored to the line width (a finer wave is unprintable). 0 = line width.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->max = 10;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.6));
+
+    // Per-object overrides (Layer Slayer calibrations, made native; replaces the plugin's name tags and
+    // G-code post-processor). Set from the object list ("Add settings" > Calibration) or the Remote API
+    // object config. The defaults inherit, so a plate without them slices exactly as before.
+    def = this->add("object_initial_layer_speed", coFloat);
+    def->label = L("Object first layer speed");
+    def->category = L("Calibration");
+    def->tooltip = L("Speed of every extrusion on this object's first layer (walls, infill, bottom surface and the "
+                     "object's own support), replacing the first layer speeds of the process. The filament's maximum "
+                     "volumetric speed still caps it. 0 keeps the process speeds.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("object_initial_layer_temperature", coInt);
+    def->label = L("Object first layer temperature");
+    def->category = L("Calibration");
+    def->tooltip = L("Nozzle temperature for this object's first layer. Before the object is printed the nozzle "
+                     "retracts and waits (M109) for the new temperature, and it waits again for the filament "
+                     "temperature before the next object without an override. When all objects are printed at once "
+                     "(by layer) every switch between temperatures waits, so the first layer takes longer. "
+                     "0 keeps the filament temperature.");
+    def->sidetext = L(u8"\u2103" /* degrees C */);
+    def->min = 0;
+    def->max = 500;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    def = this->add("object_nozzle_temperature", coInt);
+    def->label = L("Object nozzle temperature");
+    def->category = L("Calibration");
+    def->tooltip = L("Nozzle temperature for this object's layers after the first one, applied the same way as the "
+                     "first layer override (retract, wait with M109, restore before the next object). Best used with "
+                     "the by object print sequence: by layer, every layer waits for the nozzle twice per object. "
+                     "0 keeps the filament temperature.");
+    def->sidetext = L(u8"\u2103" /* degrees C */);
+    def->min = 0;
+    def->max = 500;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
+    def = this->add("object_retraction_length", coFloat);
+    def->label = L("Object retraction length");
+    def->category = L("Calibration");
+    def->tooltip = L("Retraction length used while this object is printed, including the travel into it. "
+                     "0 disables retraction for the object. -1 keeps the filament / printer value.");
+    def->sidetext = L("mm");
+    def->min = -1;
+    def->max = 20;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(-1.));
+
+    def = this->add("object_retraction_speed", coFloat);
+    def->label = L("Object retraction speed");
+    def->category = L("Calibration");
+    def->tooltip = L("Retraction and deretraction speed used while this object is printed. 0 keeps the filament / "
+                     "printer speeds.");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("object_z_offset", coFloat);
+    def->label = L("Object Z offset");
+    def->category = L("Calibration");
+    def->tooltip = L("Moves every layer of this object up (positive) or down (negative) by this amount, like the "
+                     "printer Z offset but for this object only. Used by the Z offset calibration. The first layer is "
+                     "never sent closer than 0.03 mm to the bed. 0 keeps the object at its layer heights.");
+    def->sidetext = L("mm");
+    def->min = -0.5;
+    def->max = 0.5;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
 
     // BBS
     def = this->add("enable_arc_fitting", coBool);
@@ -9077,6 +9387,7 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.push_back("tree_slim");
     def->enum_values.push_back("tree_strong");
     def->enum_values.push_back("tree_hybrid");
+    def->enum_values.push_back("neowave"); // NeoWave support (ported from OrcaFS-NeotkoCM, Neotko); index == smsNeoWave
     def->enum_labels.push_back(L("Default (Grid/Organic)"));
     def->enum_labels.push_back(L("Grid"));
     def->enum_labels.push_back(L("Snug"));
@@ -9084,6 +9395,7 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.push_back(L("Tree Slim"));
     def->enum_labels.push_back(L("Tree Strong"));
     def->enum_labels.push_back(L("Tree Hybrid"));
+    def->enum_labels.push_back(L("NeoWave"));
 
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionEnum<SupportMaterialStyle>(smsDefault));
@@ -14164,7 +14476,7 @@ std::map<std::string, std::string> validate(const FullPrintConfig &cfg, bool und
 #define PRINT_CONFIG_CACHE_ELEMENT_INITIALIZATION(r, data, CLASS_NAME) Slic3r::CLASS_NAME::initialize_cache();
 #define PRINT_CONFIG_CACHE_INITIALIZE(CLASSES_SEQ)     BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CACHE_ELEMENT_DEFINITION, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_SEQ))     int print_config_static_initializer() {         /* For some reason it's important this function doesn't get optimized out, so this should work. */         static volatile int ret = 1;         BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_CACHE_ELEMENT_INITIALIZATION, _, BOOST_PP_TUPLE_TO_SEQ(CLASSES_SEQ))         return ret;     }
 PRINT_CONFIG_CACHE_INITIALIZE((
-    PrintObjectConfig, PrintRegionConfig, MachineEnvelopeConfig, GCodeConfig, PrintConfig, FullPrintConfig,
+    PrintObjectConfig, PrintRegionConfig, MachineEnvelopeConfig, GCodeConfig, PrintConfig, PrintObjectCalibConfig, PrintObjectNeoConfig, FullPrintConfig,
     SLAMaterialConfig, SLAPrintConfig, SLAPrintObjectConfig, SLAPrinterConfig, SLAFullPrintConfig))
 static int print_config_static_initialized = print_config_static_initializer();
 
@@ -14179,7 +14491,7 @@ static int print_config_static_initialized = print_config_static_initializer();
         visit_option_pairs(*dst, *this, [](const char*, ConfigOption &a, const ConfigOption &b) { a.set(&b); return true; }); \
         return true; \
     }
-BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_APPLY_TO_DEFINITION, _, (PrintObjectConfig)(PrintRegionConfig)(MachineEnvelopeConfig)(GCodeConfig)
+BOOST_PP_SEQ_FOR_EACH(PRINT_CONFIG_APPLY_TO_DEFINITION, _, (PrintObjectConfig)(PrintRegionConfig)(MachineEnvelopeConfig)(GCodeConfig)(PrintObjectCalibConfig)(PrintObjectNeoConfig)
     (SLAMaterialConfig)(SLAPrintConfig)(SLAPrintObjectConfig)(SLAPrinterConfig))
 #undef PRINT_CONFIG_APPLY_TO_DEFINITION
 

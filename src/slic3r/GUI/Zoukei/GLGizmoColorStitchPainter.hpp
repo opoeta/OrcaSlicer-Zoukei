@@ -8,18 +8,23 @@
 // painted top surface prints its own recipe (libslic3r/ColorStitchPaint.hpp, Fill/FillSandwich.cpp).
 //
 // Reduced port of NeotkoCM's GLGizmoColorStitchPainter: one object at a time, a compact recipe
-// editor (Top zone, up to 3 passes) and the saved recipe list. Not ported: palette generators and
-// TD department, Penultimate / Bottom zones, weave preview on the model, multi-object selection,
-// stickers, MixedFilament Object mode, highlight of the active colour.
+// editor (Top, Penultimate and Bottom zones, up to 3 passes each) and the saved recipe list. The
+// Penultimate zone is the solid layer under a top surface, the Bottom zone the supported bottom
+// surface (paint it from below). SVG stickers (rough, as in NeotkoCM): load an SVG, click a top or
+// bottom face to place it; every colour of the drawing prints with a recipe of its own.
+// Not ported: palette generators and TD department, weave preview on the model, multi-object
+// selection, MixedFilament Object mode, highlight of the active colour, gradient fills of stickers.
 #ifndef slic3r_GUI_Zoukei_GLGizmoColorStitchPainter_hpp_
 #define slic3r_GUI_Zoukei_GLGizmoColorStitchPainter_hpp_
 
 #include "slic3r/GUI/Gizmos/GLGizmoPainterBase.hpp"
+#include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/I18N.hpp"
 #include "libslic3r/Color.hpp"
 #include "libslic3r/TriangleSelector.hpp"
 
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,8 +87,11 @@ private:
     int  capture_recipe_from_object();
     int  duplicate_recipe(int profile_id);
     void delete_recipe(int profile_id);
-    // Stores an edited Top stack into the active recipe (swatch included) and schedules a re-slice.
-    void commit_stack(const SurfacePassStack &stack, bool reslice);
+    // Stores an edited stack of `zone` (0 Top, 1 Penultimate, 2 Bottom) into the active recipe (swatch
+    // included) and schedules a re-slice.
+    void commit_stack(const SurfacePassStack &stack, int zone, bool reslice);
+    // Swatch of a recipe: its saved one, else the colours of its first zone that prints something.
+    uint32_t swatch_argb(const SurfaceEffectProfile &profile) const;
     // Swatch of a recipe: the pass colours weighted by their share. `profile` supplies the payload
     // filaments of passes that carry none.
     uint32_t preview_argb(const SurfacePassStack &stack, const SurfaceEffectProfile *profile) const;
@@ -94,10 +102,25 @@ private:
     void render_recipe_editor();
     void render_slots_in_use();
 
+    // SVG stickers (ColorStitchSticker.hpp).
+    void render_stickers();
+    void load_sticker();
+    // Recipe of a flat filament colour (Solid pass in Top and Bottom zones), created on first use.
+    int  flat_recipe_for_filament(int filament0);
+    int  nearest_filament(uint32_t rgb) const;
+    // Places sticker `index` where the mouse points (face height, side from the face normal).
+    bool place_sticker_at_mouse(size_t index, const Vec2d &mouse_position);
+    // Writes `pose` (world frame) into sticker `index`, snapshot and re-slice.
+    void commit_stickers(const std::string &snapshot_name);
+    void render_sticker_preview();
+    void rebuild_sticker_preview();
+    const ModelInstance *selected_instance() const;
+
     // Filament colours of the plater ("#RRGGBB"), 1-based in the UI.
     std::vector<std::string> m_filament_colors;
     int                      object_filament() const; // 1-based filament of the selected object
 
+    int         m_zone           = 0; // zone shown by the recipe editor: 0 Top, 1 Penultimate, 2 Bottom
     int         m_active_profile = 0; // SurfaceEffectProfile id, 0 = none
     int         m_active_slot    = 0; // slot of the active recipe on the selected object
     wchar_t     m_current_tool   = 0;
@@ -107,6 +130,19 @@ private:
     int         m_name_buf_profile = -1;
 
     std::map<std::string, wxString> m_desc;
+
+    // Stickers: index into ModelObject::colorstitch_stickers of the one being edited, -1 = none.
+    int  m_sticker_sel     = -1;
+    bool m_sticker_placing = false; // the next click on a face puts the selected sticker there
+    // Preview of the stickers (world frame, one flat colour per region), rebuilt when it is dirty.
+    struct StickerPreviewPart
+    {
+        std::shared_ptr<GLModel> model;
+        ColorRGBA                color;
+    };
+    std::vector<StickerPreviewPart> m_sticker_preview;
+    bool                            m_sticker_preview_dirty = true;
+    Transform3d                     m_sticker_preview_inst  = Transform3d::Identity();
 
     // Paint states used on the selected object (any part), refreshed after each change of the paint.
     std::vector<bool> m_used_states;

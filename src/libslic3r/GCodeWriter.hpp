@@ -52,6 +52,8 @@ public:
     // Extruders are expected to be sorted in an increasing order.
     void                 set_extruders(std::vector<unsigned int> extruder_ids);
     const std::vector<Extruder>& extruders() const { return m_filament_extruders; }
+    // Per-object retraction override (see Extruder::set_retraction_override), set on every filament.
+    void set_retraction_override(double length, double speed) { for (Extruder &e : m_filament_extruders) e.set_retraction_override(length, speed); }
     std::vector<unsigned int> extruder_ids() const {
         std::vector<unsigned int> out;
         out.reserve(m_filament_extruders.size());

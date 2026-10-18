@@ -1807,6 +1807,10 @@ bool PrintObject::invalidate_state_by_config_options(
                 steps.emplace_back(posPerimeters);
             steps.emplace_back(posPrepareInfill);
         } else if (opt_key == "neotko_surface_passes_top"
+                || opt_key == "neotko_surface_passes_penu"
+                || opt_key == "neotko_surface_passes_bottom"
+                || opt_key.rfind("penu_zone_", 0) == 0
+                || opt_key.rfind("bottom_zone_", 0) == 0
                 || opt_key.rfind("multipass_", 0) == 0
                 || opt_key.rfind("interlayer_colormix_", 0) == 0
                 || opt_key.rfind("pathblend_", 0) == 0) {
@@ -1884,14 +1888,26 @@ bool PrintObject::invalidate_state_by_config_options(
                    || opt_key == "neostitch_period"
                    || opt_key == "neostitch_flow"
                    || opt_key == "neostitch_skip_layers"
-                   || opt_key == "neostitch_fill_margin") {
+                   || opt_key == "neostitch_fill_margin"
+                   || opt_key == "neoarachne_outer_wall"
+                   || opt_key == "neoarachne_inner_walls"
+                   || opt_key == "neoarachne_min_feature_pct"
+                   || opt_key == "neoarachne_keep_short_tails"
+                   || opt_key == "neoarachne_pin_outer_width"
+                   || opt_key == "neoarachne_hysteresis_pct"
+                   || opt_key == "neoarachne_spine"
+                   || opt_key == "neoarachne_spine_min_width_pct"
+                   || opt_key == "neoarachne_spine_max_width_pct"
+                   || opt_key == "neoarachne_spine_min_length"
+                   || opt_key == "neoarachne_spine_sliver_pct") {
             // NeoArachne Hybrid v2 / NeoStitch Interlock (ported from OrcaFS-NeotkoCM, Neotko): both act in the wall generator.
             steps.emplace_back(posPerimeters);
             steps.emplace_back(posSupportMaterial);
         } else if (opt_key == "neowave_roof"
                    || opt_key == "neowave_roof_shape"
                    || opt_key == "neowave_roof_order"
-                   || opt_key == "neowave_roof_reverse") {
+                   || opt_key == "neowave_roof_reverse"
+                   || opt_key == "neowave_pillar_walls") {
             // NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): the support interface toolpaths.
             steps.emplace_back(posSupportMaterial);
         } else if (opt_key == "bridge_expansion_extra") {
@@ -1977,6 +1993,11 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "flush_into_support"
             || opt_key == "belt_purge_tower_object") {
             invalidated |= m_print->invalidate_step(psWipeTower);
+            invalidated |= m_print->invalidate_step(psGCodeExport);
+        } else if (opt_key == "neowave_contact"
+                   || opt_key == "neowave_contact_amplitude"
+                   || opt_key == "neowave_contact_period") {
+            // NeoWave contact layer (ported from OrcaFS-NeotkoCM, Neotko): a Z wave applied while exporting the G-code.
             invalidated |= m_print->invalidate_step(psGCodeExport);
         } else {
             // for legacy, if we can't handle this option let's invalidate all steps

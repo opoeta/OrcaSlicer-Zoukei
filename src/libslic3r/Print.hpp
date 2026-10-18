@@ -371,6 +371,8 @@ public:
     // Size of an object: XYZ in scaled coordinates. The size might not be quite snug in XY plane.
     const Vec3crd&               size() const			{ return m_size; }
     const PrintObjectConfig&     config() const         { return m_config; }
+    // NeoArachne / NeoWave support keys of this object (ported from OrcaFS-NeotkoCM, Neotko), see PrintObjectNeoConfig.
+    const PrintObjectNeoConfig&  neo_config() const     { return m_neo_config; }
     void                         configBrimWidth(double m)      {m_config.brim_width.value = m; }
     ConstLayerPtrsAdaptor        layers() const         { return ConstLayerPtrsAdaptor(&m_layers); }
     ConstSupportLayerPtrsAdaptor support_layers() const { return ConstSupportLayerPtrsAdaptor(&m_support_layers); }
@@ -566,6 +568,7 @@ public:
 
     void                    config_apply(const ConfigBase &other, bool ignore_nonexistent = false) { m_config.apply(other, ignore_nonexistent); }
     void                    config_apply_only(const ConfigBase &other, const t_config_option_keys &keys, bool ignore_nonexistent = false) { m_config.apply_only(other, keys, ignore_nonexistent); }
+    void                    neo_config_apply(const PrintObjectNeoConfig &other) { m_neo_config = other; }
     PrintBase::ApplyStatus  set_instances(PrintInstances &&instances);
     // Invalidates the step, and its depending steps in PrintObject and Print.
     bool                    invalidate_step(PrintObjectStep step);
@@ -687,6 +690,7 @@ private:
     Vec3crd									m_size;
     double                                  m_max_z;
     PrintObjectConfig                       m_config;
+    PrintObjectNeoConfig                    m_neo_config; // ported from OrcaFS-NeotkoCM (Neotko)
     // Translation in Z + Rotation + Scaling / Mirroring.
     Transform3d                             m_trafo = Transform3d::Identity();
     // Slic3r::Point objects in scaled G-code coordinates

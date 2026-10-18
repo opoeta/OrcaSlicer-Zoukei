@@ -547,6 +547,13 @@ protected:
     std::string     preamble();
     // BBS
     std::string     change_layer(coordf_t print_z);
+    // Per-object overrides (Layer Slayer calibrations, made native; PrintObjectConfig object_*): applied when
+    // an object starts printing (after its config was applied) and dropped when it stops. Emit nothing
+    // without overrides, so plates without them keep a byte-identical G-code.
+    std::string     object_overrides_begin(const PrintObject &object, bool first_layer, bool allow_z_offset);
+    // The object_* values of one object: process preset, then the ModelObject config. Cached per object.
+    const PrintObjectCalibConfig& object_calib_config(const PrintObject &object);
+    void            object_overrides_end();
     // Bedslinger model: derive the Y-axis acceleration limit from the machine force/bed-mass config
     // and the mass already printed. Yields the min machine Y acceleration when the A2L config keys are
     // unset (i.e. every existing printer), so it is inert for them.
@@ -921,6 +928,15 @@ protected:
     double   m_sub_layer_flow_ratio = 0.0;
     double   m_sub_layer_height     = 0.0;
     bool m_need_change_layer_lift_z = false;
+    // Per-object overrides state (see object_overrides_begin): first layer speed of the object being
+    // printed (0 = none), the nozzle temperature an override left set (0 = the filament's), and the
+    // nominal Z an object Z offset replaced.
+    double   m_object_initial_layer_speed  = 0.;
+    int      m_object_temp_active          = 0;
+    bool     m_object_retraction_override  = false;
+    bool     m_object_z_shifted            = false;
+    coordf_t m_object_z_base               = 0.;
+    std::map<const PrintObject*, PrintObjectCalibConfig> m_object_calib_configs;
     int m_start_gcode_filament = -1;
     std::string m_filament_instances_code;
 

@@ -22,6 +22,7 @@
 #include "EmbossShape.hpp"
 #include "TriangleSelector.hpp"
 #include "TextureDisplacement.hpp"
+#include "ColorStitchSticker.hpp" // ColorStitch Painter stickers (ported from OrcaFS-NeotkoCM, Neotko)
 
 //BBS: add bbs 3mf
 #include "Format/bbs_3mf.hpp"
@@ -430,6 +431,12 @@ public:
     CutConnectors cut_connectors;
     CutObjectBase cut_id;
 
+    // ColorStitch Painter stickers (ported from OrcaFS-NeotkoCM, Neotko), see ColorStitchSticker.hpp. Object level (a
+    // sticker spans volumes); index 0 is the bottom of the pile, back() the topmost. Saved in the 3MF.
+    std::vector<ColorStitchSticker> colorstitch_stickers;
+    // Cache, not model data: hash of the stickers and of the recipes they use, set by Print::apply.
+    uint64_t                        colorstitch_sticker_fingerprint = 0;
+
     Model*                  get_model() { return m_model; }
     const Model*            get_model() const { return m_model; }
     // BBS: production extension
@@ -713,7 +720,7 @@ private:
             m_bounding_box_approx, m_bounding_box_approx_valid, 
             m_bounding_box_exact, m_bounding_box_exact_valid, m_min_max_z_valid,
             m_raw_bounding_box, m_raw_bounding_box_valid, m_raw_mesh_bounding_box, m_raw_mesh_bounding_box_valid,
-            cut_connectors, cut_id);
+            cut_connectors, cut_id, colorstitch_stickers);
     }
     template<class Archive> void load(Archive& ar) {
         ar(cereal::base_class<ObjectBase>(this));
@@ -726,7 +733,7 @@ private:
             m_bounding_box_approx, m_bounding_box_approx_valid, 
             m_bounding_box_exact, m_bounding_box_exact_valid, m_min_max_z_valid,
             m_raw_bounding_box, m_raw_bounding_box_valid, m_raw_mesh_bounding_box, m_raw_mesh_bounding_box_valid,
-            cut_connectors, cut_id);
+            cut_connectors, cut_id, colorstitch_stickers);
         std::vector<ObjectID> volume_ids2;
         std::transform(volumes.begin(), volumes.end(), std::back_inserter(volume_ids2), std::mem_fn(&ObjectBase::id));
         if (volume_ids != volume_ids2)

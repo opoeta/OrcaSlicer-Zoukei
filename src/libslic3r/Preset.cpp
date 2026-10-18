@@ -1257,6 +1257,7 @@ static std::vector<std::string> s_Preset_print_options{
     "support_ironing_flow",
     "support_ironing_spacing",
     "max_travel_detour_distance",
+    "avoid_crossing_wall_includes_support",
     "fuzzy_skin", "fuzzy_skin_thickness", "fuzzy_skin_point_distance", "fuzzy_skin_first_layer", "fuzzy_skin_noise_type", "fuzzy_skin_mode", "fuzzy_skin_scale", "fuzzy_skin_octaves", "fuzzy_skin_persistence", "fuzzy_skin_ripples_per_layer", "fuzzy_skin_ripple_offset", "fuzzy_skin_layers_between_ripple_offset",
     "max_volumetric_extrusion_rate_slope", "max_volumetric_extrusion_rate_slope_segment_length","extrusion_rate_smoothing_external_perimeter_only",
     "inner_wall_speed", "outer_wall_speed", "sparse_infill_speed", "internal_solid_infill_speed",
@@ -1369,6 +1370,7 @@ static std::vector<std::string> s_Preset_print_options{
     "zbump_edge_margin", "zbump_max_slope", "zbump_segment",
     // Sandwich / ColorStitch / PathBlend / NeoTower (ported from OrcaFS-NeotkoCM, Neotko)
     "neotko_surface_passes_top", "multipass_enabled", "multipass_num_passes",
+    "neotko_surface_passes_penu", "neotko_surface_passes_bottom", "penu_zone_mode", "penu_zone_filament", "bottom_zone_mode", "bottom_zone_filament",
     "multipass_kind_1", "multipass_kind_2", "multipass_kind_3",
     "multipass_filament_1", "multipass_filament_2", "multipass_filament_3",
     "multipass_height_1", "multipass_height_2", "multipass_height_3",
@@ -1387,6 +1389,11 @@ static std::vector<std::string> s_Preset_print_options{
     "neostitch", "neostitch_depth", "neostitch_flat_length", "neostitch_ramp_length", "neostitch_period", "neostitch_flow",
     "neostitch_skip_layers", "neostitch_fill_margin",
     "neowave_roof", "neowave_roof_shape", "neowave_roof_order", "neowave_roof_reverse",
+    // NeoArachne per region engine choice / v3 spine, NeoWave support (ported from OrcaFS-NeotkoCM, Neotko)
+    "neoarachne_outer_wall", "neoarachne_inner_walls", "neoarachne_min_feature_pct", "neoarachne_keep_short_tails",
+    "neoarachne_pin_outer_width", "neoarachne_hysteresis_pct", "neoarachne_spine", "neoarachne_spine_min_width_pct",
+    "neoarachne_spine_max_width_pct", "neoarachne_spine_min_length", "neoarachne_spine_sliver_pct",
+    "neowave_pillar_walls", "neowave_contact", "neowave_contact_amplitude", "neowave_contact_period",
     "multipass_prime_volume",
     // Libre Mode / True Objects (ported from OrcaFS-NeotkoCM, Neotko)
     "neotko_true_objects", "gravity_contact_gap_ratio", "neotko_assemble_boolean",
@@ -1441,6 +1448,9 @@ static std::vector<std::string> s_Preset_print_options{
     "bottom_solid_infill_flow_ratio",
     "only_one_wall_first_layer",
     "print_flow_ratio",
+    // Per-object overrides (Layer Slayer calibrations, made native)
+    "object_initial_layer_speed", "object_initial_layer_temperature", "object_nozzle_temperature",
+    "object_retraction_length", "object_retraction_speed", "object_z_offset",
     "seam_gap",
     "set_other_flow_ratios",
     "first_layer_flow_ratio",

@@ -36,6 +36,9 @@ struct MultiPassSubLayer
     // group their work by filament (MultiPassScheduler::make_chain_key).
     int                       island_key = 0;
     SurfacePassKind           effect     = SurfacePassKind::Solid;
+    // Zone of the surface this sub-layer belongs to. Part of the scheduling key, so a layer that has
+    // sub-layers of several zones orders them the same way in the tower plan and in the G-code.
+    SurfaceZone               zone       = SurfaceZone::Top;
     // Region the surface belongs to: speeds and accelerations of the fills come from its config.
     const PrintRegion        *region     = nullptr;
     // Fill paths, already scaled to the band height (mm3_per_mm and height).

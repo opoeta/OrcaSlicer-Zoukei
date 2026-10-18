@@ -1287,6 +1287,8 @@ ModelObject& ModelObject::assign_copy(const ModelObject &rhs)
     this->auto_drop                   = rhs.auto_drop;
     this->origin_translation          = rhs.origin_translation;
     this->cut_id.copy(rhs.cut_id);
+    this->colorstitch_stickers        = rhs.colorstitch_stickers; // ColorStitch Painter stickers
+    this->colorstitch_sticker_fingerprint = rhs.colorstitch_sticker_fingerprint;
     this->copy_transformation_caches(rhs);
 
     this->clear_volumes();
@@ -1327,6 +1329,8 @@ ModelObject& ModelObject::assign_copy(ModelObject &&rhs)
     this->printable                   = std::move(rhs.printable);
     this->auto_drop                   = rhs.auto_drop;
     this->origin_translation          = std::move(rhs.origin_translation);
+    this->colorstitch_stickers        = std::move(rhs.colorstitch_stickers); // ColorStitch Painter stickers
+    this->colorstitch_sticker_fingerprint = rhs.colorstitch_sticker_fingerprint;
     this->copy_transformation_caches(rhs);
 
     this->clear_volumes();

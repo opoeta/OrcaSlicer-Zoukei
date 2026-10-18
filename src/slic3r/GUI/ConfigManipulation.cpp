@@ -627,7 +627,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     if (config->opt_bool("enable_support")) {
         auto   support_type = config->opt_enum<SupportType>("support_type");
         auto   support_style = config->opt_enum<SupportMaterialStyle>("support_style");
-        std::set<int> enum_set_normal = { smsDefault, smsGrid, smsSnug };
+        std::set<int> enum_set_normal = { smsDefault, smsGrid, smsSnug, smsNeoWave /* ported from OrcaFS-NeotkoCM (Neotko) */ };
         std::set<int> enum_set_tree   = { smsDefault, smsTreeSlim, smsTreeStrong, smsTreeHybrid, smsTreeOrganic };
         auto &           set             = is_tree(support_type) ? enum_set_tree : enum_set_normal;
         if (set.find(support_style) == set.end()) {
@@ -1196,6 +1196,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
 
     bool have_avoid_crossing_perimeters = config->opt_bool("reduce_crossing_wall");
     toggle_line("max_travel_detour_distance", have_avoid_crossing_perimeters);
+    toggle_line("avoid_crossing_wall_includes_support", have_avoid_crossing_perimeters);
 
     bool has_set_other_flow_ratios = config->opt_bool("set_other_flow_ratios");
     for (auto el : {"first_layer_flow_ratio", "outer_wall_flow_ratio", "inner_wall_flow_ratio", "overhang_flow_ratio", "sparse_infill_flow_ratio", "internal_solid_infill_flow_ratio", "gap_fill_flow_ratio", "support_flow_ratio", "support_interface_flow_ratio"})
@@ -1260,6 +1261,11 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
             toggle_field(el, pb);
         toggle_field("pathblend_filament_cap", pb && config->opt_enum<PathBlendMode>("pathblend_mode") == PathBlendMode::Full);
     }
+    // Penultimate / Bottom zone of the Sandwich (ported from OrcaFS-NeotkoCM, Neotko): the filament only matters for the Solid mode.
+    if (config->has("penu_zone_mode") && config->has("bottom_zone_mode")) {
+        toggle_field("penu_zone_filament", config->opt_enum<SandwichZoneMode>("penu_zone_mode") == SandwichZoneMode::Solid);
+        toggle_field("bottom_zone_filament", config->opt_enum<SandwichZoneMode>("bottom_zone_mode") == SandwichZoneMode::Solid);
+    }
 
     toggle_line("flush_into_objects", !is_global_config);
 
@@ -1288,14 +1294,33 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, in
         toggle_line(el, has_wall_bump);
     // NeoArachne Hybrid v2 / NeoStitch Interlock / NeoWave roof (ported from OrcaFS-NeotkoCM, Neotko): details only while the feature is on.
     const bool has_neoarachne = config->opt_bool("neoarachne_hybrid");
-    for (auto el : {"neoarachne_overlap_pct", "neoarachne_min_bead_pct", "neoarachne_max_bead_pct"})
-        toggle_line(el, has_neoarachne);
+    const auto na_outer       = config->opt_enum<NeoArachneWallSource>("neoarachne_outer_wall");
+    const auto na_inner       = config->opt_enum<NeoArachneWallSource>("neoarachne_inner_walls");
+    const bool na_classic_out = has_neoarachne && na_outer == NeoArachneWallSource::Classic;
+    const bool na_hybrid_v2   = na_classic_out && na_inner != NeoArachneWallSource::Classic;
+    const bool na_spine       = na_classic_out && na_inner == NeoArachneWallSource::Classic;
+    toggle_line("neoarachne_outer_wall", has_neoarachne);
+    toggle_line("neoarachne_inner_walls", na_classic_out);
+    for (auto el : {"neoarachne_overlap_pct", "neoarachne_min_bead_pct", "neoarachne_max_bead_pct", "neoarachne_min_feature_pct", "neoarachne_keep_short_tails"})
+        toggle_line(el, na_hybrid_v2);
+    for (auto el : {"neoarachne_pin_outer_width", "neoarachne_hysteresis_pct"})
+        toggle_line(el, na_hybrid_v2 && na_inner == NeoArachneWallSource::ArachneNeotkoEdge);
+    toggle_line("neoarachne_spine", na_spine);
+    for (auto el : {"neoarachne_spine_min_width_pct", "neoarachne_spine_max_width_pct", "neoarachne_spine_min_length", "neoarachne_spine_sliver_pct"})
+        toggle_line(el, na_spine && config->opt_bool("neoarachne_spine"));
     const bool has_neostitch = config->opt_enum<NeoStitchTarget>("neostitch") != NeoStitchTarget::Disabled;
     for (auto el : {"neostitch_depth", "neostitch_flat_length", "neostitch_ramp_length", "neostitch_period", "neostitch_flow", "neostitch_skip_layers", "neostitch_fill_margin"})
         toggle_line(el, has_neostitch);
-    const bool has_neowave = config->opt_bool("neowave_roof");
+    // Support style NeoWave (normal supports) always has the wave roof and may have a hollow pillar.
+    const bool neowave_style = config->opt_bool("enable_support") && !is_tree(config->opt_enum<SupportType>("support_type"))
+                            && config->opt_enum<SupportMaterialStyle>("support_style") == smsNeoWave;
+    const bool has_neowave = config->opt_bool("neowave_roof") || neowave_style;
+    toggle_field("neowave_roof", !neowave_style);
     for (auto el : {"neowave_roof_shape", "neowave_roof_order", "neowave_roof_reverse"})
         toggle_line(el, has_neowave);
+    toggle_line("neowave_pillar_walls", neowave_style);
+    for (auto el : {"neowave_contact_amplitude", "neowave_contact_period"})
+        toggle_line(el, config->opt_bool("neowave_contact"));
     const bool has_zbump = config->opt_bool("zbump_enabled");
     for (auto el : {"zbump_image", "zbump_height", "zbump_scale", "zbump_repeat", "zbump_offset_x", "zbump_offset_y", "zbump_edge_margin", "zbump_max_slope", "zbump_segment"})
         toggle_line(el, has_zbump);

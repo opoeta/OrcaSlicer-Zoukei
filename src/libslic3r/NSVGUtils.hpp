@@ -56,7 +56,10 @@ struct NSVGLineParams
 /// <param name="scale">Multiplicator of point coors
 /// NOTE: Every point coor from image(float) is multiplied by scale and rounded to integer</param>
 /// <returns>Shapes from svg image - fill + stroke</returns>
-ExPolygonsWithIds create_shape_with_ids(const NSVGimage &image, const NSVGLineParams &param);
+///
+/// <param name="center_result">The result is centred on its bounding box (the default). The ColorStitch
+/// stickers pass false: they apply <clipPath> to the raw shapes first and centre the drawing themselves.</param>
+ExPolygonsWithIds create_shape_with_ids(const NSVGimage &image, const NSVGLineParams &param, bool center_result = true);
 
 // help functions - prepare to be tested
 /// <param name="is_y_negative">Flag is y negative, when true than y coor is multiplied by -1</param>

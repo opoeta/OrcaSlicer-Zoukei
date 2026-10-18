@@ -1111,6 +1111,16 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                 }
             }
         }
+        // ORCA: PrusaSlicer 3.0 preview renderer, applied to the loaded preview right away
+        else if (param == "gcode_preview_prusa3_renderer") {
+            if (Plater* plater = wxGetApp().plater()) {
+                if (GLCanvas3D* canvas = plater->get_preview_canvas3D()) {
+                    canvas->get_gcode_viewer().set_prusa3_renderer(app_config->get_bool(param));
+                    canvas->set_as_dirty();
+                    canvas->request_extra_frame();
+                }
+            }
+        }
         else if (param == "zoukei_print_markers") {
             Zoukei::PrintMarkerTimeline::refresh_all();
         }
@@ -2284,6 +2294,17 @@ void PreferencesDialog::create_items()
         "realistic_gcode_preview"
     );
     g_sizer->Add(item_gcode_realistic);
+
+    // ORCA: PrusaSlicer 3.0 preview renderer, off unless enabled here (no default needed: an empty key reads false)
+    auto item_gcode_prusa3_renderer = create_item_checkbox(
+        _L("PrusaSlicer 3.0 preview renderer"),
+        _L("Draw the G-code preview the way PrusaSlicer 3.0 does: the toolpaths are drawn by vertex pulling in large batches "
+           "instead of one small instance per segment, which is faster on GPUs that handle many small instances poorly, "
+           "and the seam, retraction and other markers are lit like the toolpaths and receive their shadows.\n"
+           "The image of the toolpaths is the same. Disable it if the preview shows glitches on your graphics card."),
+        "gcode_preview_prusa3_renderer"
+    );
+    g_sizer->Add(item_gcode_prusa3_renderer);
 
     auto item_realistic_prepare = create_item_checkbox(
         _L("Realistic view in Prepare"),
