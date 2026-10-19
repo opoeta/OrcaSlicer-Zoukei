@@ -461,6 +461,7 @@ void render_photo_panel(ImGuiWrapper& imgui, GLCanvas3D& canvas, int canvas_widt
         }
         ImGui::Spacing();
         ImGui::PushTextWrapPos(width - 12.f * scale);
+        ImGui::TextDisabled("%s", _u8L("Materials (PLA Silk, matte PLA, PETG), studio lights, 8K and video: Photo Studio.").c_str());
         ImGui::TextDisabled("%s", _u8L("Presentation only: the G-code and the preview are not changed. Ported from OrcaFS-NeotkoCM (Neotko).").c_str());
         ImGui::PopTextWrapPos();
     }

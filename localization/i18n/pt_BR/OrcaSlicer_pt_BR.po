@@ -42279,7 +42279,7 @@ msgid "Matte PLA"
 msgstr "PLA fosco"
 
 msgid "Silk sheen"
-msgstr "Brilho seda"
+msgstr "PLA Silk (brilho de seda)"
 
 msgid "PETG gloss"
 msgstr "PETG brilhante"
@@ -42426,3 +42426,6 @@ msgstr "Escolhendo as cores..."
 #, c-format
 msgid "Saved %d frames, %d x %d at %d fps: %s"
 msgstr "Salvos %d quadros, %d x %d a %d fps: %s"
+
+msgid "Materials (PLA Silk, matte PLA, PETG), studio lights, 8K and video: Photo Studio."
+msgstr "Materiais (PLA Silk, PLA fosco, PETG), luzes de estúdio, 8K e vídeo: Estúdio de fotos."

@@ -13,6 +13,8 @@
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -27,6 +29,8 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Widgets/Button.hpp"
 #include "slic3r/GUI/Widgets/Label.hpp"
+
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <wx/checkbox.h>
 #include <wx/choice.h>
@@ -1034,6 +1038,22 @@ void StudioDialog::load_settings()
     int mat = int(m_s.material);
     get_i("material", mat, 0, int(StudioMaterial::Count) - 1);
     m_s.material = StudioMaterial(mat);
+    // Start from the filament on the plate: a silk filament opens with the silk sheen, PETG with the gloss.
+    if (const PresetBundle* bundle = wxGetApp().preset_bundle) {
+        bool silk = false, petg = false;
+        const DynamicPrintConfig   full  = bundle->full_config();
+        const ConfigOptionStrings* types = full.option<ConfigOptionStrings>("filament_type");
+        for (size_t i = 0; i < bundle->filament_presets.size(); ++i) {
+            std::string name = boost::algorithm::to_lower_copy(bundle->filament_presets[i]);
+            std::string type = (types != nullptr && i < types->values.size()) ? boost::algorithm::to_lower_copy(types->values[i]) : std::string();
+            silk = silk || name.find("silk") != std::string::npos || name.find("seda") != std::string::npos || type.find("silk") != std::string::npos;
+            petg = petg || type.find("petg") != std::string::npos;
+        }
+        if (silk)
+            m_s.material = StudioMaterial::SilkSheen;
+        else if (petg)
+            m_s.material = StudioMaterial::PETGGloss;
+    }
     get_f("exposure", m_s.exposure, 0.4f, 2.0f);
     get_f("saturation", m_s.saturation, 0.0f, 2.0f);
     get_b("whole_print", m_s.whole_print);

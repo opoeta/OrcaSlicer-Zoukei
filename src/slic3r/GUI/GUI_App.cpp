@@ -30,6 +30,7 @@
 #include "format.hpp"
 #include "libslic3r_version.h"
 #include "BuildCommit.hpp"
+#include "zoukei_version.h"
 #include "Downloader.hpp"
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -515,8 +516,15 @@ public:
         rc.height = dc.GetTextExtent(m_text_version).GetHeight();
         dc.DrawLabel(m_text_version, rc, wxALIGN_CENTER);
 
+        // Orca Zoukei: the build (commit) under the version, so a screenshot says which binary it is
         dc.SetFont(m_font_action);
-        rc.y      = c_sz.GetHeight() * 0.85;
+        rc.y += rc.height + FromDIP(4);
+        rc.height = dc.GetTextExtent(m_text_build).GetHeight();
+        dc.DrawLabel(m_text_build, rc, wxALIGN_CENTER);
+        const int build_bottom = rc.y + rc.height;
+
+        dc.SetFont(m_font_action);
+        rc.y      = std::max(int(c_sz.GetHeight() * 0.85), build_bottom + FromDIP(10));
         rc.height = dc.GetTextExtent(m_text_action).GetHeight();
         dc.DrawLabel(m_text_action, rc, wxALIGN_CENTER);
 
@@ -583,7 +591,8 @@ private:
     wxColour m_progress_bg_color;
     wxColour m_progress_fg_color;
 
-    wxString m_text_version = GUI_App::format_display_version();
+    wxString m_text_version = wxString::Format("Orca Zoukei %s", ORCA_ZOUKEI_VERSION);
+    wxString m_text_build   = wxString::Format(_L("Build %s"), build_commit_label) + wxString::FromUTF8("  \xC2\xB7  OrcaSlicer ") + GUI_App::format_display_version();
     wxString m_text_action  = _L("Loading configuration") + dots;
     int      m_progress     = 0;
     int      m_progress_h   = 6;
