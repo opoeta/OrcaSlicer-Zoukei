@@ -77,6 +77,9 @@ const char *param_label(const std::string &key);
 // Image file under resources/images (without extension), e.g. "calib_z_offset".
 std::string icon_name(const std::string &id);
 
+// The pad modifiers (%) of a flow_rate test with these values (the chosen pass decides start / step / count).
+std::vector<double> flow_rate_modifiers(const Values &values);
+
 Values defaults(const Calib &calib);
 // Parses `raw` (what the user typed, or a JSON value turned into text) into `values`.
 // Returns an empty string when it is valid, else an English error.

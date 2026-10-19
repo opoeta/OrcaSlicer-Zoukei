@@ -159,6 +159,7 @@
 #include "slic3r/Utils/NetworkAgent.hpp"
 #include "slic3r/GUI/Zoukei/LayerSlayer.hpp"
 #include "slic3r/GUI/Zoukei/LayerSlayerDialog.hpp"
+#include "slic3r/GUI/Zoukei/FlowCalibChain.hpp"
 #include <wx/defs.h>
 #include <cassert>
 #include <wx/display.h>
@@ -3703,6 +3704,10 @@ void MainFrame::init_menubar_as_editor()
     append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Flow ratio"), _L("Flow Rate Calibration"),
         [this](wxCommandEvent&) { run_calibration(CalibKind::FlowRatio); }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown();; }, this);
+    // ORCA Zoukei: write the result of the last flow test to the filament
+    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Save flow ratio result") + dots, _L("Pick the best sample of the last flow rate test and write the new flow ratio to the filament"),
+        [this](wxCommandEvent&) { FlowCalib::save_last_result(this); }, "", nullptr,
+        [this]() {return m_plater->is_view3D_shown();; }, this);
 
     // Retraction
     append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Retraction"), _L("Retraction"),
@@ -3811,6 +3816,10 @@ void MainFrame::init_menubar_as_editor()
     // ORCA: Flow rate (Wizard Dialog)
     append_menu_item(calib_menu, wxID_ANY, _L("Flow ratio"), _L("Flow Rate Calibration"),
         [this](wxCommandEvent&) { run_calibration(CalibKind::FlowRatio); }, "", nullptr,
+        [this]() {return m_plater->is_view3D_shown();; }, this);
+    // ORCA Zoukei: write the result of the last flow test to the filament
+    append_menu_item(calib_menu, wxID_ANY, _L("Save flow ratio result") + dots, _L("Pick the best sample of the last flow rate test and write the new flow ratio to the filament"),
+        [this](wxCommandEvent&) { FlowCalib::save_last_result(this); }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown();; }, this);
 
     // Retraction

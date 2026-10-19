@@ -40428,3 +40428,66 @@ msgstr "Treliça"
 
 msgid "Mono line"
 msgstr "Linha monotônica"
+
+msgid "Flow rate: choose the best sample"
+msgstr "Fluxo: escolha a melhor amostra"
+
+msgid "Flow rate: save the result"
+msgstr "Fluxo: salvar o resultado"
+
+msgid "These are the samples of pass 1. Choose the one whose top surface is the smoothest and most closed, with no gaps between the lines and no ridges. Pass 2 is then made around it."
+msgstr "Estas são as amostras da passada 1. Escolha a de superfície superior mais lisa e fechada, sem vãos entre as linhas e sem cristas. A passada 2 será feita em torno dela."
+
+msgid "Choose the sample of the last flow test that looks best. The filament's flow ratio is calculated from it."
+msgstr "Escolha a amostra do último teste de fluxo que ficou melhor. A proporção de fluxo do filamento é calculada a partir dela."
+
+msgid "Make pass 2 around it"
+msgstr "Gerar a passada 2 em torno dela"
+
+msgid "Save it as the result"
+msgstr "Salvar como resultado"
+
+msgid "Use the filament's current flow"
+msgstr "Usar o fluxo atual do filamento"
+
+msgid "Skip the choice: pass 2 is made around the flow ratio the filament has now."
+msgstr "Pular a escolha: a passada 2 é feita em torno da proporção de fluxo que o filamento tem agora."
+
+msgid "Set it on the filament"
+msgstr "Aplicar no filamento"
+
+msgid "Click the best sample."
+msgstr "Clique na melhor amostra."
+
+msgid "Sample %s: the filament's flow ratio would be %s (now %s)."
+msgstr "Amostra %s: a proporção de fluxo do filamento ficaria %s (agora %s)."
+
+msgid "Select a filament preset first."
+msgstr "Selecione um preset de filamento primeiro."
+
+msgid "Filament \"%1%\": flow ratio %2% -> %3%.\n\nSet the new flow ratio on the filament now?"
+msgstr "Filamento \"%1%\": proporção de fluxo %2% -> %3%.\n\nAplicar a nova proporção de fluxo no filamento agora?"
+
+msgid "The flow ratio is set and the filament preset is marked as modified. Save the preset now? (If you do not, it stays modified until you save or discard it.)"
+msgstr "A proporção de fluxo foi aplicada e o preset do filamento está marcado como modificado. Salvar o preset agora? (Se não salvar, ele continua modificado até você salvar ou descartar.)"
+
+msgid "No flow rate test has been made in this session yet. Make one from the Calibration menu first."
+msgstr "Nenhum teste de fluxo foi gerado nesta sessão. Gere um pelo menu Calibração primeiro."
+
+msgid "Save result..."
+msgstr "Salvar resultado..."
+
+msgid "Pick the best sample of the last flow rate test and write the new flow ratio to the filament preset."
+msgstr "Escolha a melhor amostra do último teste de fluxo e grave a nova proporção de fluxo no preset do filamento."
+
+msgid "Save flow ratio result"
+msgstr "Salvar resultado do fluxo"
+
+msgid "Pick the best sample of the last flow rate test and write the new flow ratio to the filament"
+msgstr "Escolha a melhor amostra do último teste de fluxo e grave a nova proporção de fluxo no filamento"
+
+msgid "Centre on (1 = the filament's flow; 1 + coarse winner % / 100)"
+msgstr "Centrar em (1 = fluxo do filamento; 1 + % do vencedor grosso / 100)"
+
+msgid "Look at the top of each pad in raking light, and run a finger over it: gaps between the lines mean too little flow, ridges and roughness too much. Pick the smoothest, closest pad. Its number is the change to apply, and the legend shows the new flow ratio already worked out from your filament's current one (new = current x (1 + number / 100)). Coarse first; then choose Fine and click the coarse winner in the picture list that opens: the fine pass is made around it (or type the same in \"Centre on\"). Afterwards use Calibration > Save flow ratio result to write the final ratio to the filament. YOLO does a single fine pass when the flow is already close."
+msgstr "Olhe o topo de cada pastilha com luz rasante e passe o dedo: vãos entre as linhas indicam pouco fluxo, cristas e aspereza indicam fluxo demais. Escolha a pastilha mais lisa e fechada. O número dela é a mudança a aplicar, e a legenda mostra a nova proporção de fluxo já calculada a partir da atual do filamento (nova = atual x (1 + número / 100)). Primeiro o grosso; depois escolha Fino e clique no vencedor do grosso na lista de imagens que abre: a passada fina é feita em torno dele (ou digite o mesmo em \"Centrar em\"). Depois use Calibração > Salvar resultado do fluxo para gravar a proporção final no filamento. O YOLO faz uma única passada fina quando o fluxo já está próximo."

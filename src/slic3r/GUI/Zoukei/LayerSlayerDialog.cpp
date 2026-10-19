@@ -1,6 +1,7 @@
 // Layer Slayer dialog. See LayerSlayerDialog.hpp.
 #include "LayerSlayerDialog.hpp"
 #include "LayerSlayer.hpp"
+#include "FlowCalibChain.hpp"
 
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/format.hpp"
@@ -28,6 +29,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
+#include <cmath>
 #include <map>
 #include <memory>
 #include <vector>
@@ -512,6 +514,27 @@ void open_layer_slayer_dialog(Plater *plater, const std::string &id)
             return;
         values = dlg.result_values;
         test   = dlg.result_id;
+    }
+    // Flow rate, fine pass: centre it on the coarse winner (asked here, unless "Centre on" was typed)
+    if (test == "flow_rate" && values.s("phase") == "fine" && std::abs(values.n("base_flow") - 1.0) < 1e-9) {
+        const LayerSlayer::Env env = LayerSlayer::read_env(plater);
+        FlowCalib::Test        coarse;
+        coarse.valid        = true;
+        coarse.pass         = 1;
+        coarse.current_flow = env.flow_ratio > 0 ? env.flow_ratio : 1.;
+        coarse.pattern      = values.s("top") == "monotonic" ? "monotonic" : "archimedean";
+        LayerSlayer::Values cv = values;
+        cv.str["phase"]        = "coarse";
+        coarse.mods            = LayerSlayer::flow_rate_modifiers(cv);
+        const FlowCalib::Choice c = FlowCalib::pick_first_pass(static_cast<wxWindow *>(wxGetApp().mainframe), coarse);
+        if (c.action == FlowCalib::Action::Cancel)
+            return;
+        if (c.action == FlowCalib::Action::Save) {
+            FlowCalib::confirm_and_apply(static_cast<wxWindow *>(wxGetApp().mainframe), FlowCalib::final_ratio(coarse, c.mod));
+            return;
+        }
+        if (c.action == FlowCalib::Action::Generate)
+            values.num["base_flow"] = 1.0 + c.mod / 100.0;
     }
     std::string err;
     LayerSlayer::Plate  plate;

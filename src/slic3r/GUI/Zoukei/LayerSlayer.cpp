@@ -4,6 +4,7 @@
 // matches the 3MF the plugin wrote, piece for piece. What the plugin did with name tags and its G-code
 // post-processor is done here with the slicer's own options (see the header).
 #include "LayerSlayer.hpp"
+#include "FlowCalibChain.hpp"
 
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/Flow.hpp"
@@ -1329,7 +1330,7 @@ const std::vector<Text> &texts()
         {"vfa", L("VFA (vertical ripples)"), L("A column whose walls print at a faster speed band by band, to find the speeds that ripple."), L("Look and feel along each band for vertical ripples. Avoid the speeds where they are strongest and use one on a smooth band as the wall speed.")},
         {"max_flow", L("Maximum volumetric speed"), L("A tower whose flow rises with height until the nozzle cannot keep up."), L("Find the height where the wall turns thin, rough or skips. The flow just below it (the labels) is the limit; take about 10 % off for safety and set it as the filament's max volumetric speed.")},
         {"retraction", L("Retraction"), L("Pairs of posts printed with a longer retraction each, to find the one that leaves no strings."), L("Look for strings between the two posts of each piece. Pick the shortest retraction that leaves none and set it as the retraction length.")},
-        {"flow_rate", L("Flow rate"), L("Thin pads with a small flow change each: coarse, fine or YOLO pass, with the top pattern that shows flow best."), L("Look at the top of each pad in raking light, and run a finger over it: gaps between the lines mean too little flow, ridges and roughness too much. Pick the smoothest, closest pad. Its number is the change to apply, and the legend shows the new flow ratio already worked out from your filament's current one (new = current x (1 + number / 100)). Coarse first, then fine around the winner with the new flow; YOLO does a single fine pass when the flow is already close.")},
+        {"flow_rate", L("Flow rate"), L("Thin pads with a small flow change each: coarse, fine or YOLO pass, with the top pattern that shows flow best."), L("Look at the top of each pad in raking light, and run a finger over it: gaps between the lines mean too little flow, ridges and roughness too much. Pick the smoothest, closest pad. Its number is the change to apply, and the legend shows the new flow ratio already worked out from your filament's current one (new = current x (1 + number / 100)). Coarse first; then choose Fine and click the coarse winner in the picture list that opens: the fine pass is made around it (or type the same in \"Centre on\"). Afterwards use Calibration > Save flow ratio result to write the final ratio to the filament. YOLO does a single fine pass when the flow is already close.")},
         {"dimensional", L("Dimensional accuracy"), L("Blocks with a hole and different contour, hole and elephant foot compensations, to measure with calipers."), L("Measure each block: the outside width (target = cell size), the hole diameter (target = the hole diameter) and, on the EF blocks, the flare at the bottom edge. Pick the contour compensation that gives the exact width and the hole compensation that gives the exact hole; for the elephant foot, the smallest value that removes the flare. Set xy_contour_compensation, xy_hole_compensation and elefant_foot_compensation.")},
         {"tolerance", L("Tolerance and fit"), L("Square and round pegs for holes, with a growing clearance."), L("Try each peg in its hole. Pick the smallest clearance that goes in by hand with no force and no play, and use it as the gap in parts that fit together. Run the dimensional test first so the sizes are right.")},
         {"seam_width", L("Seam and line width"), L("Cylinders with each seam position, and thin walls with different line widths."), L("Seams: look at how visible the seam is for each position and pick the one you like (aligned and back hide it best). Line width: measure the wall of each tube at its top edge; pick the width that gives a solid wall without gaps and set it as the outer wall line width.")},
@@ -1383,6 +1384,7 @@ const std::map<std::string, const char *> &labels()
         {"group.color", L("Colour")},
         {"param.top", L("Top surface pattern")},
         {"param.thickness", L("Pad thickness (0 = 8 layers)")},
+        {"param.base_flow", L("Centre on (1 = the filament's flow; 1 + coarse winner % / 100)")},
         {"opt.phase.yolo", L("YOLO (one fine pass, -2.5 ... +2.5 %)")},
         {"opt.top.archimedeanchords", L("Archimedean chords (shows flow best)")},
         {"opt.top.monotonic", L("Monotonic")},
@@ -1412,24 +1414,38 @@ const std::map<std::string, Builder> &builders()
     return b;
 }
 
-Plate build_flow_rate(const Values &v, const Env &env)
+// start / step / count of the flow rate pads of the chosen pass.
+void flow_rate_range(const Values &v, double &start, double &step, int &count)
 {
-    constexpr double STRIP = 9.0;
-    double       start = v.n("start"), step = v.n("step");
-    int          count = int(v.n("count"));
-    const std::string phase = v.s("phase");
+    start = v.n("start");
+    step  = v.n("step");
+    count = int(v.n("count"));
+    const std::string &phase = v.s("phase");
     if (phase == "coarse")    { start = -12.0; step = 3.0; count = 9; }
     else if (phase == "fine") { start = -3.0;  step = 0.5; count = 13; }
     else if (phase == "yolo") { start = -2.5;  step = 0.5; count = 11; }
+}
+
+Plate build_flow_rate(const Values &v, const Env &env)
+{
+    constexpr double STRIP = 9.0;
+    double           start = 0., step = 0.;
+    int              count = 0;
+    flow_rate_range(v, start, step, count);
+    // ORCA Zoukei: a fine (or custom) pass can be centred on the coarse winner, like Creality Print's second pass:
+    // base_flow = 1 + (winner %) / 100, so every pad's ratio is base_flow * (1 + pad % / 100).
+    const double base = v.num.count("base_flow") != 0 && v.n("base_flow") > 0 ? v.n("base_flow") : 1.0;
     const double size   = v.n("size");
     const double height = v.n("thickness") > 0 ? v.n("thickness") : snap_z(env.first_layer + 7 * env.layer_height, env);
     std::vector<Obj> objects;
     for (double pc : frange(start, step, count)) {
-        const double      ratio = 1.0 + pc / 100.0;
+        const double      ratio = base * (1.0 + pc / 100.0);
         const std::string text  = (pc > 0 ? "+" : "") + fnum(pc, 2);
         std::vector<Part> parts = {make_part("pad", box(0, 0, 0, size, size + STRIP, height)),
                                    label_part(text, size - 3, height, LABEL_PIXEL, LABEL_RAISE, size / 2., (STRIP - 5.6) / 2. + size)};
         Settings note = {{"flow", text + " %"}};
+        if (std::abs(base - 1.0) > 1e-9)
+            note.push_back({"around", fnum(base, 4) + " x the filament's flow"});
         if (env.flow_ratio > 0)
             note.push_back({"new flow ratio", fnum(env.flow_ratio * ratio, 4)});
         objects.push_back(piece("flow " + text + "%", std::move(parts),
@@ -1499,6 +1515,14 @@ double first_number(const DynamicPrintConfig &cfg, const std::string &key, doubl
 
 } // namespace
 
+std::vector<double> flow_rate_modifiers(const Values &v)
+{
+    double start = 0., step = 0.;
+    int    count = 0;
+    flow_rate_range(v, start, step, count);
+    return frange(start, step, count);
+}
+
 // =============================================================================================
 // public
 // =============================================================================================
@@ -1539,7 +1563,7 @@ const std::vector<Calib> &all()
                                     FltP("size", 24, 15, 40, 1, "mm"),
                                     SelP("top", "archimedeanchords", {{"archimedeanchords", L("Archimedean chords (shows flow best)")}, {"monotonic", L("Monotonic")},
                                                                    {"rectilinear", L("Rectilinear")}, {"concentric", L("Concentric")}}),
-                                    FltP("thickness", 0, 0, 6, 0.1, "mm")}},
+                                    FltP("thickness", 0, 0, 6, 0.1, "mm"), FltP("base_flow", 1.0, 0.5, 1.5, 0.005)}},
         {"max_flow", "extrusion", {FltP("start", 6, 1, 60, 0.5, "mm3/s"), FltP("end", 24, 2, 80, 0.5, "mm3/s"), FltP("height", 60, 20, 150, 1, "mm"),
                                    FltP("size", 25, 15, 50, 1, "mm")}},
         {"pressure_advance", "extrusion", {FltP("start", 0.0, 0.0, 2.0, 0.005), FltP("end", 0.08, 0.001, 2.0, 0.005), FltP("height", 40, 10, 120, 1, "mm"),
@@ -1937,6 +1961,19 @@ bool run(Plater *plater, const std::string &id, const Values &values, bool skip_
     plater->schedule_background_process();
     BOOST_LOG_TRIVIAL(info) << "Layer Slayer: created " << id << " with " << plate.objects.size() << " objects, " << plate.gcodes.size()
                             << " layer G-codes";
+    if (id == "flow_rate") {
+        // remember the pads so "Save flow ratio result" can write the winner's ratio to the filament
+        FlowCalib::Test t;
+        t.valid        = true;
+        t.linear       = false;
+        t.pass         = values.s("phase") == "coarse" ? 1 : 2;
+        t.current_flow = env.flow_ratio > 0 ? env.flow_ratio : 1.;
+        t.base         = values.n("base_flow") > 0 ? values.n("base_flow") : 1.;
+        t.pattern      = values.s("top") == "monotonic" ? "monotonic" : "archimedean";
+        t.name         = "Layer Slayer: flow rate";
+        t.mods         = flow_rate_modifiers(values);
+        FlowCalib::remember(t);
+    }
     if (out != nullptr) {
         *out = std::move(plate);
         for (const std::string &p : problems)

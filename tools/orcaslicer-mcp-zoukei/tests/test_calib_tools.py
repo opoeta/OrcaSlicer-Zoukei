@@ -8,7 +8,7 @@ class CalibToolsTest(ToolTestCase):
     MODULES = ("tools_calib",)
 
     def test_tool_list(self):
-        self.assertEqual(sorted(self.mcp.tools), ["calibration_list", "calibration_start"])
+        self.assertEqual(sorted(self.mcp.tools), ["calibration_flow_apply", "calibration_list", "calibration_start"])
 
     def test_list(self):
         self.run_tool("calibration_list")
@@ -31,6 +31,20 @@ class CalibToolsTest(ToolTestCase):
     def test_flow_type_is_named_type_in_the_body(self):
         self.run_tool("calibration_start", kind="flow_rate", flow_type="yolo_perfectionist", pattern="monotonic")
         self.assertEqual(self.last()[2], {"type": "yolo_perfectionist", "pattern": "monotonic"})
+
+    def test_flow_pass2_base_flow(self):
+        self.run_tool("calibration_start", kind="flow_rate", flow_type="pass2", base_flow=1.05)
+        self.assertEqual(self.last()[2], {"type": "pass2", "base_flow": 1.05})
+        self.run_tool("calibration_start", kind="ls_flow_rate", base_flow=0.97)
+        self.assertEqual(self.last()[1:3], ("/api/v1/calibrations/ls_flow_rate/start", {"base_flow": 0.97}))
+
+    def test_flow_apply(self):
+        self.run_tool("calibration_flow_apply", flow_ratio=0.9825)
+        self.assertEqual(self.last()[:3], ("POST", "/api/v1/calibrations/flow_rate/apply", {"flow_ratio": 0.9825}))
+
+    def test_flow_apply_refused_without_filament(self):
+        REPLIES[("POST", "/api/v1/calibrations/flow_rate/apply")] = (422, {"error": "no_filament"})
+        self.assertIn("error", self.run_tool("calibration_flow_apply", flow_ratio=1.0))
 
     def test_input_shaping(self):
         self.run_tool("calibration_start", kind="input_shaping_freq", freq_start_x=20, freq_end_x=100, damping=0.1,

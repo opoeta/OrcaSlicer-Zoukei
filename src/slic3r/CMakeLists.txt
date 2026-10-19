@@ -97,6 +97,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/LayerSlayer.hpp
     GUI/Zoukei/LayerSlayerDialog.cpp
     GUI/Zoukei/LayerSlayerDialog.hpp
+    GUI/Zoukei/FlowCalibChain.cpp
+    GUI/Zoukei/FlowCalibChain.hpp
     GUI/Zoukei/PrintMarkerTimeline.cpp
     GUI/Zoukei/PrintMarkerTimeline.hpp
     GUI/CrealityCfsUi.cpp

@@ -25,6 +25,7 @@
 #include "slic3r/GUI/wxExtensions.hpp"
 #include <wx/dcgraph.h>
 #include "MainFrame.hpp"
+#include "Zoukei/FlowCalibChain.hpp"
 #include "Widgets/DialogButtons.hpp"
 #include <string>
 #include <vector>
@@ -260,6 +261,16 @@ PA_Calibration_Dlg::PA_Calibration_Dlg(wxWindow* parent, wxWindowID id, Plater* 
     wiki_btn->Bind(wxEVT_LEFT_DOWN, ([wiki_url](auto& e) {wxLaunchDefaultBrowser(wiki_url);}));
 
     bottom_sizer->Add(wiki_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(10));
+    // ORCA Zoukei: write the result of the last test to the filament
+    auto save_btn = new wxButton(this, wxID_ANY, _L("Save result..."));
+    save_btn->SetToolTip(_L("Pick the best sample of the last flow rate test and write the new flow ratio to the filament preset."));
+    save_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        if (!FlowCalib::last().valid)
+            FlowCalib::save_last_result(this); // tells the user there is nothing to save
+        else if (FlowCalib::save_result(this, FlowCalib::last()))
+            EndModal(wxID_OK);
+    });
+    bottom_sizer->Add(save_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(10));
     bottom_sizer->AddStretchSpacer();
     bottom_sizer->Add(dlg_btns, 0, wxEXPAND);
     v_sizer->Add(bottom_sizer, 0, wxEXPAND);
@@ -1879,7 +1890,32 @@ void FlowRateCalibrationDialog::on_start(wxCommandEvent& event) {
     bool is_linear = (type >= 2);
     int pass = (type % 2) + 1;
 
-    m_plater->calib_flowrate(is_linear, pass, pattern);
+    // ORCA Zoukei: pass 2 is made around the pass 1 winner the user picks (the Creality Print way)
+    float base_flow = 1.0f;
+    if (!is_linear && pass == 2) {
+        FlowCalib::Test t;
+        double          cur = 1.;
+        std::string     fname, ferr;
+        if (FlowCalib::current_filament_flow(cur, fname, ferr)) {
+            t.valid        = true;
+            t.pass         = 1;
+            t.current_flow = cur;
+            t.pattern      = pattern == ipMonotonic ? "monotonic" : "archimedean";
+            t.mods         = FlowCalib::orca_pass1_mods();
+            const FlowCalib::Choice c = FlowCalib::pick_first_pass(this, t);
+            if (c.action == FlowCalib::Action::Cancel)
+                return; // stay in the dialog
+            if (c.action == FlowCalib::Action::Save) {
+                if (FlowCalib::confirm_and_apply(this, FlowCalib::final_ratio(t, c.mod)))
+                    EndModal(wxID_OK);
+                return;
+            }
+            if (c.action == FlowCalib::Action::Generate)
+                base_flow = float(1.0 + c.mod / 100.0);
+        }
+    }
+
+    m_plater->calib_flowrate(is_linear, pass, pattern, base_flow);
     EndModal(wxID_OK);
 }
 

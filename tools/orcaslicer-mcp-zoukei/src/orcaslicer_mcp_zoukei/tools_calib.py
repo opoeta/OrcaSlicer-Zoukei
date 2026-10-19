@@ -41,6 +41,7 @@ def register(mcp) -> None:
         speeds: Annotated[list[int] | None, Field(description="pressure_advance pattern: speeds mm/s.")] = None,
         flow_type: Annotated[Literal["pass1", "pass2", "yolo", "yolo_perfectionist"] | None, Field(description="flow_rate: which test (default yolo).")] = None,
         pattern: Annotated[Literal["archimedean", "monotonic"] | None, Field(description="flow_rate: top surface pattern.")] = None,
+        base_flow: Annotated[float | None, Field(description="flow_rate (flow_type pass2) and ls_flow_rate: centre the second pass on the pass 1 winner: 1 + winner% / 100 (1.05 when +5 won; 0.5 to 1.5). Default 1 = the filament's current flow. The reply's flow_calibration lists each sample's final flow ratio.")] = None,
         layer_height: Annotated[float | None, Field(description="vfa: layer height mm (0 = automatic).")] = None,
         test_model: Annotated[int | None, Field(description="temperature (belt: 1 = overhang), cornering (0 ringing, 1 fast, 2 SCV-V2), input shaping (0 ringing tower, 1 fast tower).")] = None,
         freq_start_x: Annotated[float | None, Field(description="input_shaping_freq: start Hz, X.")] = None,
@@ -63,5 +64,15 @@ def register(mcp) -> None:
                      pattern=pattern, layer_height=layer_height, test_model=test_model, freq_start_x=freq_start_x,
                      freq_end_x=freq_end_x, freq_start_y=freq_start_y, freq_end_y=freq_end_y, damping=damping,
                      freq_x=freq_x, freq_y=freq_y, damping_start=damping_start, damping_end=damping_end,
-                     shaper_type=shaper_type)
+                     shaper_type=shaper_type, base_flow=base_flow)
         return await call("POST", f"calibrations/{kind}/start", body, timeout=180.0)
+
+    @mcp.tool()
+    async def calibration_flow_apply(
+        flow_ratio: Annotated[float, Field(description="Final flow ratio (0.5 to 1.5) to write to the selected filament preset, e.g. the flow_ratio of the best sample in calibration_start's flow_calibration.")],
+    ) -> dict:
+        """Set the filament's flow ratio after a flow rate calibration (pass 1, pass 2, YOLO or Layer Slayer flow_rate).
+        Writes filament_flow_ratio to the SELECTED filament preset as an unsaved change (save it with the preset tools);
+        refused when no filament is selected. Chain: calibration_start flow_rate pass1 -> print -> pick the best sample ->
+        calibration_start flow_rate flow_type=pass2 base_flow=1+modifier/100 -> print -> pick -> this tool."""
+        return await call("POST", "calibrations/flow_rate/apply", {"flow_ratio": flow_ratio})

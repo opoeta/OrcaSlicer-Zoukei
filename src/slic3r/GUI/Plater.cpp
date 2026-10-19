@@ -195,6 +195,7 @@
 #include "GUI_App.hpp"
 #include "Zoukei/PrintMarkers.hpp"
 #include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode switch
+#include "Zoukei/FlowCalibChain.hpp" // chained flow-rate calibration (pass 2 centred on the pass 1 winner, save result)
 #include "PostProcessor.hpp"
 #include "CrealityCfsUi.hpp"
 #include "Shortcuts.hpp"
@@ -17855,7 +17856,7 @@ void Plater::_calib_pa_select_added_objects() {
 // Adjust settings for flowrate calibration
 // For linear mode, pass 1 means normal version while pass 2 mean "for perfectionists" version
 // ORCA: Add pattern parameter
-void adjust_settings_for_flowrate_calib(ModelObjectPtrs& objects, bool linear, int pass, InfillPattern pattern)
+void adjust_settings_for_flowrate_calib(ModelObjectPtrs& objects, bool linear, int pass, InfillPattern pattern, float base_flow)
 {
     auto print_config = &wxGetApp().preset_bundle->prints.get_edited_preset().config;
     auto printer_config  = &wxGetApp().preset_bundle->printers.get_edited_preset().config;
@@ -17957,7 +17958,8 @@ void adjust_settings_for_flowrate_calib(ModelObjectPtrs& objects, bool linear, i
         if(linear)
             _obj->config.set_key_value("print_flow_ratio", new ConfigOptionFloat((cur_flowrate + modifier)/cur_flowrate));
         else
-            _obj->config.set_key_value("print_flow_ratio", new ConfigOptionFloat(1.0f + modifier/100.f));
+            // ORCA Zoukei: pass 2 is centred on the pass 1 winner (base_flow), the Creality Print formula
+            _obj->config.set_key_value("print_flow_ratio", new ConfigOptionFloat(base_flow * (1.0f + modifier/100.f)));
 
     }
 
@@ -17976,9 +17978,11 @@ void adjust_settings_for_flowrate_calib(ModelObjectPtrs& objects, bool linear, i
 }
 
 // ORCA: Add pattern parameter
-void Plater::calib_flowrate(bool is_linear, int pass, InfillPattern pattern) {
+void Plater::calib_flowrate(bool is_linear, int pass, InfillPattern pattern, float base_flow) {
     if (pass != 1 && pass != 2)
         return;
+    if (is_linear || pass != 2 || !(base_flow > 0.f))
+        base_flow = 1.0f; // only the plain pass 2 is centred on a pass 1 winner
     wxString calib_name;
     if (is_linear) {
         calib_name = pass == 2 ? _L("Orca YOLO Flow Calibration - Perfectionist version") : _L("Orca YOLO Flow Calibration");
@@ -18007,7 +18011,30 @@ void Plater::calib_flowrate(bool is_linear, int pass, InfillPattern pattern) {
     }
 
     // ORCA: pass the pattern
-    adjust_settings_for_flowrate_calib(model().objects, is_linear, pass, pattern);
+    // ORCA Zoukei: remember the test so its result can be written to the filament ("Save flow result")
+    {
+        FlowCalib::Test t;
+        double          cur = 1.;
+        std::string     fname, ferr;
+        if (FlowCalib::current_filament_flow(cur, fname, ferr)) {
+            t.valid        = true;
+            t.linear       = is_linear;
+            t.pass         = pass;
+            t.current_flow = cur;
+            t.base         = base_flow;
+            t.pattern      = pattern == ipMonotonic ? "monotonic" : "archimedean";
+            t.name         = calib_name.ToStdString();
+            for (const ModelObject *mo : model().objects) {
+                bool         ok  = false;
+                const double mod = FlowCalib::modifier_from_object_name(mo->name, ok);
+                if (ok)
+                    t.mods.push_back(mod);
+            }
+            std::sort(t.mods.begin(), t.mods.end());
+            FlowCalib::remember(t);
+        }
+    }
+    adjust_settings_for_flowrate_calib(model().objects, is_linear, pass, pattern, base_flow);
     wxGetApp().get_tab(Preset::TYPE_PRINTER)->reload_config();
     auto printer_config = &wxGetApp().preset_bundle->printers.get_edited_preset().config;
     printer_config->set_key_value("resonance_avoidance", new ConfigOptionBool{false});

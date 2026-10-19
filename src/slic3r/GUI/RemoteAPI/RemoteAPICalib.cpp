@@ -9,6 +9,12 @@
 //   GET  /api/v1/calibrations                  the calibrations, their parameters (type, default, limits) and the
 //                                              current printer context (G-code flavor, belt printer, shaper types)
 //   POST /api/v1/calibrations/{kind}/start     {discard_changes?, <parameters of the kind>}
+//   POST /api/v1/calibrations/flow_rate/apply  {flow_ratio}: writes the final flow ratio (from the best sample of a
+//                                              flow test) to the selected filament preset (marked modified; save it
+//                                              with PUT /preset/save). Refused when no filament is selected.
+//   flow_rate and ls_flow_rate take "base_flow" for the second pass: 1 + (pass 1 winner %) / 100, e.g. 1.05 when the
+//   +5 sample won; the pass 2 samples are then made around it (Creality Print's formula). Default 1 = the filament's
+//   current flow. Their reply carries "flow_calibration": the samples and the flow ratio each one would give.
 //
 // kinds: temperature, max_volumetric_speed, pressure_advance, flow_rate, retraction, vfa, cornering,
 //        input_shaping_freq, input_shaping_damp,
@@ -32,6 +38,7 @@
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Tab.hpp"
+#include "slic3r/GUI/Zoukei/FlowCalibChain.hpp"
 #include "slic3r/GUI/Zoukei/LayerSlayer.hpp"
 
 #include <algorithm>
@@ -164,7 +171,9 @@ json catalog()
                    {"parameters", json::array({
                        enum_param("type", json::array({"pass1", "pass2", "yolo", "yolo_perfectionist"}), "yolo",
                                   "pass1 coarse, pass2 fine, yolo (recommended), yolo_perfectionist."),
-                       enum_param("pattern", json::array({"archimedean", "monotonic"}), "archimedean", "Top surface pattern of the test pieces.")})}});
+                       enum_param("pattern", json::array({"archimedean", "monotonic"}), "archimedean", "Top surface pattern of the test pieces."),
+                       num_param("base_flow", 1.0, "", "type pass2 only, 0.5 <= base_flow <= 1.5: 1 + (pass 1 winner %) / 100; 1 = around the filament's current flow")})},
+                   {"apply", "POST /calibrations/flow_rate/apply {flow_ratio}: set the final flow ratio on the selected filament preset"}});
     cal.push_back({{"kind", "retraction"}, {"menu", "Calibration > Retraction"},
                    {"what", "Retraction length tower."},
                    {"parameters", json::array({
@@ -316,6 +325,41 @@ std::string resolve_shaper(const json &body)
     zk::fail("bad_value", "'shaper_type' must be one of: " + list);
 }
 
+// What the last flow test made: its samples and the filament flow ratio each one would give.
+json flow_calibration_info()
+{
+    const FlowCalib::Test &t = FlowCalib::last();
+    if (!t.valid)
+        return nullptr;
+    json samples = json::array();
+    for (double m : t.mods)
+        samples.push_back({{"modifier", m}, {"flow_ratio", std::round(FlowCalib::final_ratio(t, m) * 1e4) / 1e4}});
+    return {{"pass", t.pass}, {"linear", t.linear}, {"current_flow_ratio", t.current_flow}, {"base_flow", t.base}, {"samples", samples},
+            {"next", t.pass == 1 && !t.linear ? "pick the best sample, then start pass 2 with base_flow = 1 + modifier / 100, or POST /calibrations/flow_rate/apply {flow_ratio} to stop here"
+                                              : "pick the best sample, then POST /calibrations/flow_rate/apply {flow_ratio}"}};
+}
+
+// POST /calibrations/flow_rate/apply
+json apply_flow_ratio(const json &body)
+{
+    if (!body.contains("flow_ratio") || !body["flow_ratio"].is_number())
+        zk::fail("bad_value", "'flow_ratio' (number) is required");
+    const double ratio = body["flow_ratio"].get<double>();
+    if (!(ratio >= 0.5 && ratio <= 1.5))
+        zk::fail("bad_value", "need: 0.5 <= flow_ratio <= 1.5");
+    double      old_value = 0.;
+    std::string name, err;
+    if (!FlowCalib::current_filament_flow(old_value, name, err))
+        zk::fail("no_filament", err);
+    if (!FlowCalib::apply_filament_flow(ratio, old_value, name, err))
+        zk::fail("apply_failed", err);
+    PresetBundle *bundle = wxGetApp().preset_bundle;
+    zk::notify("Filament flow ratio set: " + name);
+    return {{"applied", true}, {"filament", name}, {"old_flow_ratio", old_value}, {"flow_ratio", std::round(ratio * 1e4) / 1e4},
+            {"modified_filament_options", bundle->filaments.current_dirty_options(true)},
+            {"next", "the filament preset is modified, not saved: PUT /preset/save, or save it in the window"}};
+}
+
 // ---- start -----------------------------------------------------------------------------------
 
 // Layer Slayer test (kind "ls_<id>"): validates with the dialog's rules, then builds the plate natively.
@@ -405,6 +449,8 @@ json start_layer_slayer(const std::string &kind, const json &body)
                                          {"filament", bundle->filaments.current_dirty_options(true)},
                                          {"printer", bundle->printers.current_dirty_options(true)}}},
                    {"next", "POST /slice (or slice_and_wait), then print from the window"}};
+    if (id == "flow_rate")
+        result["flow_calibration"] = flow_calibration_info();
     if (!plate.warnings.empty())
         result["warnings"] = plate.warnings;
     zk::notify("Calibration project created: " + kind);
@@ -433,6 +479,7 @@ json start_calibration(const std::string &kind, const json &body)
     int          flow_pass = 0;
     bool         flow_linear = false;
     InfillPattern flow_pattern = ipArchimedeanChords;
+    double       flow_base    = 1.0;
 
     if (kind == "temperature") {
         double start = 230, end = 190;
@@ -498,6 +545,14 @@ json start_calibration(const std::string &kind, const json &body)
         flow_pass    = (type == "pass2" || type == "yolo_perfectionist") ? 2 : 1;
         flow_pattern = pat == "monotonic" ? ipMonotonic : ipArchimedeanChords;
         requested = {{"type", type}, {"pattern", pat}};
+        if (body.contains("base_flow") && !body["base_flow"].is_null()) {
+            if (type != "pass2")
+                zk::fail("bad_value", "'base_flow' applies to type pass2 only");
+            flow_base = zk::opt_num(body, "base_flow", 1.0);
+            if (!(flow_base >= 0.5 && flow_base <= 1.5))
+                zk::fail("bad_value", "need: 0.5 <= base_flow <= 1.5");
+            requested["base_flow"] = flow_base;
+        }
     } else if (kind == "retraction") {
         params.start = need_range_num(body, "start", 0);
         params.end   = need_range_num(body, "end", 2);
@@ -599,7 +654,7 @@ json start_calibration(const std::string &kind, const json &body)
     if (kind == "temperature")                 p->calib_temp(params);
     else if (kind == "max_volumetric_speed")   p->calib_max_vol_speed(params);
     else if (kind == "pressure_advance")       p->calib_pa(params);
-    else if (kind == "flow_rate")              p->calib_flowrate(flow_linear, flow_pass, flow_pattern);
+    else if (kind == "flow_rate")              p->calib_flowrate(flow_linear, flow_pass, flow_pattern, float(flow_base));
     else if (kind == "retraction")             p->calib_retraction(params);
     else if (kind == "vfa")                    p->calib_VFA(params);
     else if (kind == "cornering")              p->Calib_Cornering(params);
@@ -632,6 +687,8 @@ json start_calibration(const std::string &kind, const json &body)
                    {"next", "POST /slice (or slice_and_wait), then print from the window; the calibration settings are unsaved edits of the selected presets"}};
     if (PartPlate *plate = p->get_partplate_list().get_curr_plate(); plate != nullptr && plate->fff_print() != nullptr)
         result["calibration_mode"] = mode_name(plate->fff_print()->calib_mode());
+    if (kind == "flow_rate")
+        result["flow_calibration"] = flow_calibration_info();
     if (!warnings.empty())
         result["warnings"] = warnings;
     zk::notify("Calibration project created: " + kind);
@@ -654,6 +711,15 @@ bool Controller::dispatch_calib(const Request &req, Response &out)
     }
     if (rest.size() > 1 && rest[0] == '/' && req.method == "POST") {
         const std::vector<std::string> parts = zk::split_path(rest.substr(1));
+        if (parts.size() == 2 && parts[0] == "flow_rate" && parts[1] == "apply") {
+            json body = json::object();
+            if (!zk::parse_body(req, body)) {
+                out = {400, {{"error", "invalid_json"}}};
+                return true;
+            }
+            out = zk::reply(run_on_ui([body]() -> json { return zk::guard([&]() -> json { return apply_flow_ratio(body); }); }, 60));
+            return true;
+        }
         if (parts.size() == 2 && parts[1] == "start") {
             json body = json::object();
             if (!zk::parse_body(req, body)) {

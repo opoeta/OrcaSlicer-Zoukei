@@ -157,6 +157,7 @@ that need a filament mapping are started from the window.
 | --- | --- | --- |
 | `calibration_list` | `GET /calibrations` | the Calibration menu entries with every parameter (type, default, limits) and the printer context (flavor, belt, shaper types) |
 | `calibration_start` | `POST /calibrations/{kind}/start` | validates like the dialog, creates the calibration project (same `Plater::calib_*` call as the menu) and reports objects, modified settings, requested values, warnings |
+| `calibration_flow_apply` | `POST /calibrations/flow_rate/apply` | writes the final flow ratio to the selected filament preset (unsaved edit); refused without a filament. `calibration_start` takes `base_flow` to centre pass 2 on the pass 1 winner |
 
 Kinds: `temperature`, `max_volumetric_speed`, `pressure_advance` (tower / line / pattern), `flow_rate` (pass1, pass2, yolo,
 yolo_perfectionist), `retraction`, `vfa`, `cornering`, `input_shaping_freq`, `input_shaping_damp`. The selected printer, print
