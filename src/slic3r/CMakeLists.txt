@@ -22,6 +22,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/GCodeReprocessorDialog.cpp
     GUI/GCodeReprocessorDialog.hpp
     GUI/AboutDialog.hpp
+    GUI/AnimatedTexture.cpp
+    GUI/AnimatedTexture.hpp
     GUI/AmsMappingPopup.cpp
     GUI/AmsMappingPopupUpdate.cpp
     GUI/AmsMappingPopup.hpp
@@ -177,6 +179,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Shortcuts.hpp
     GUI/SpeedDialDialog.cpp
     GUI/SpeedDialDialog.hpp
+    GUI/ColorPickerDialog.cpp
+    GUI/ColorPickerDialog.hpp
     GUI/ActionRegistry.cpp
     GUI/ActionRegistry.hpp
     GUI/NativeCommands.cpp
@@ -224,6 +228,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoAssembly.hpp
     GUI/Gizmos/GLGizmoBase.cpp
     GUI/Gizmos/GLGizmoBase.hpp
+    GUI/Gizmos/GLGizmoAlignment.cpp
+    GUI/Gizmos/GLGizmoAlignment.hpp
     GUI/Gizmos/GLGizmoBrimEars.cpp
     GUI/Gizmos/GLGizmoBrimEars.hpp
     GUI/Gizmos/GLGizmoPrecisionALH.cpp
@@ -272,6 +278,7 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoUtils.hpp
     GUI/GLCanvas3D.cpp
     GUI/GLCanvas3D.hpp
+    GUI/SequentialPrintClearance.hpp
     GUI/GLModel.cpp
     GUI/GLModel.hpp
     GUI/GLSelectionRectangle.cpp
@@ -762,6 +769,8 @@ set(SLIC3R_GUI_SOURCES
     plugin/host/PluginHostUi.hpp
     plugin/host/PluginPages.cpp
     plugin/host/PluginPages.hpp
+    plugin/host/PluginResourceTextures.cpp
+    plugin/host/PluginResourceTextures.hpp
     plugin/CloudPluginService.cpp
     plugin/CloudPluginService.hpp
     plugin/PluginFsUtils.cpp
@@ -785,6 +794,9 @@ set(SLIC3R_GUI_SOURCES
     plugin/pluginTypes/pages/PagesPluginCapability.hpp
     plugin/pluginTypes/pages/PagesPluginCapability.cpp
     plugin/pluginTypes/pages/PagesPluginCapabilityTrampoline.hpp
+    plugin/pluginTypes/resourceTexture/ResourceTexturePluginCapability.hpp
+    plugin/pluginTypes/resourceTexture/ResourceTexturePluginCapability.cpp
+    plugin/pluginTypes/resourceTexture/ResourceTexturePluginCapabilityTrampoline.hpp
     plugin/pluginTypes/script/ScriptPluginCapability.hpp
     plugin/pluginTypes/script/ScriptPluginCapability.cpp
     plugin/pluginTypes/script/ScriptPluginCapabilityTrampoline.hpp

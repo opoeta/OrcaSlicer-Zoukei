@@ -38,6 +38,8 @@ jobs:
       # suffix (nightly_suffix) so they never overwrite the main nightly assets.
       deploy_nightly: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/belt-printer' }}
       nightly_suffix: ${{ github.ref == 'refs/heads/belt-printer' && '_belt' || '' }}
+      NSIS_VERSION: '3.13'
+      NSIS_SHA256: BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8
 
     steps:
       - name: Checkout
@@ -342,11 +344,45 @@ jobs:
         if: runner.os == 'Windows'
         uses: microsoft/setup-msbuild@v3
 
-      - name: Install nsis
+      # NSIS builds the installer. A pinned portable copy is kept in the Actions
+      # cache, so most runs never download it, and a cache miss fetches the
+      # release archive from SourceForge instead of going through the Chocolatey
+      # community feed, which hosted runners often cannot reach. Prepending it to
+      # PATH also makes cpack use it over the NSIS preinstalled on some images.
+      - name: Restore NSIS
+        id: nsis-cache
         if: runner.os == 'Windows' && !vars.SELF_HOSTED
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/nsis
+          key: nsis-${{ env.NSIS_VERSION }}
+
+      - name: Install NSIS
+        if: runner.os == 'Windows' && !vars.SELF_HOSTED
+        shell: pwsh
         run: |
           dir "C:/Program Files (x86)/Windows Kits/10/Include"
-          choco install nsis
+          $nsisDir = Join-Path $env:RUNNER_TEMP 'nsis'
+          $makensis = Join-Path $nsisDir 'makensis.exe'
+          if (-not (Test-Path $makensis)) {
+            $zip = Join-Path $env:RUNNER_TEMP "nsis-$env:NSIS_VERSION.zip"
+            curl.exe -fsSL --retry 5 --retry-all-errors --retry-delay 15 -o $zip "https://downloads.sourceforge.net/project/nsis/NSIS%203/$env:NSIS_VERSION/nsis-$env:NSIS_VERSION.zip"
+            if ($LASTEXITCODE -ne 0) { throw "NSIS $env:NSIS_VERSION download failed." }
+            if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $env:NSIS_SHA256) {
+              throw "NSIS $env:NSIS_VERSION archive does not match its pinned SHA256."
+            }
+            Expand-Archive $zip $env:RUNNER_TEMP
+            Move-Item (Join-Path $env:RUNNER_TEMP "nsis-$env:NSIS_VERSION") $nsisDir
+          }
+          & $makensis /VERSION
+          $nsisDir | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+
+      - name: Save NSIS
+        if: runner.os == 'Windows' && !vars.SELF_HOSTED && steps.nsis-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/nsis
+          key: nsis-${{ env.NSIS_VERSION }}
 
       - name: Build slicer Win
         if: runner.os == 'Windows'

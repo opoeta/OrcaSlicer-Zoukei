@@ -8,6 +8,8 @@ on:
      - belt-printer
     paths:
      - 'deps/**'
+     - 'deps_src/**'
+     - 'cmake/**'
      - 'src/**'
      - '**/CMakeLists.txt'
      - 'version.inc'
@@ -29,6 +31,7 @@ on:
     paths:
      - 'deps/**'
      - 'deps_src/**'
+     - 'cmake/**'
      - 'src/**'
      - '**/CMakeLists.txt'
      - 'version.inc'
