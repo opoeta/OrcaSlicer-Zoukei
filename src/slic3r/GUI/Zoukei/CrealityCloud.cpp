@@ -10,6 +10,7 @@
 #include "slic3r/GUI/I18N.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/Utils/CrealityCloudCallback.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Preset.hpp"
@@ -31,13 +32,19 @@
 
 #include <wx/secretstore.h>
 #include <wx/thread.h>
+#include <wx/utils.h>
 
 #include <algorithm>
+#include <atomic>
+#include <memory>
 #include <chrono>
+#include <cstdlib>
+#include <random>
 #include <mutex>
 #include <set>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 namespace fs = boost::filesystem;
 
@@ -332,6 +339,173 @@ void on_token_invalid()
     logout();
 }
 
+// ---- browser login -------------------------------------------------------------------------------
+
+namespace {
+
+std::string html_escape(const std::string& in)
+{
+    std::string out;
+    for (char c : in) {
+        switch (c) {
+        case '&': out += "&amp;"; break;
+        case '<': out += "&lt;"; break;
+        case '>': out += "&gt;"; break;
+        case '"': out += "&quot;"; break;
+        case '\'': out += "&#39;"; break;
+        default: out += c;
+        }
+    }
+    return out;
+}
+
+// The page the browser shows after the redirect: Orca's colours, translated text, nothing loaded from outside.
+std::string callback_page(const std::string& title, const std::string& text, bool ok)
+{
+    const char* accent = ok ? "#009688" : "#e14747";
+    return std::string("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                       "<title>OrcaSlicer</title><style>"
+                       "body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f5;"
+                       "font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#262e30}"
+                       "@media(prefers-color-scheme:dark){body{background:#1f1f22;color:#e6e6e6}.card{background:#2b2b2f!important}}"
+                       ".card{background:#fff;border-radius:10px;padding:32px 40px;max-width:460px;box-shadow:0 4px 18px rgba(0,0,0,.12);text-align:center}"
+                       ".brand{font-weight:700;letter-spacing:.5px;color:#009688;margin-bottom:18px}"
+                       "h1{font-size:20px;margin:0 0 10px;color:") +
+           accent + "}p{margin:0;line-height:1.5}</style></head><body><div class=\"card\"><div class=\"brand\">OrcaSlicer</div><h1>" +
+           html_escape(title) + "</h1><p>" + html_escape(text) + "</p></div></body></html>";
+}
+
+struct BrowserLoginShared
+{
+    std::mutex  m;
+    Session     session;
+};
+
+std::unique_ptr<CrealityCloud::LoopbackCallbackServer> s_server;
+std::atomic<int>                                       s_browser_state{int(BrowserLoginState::Idle)};
+std::atomic<unsigned>                                  s_browser_gen{0};
+BrowserLoginChange                                     s_browser_cb; // UI thread
+std::string                                            s_browser_url; // UI thread
+
+void set_browser_state(BrowserLoginState st) { s_browser_state = int(st); }
+
+// UI thread: report a change to the dialog of the running attempt (if it is still the current one).
+void browser_notify(unsigned gen, BrowserLoginState st, const std::string& message)
+{
+    if (gen != s_browser_gen)
+        return;
+    set_browser_state(st);
+    const bool final_state = st != BrowserLoginState::Waiting;
+    if (final_state && s_server)
+        s_server->stop();
+    BrowserLoginChange cb = s_browser_cb;
+    if (final_state)
+        s_browser_cb = nullptr;
+    if (cb)
+        cb(st, message);
+}
+
+} // namespace
+
+std::string browser_login_state_key(BrowserLoginState s)
+{
+    switch (s) {
+    case BrowserLoginState::Idle: return "idle";
+    case BrowserLoginState::Waiting: return "waiting";
+    case BrowserLoginState::Done: return "done";
+    case BrowserLoginState::Failed: return "failed";
+    case BrowserLoginState::TimedOut: return "timed_out";
+    case BrowserLoginState::PortBusy: return "port_busy";
+    case BrowserLoginState::Cancelled: return "cancelled";
+    }
+    return "idle";
+}
+
+BrowserLoginState browser_login_state() { return BrowserLoginState(s_browser_state.load()); }
+
+std::string browser_login_url() { return s_browser_url; }
+
+void cancel_browser_login()
+{
+    ++s_browser_gen; // late callbacks of the old attempt are ignored
+    s_browser_cb = nullptr;
+    if (s_server)
+        s_server->stop();
+    if (browser_login_state() == BrowserLoginState::Waiting)
+        set_browser_state(BrowserLoginState::Cancelled);
+}
+
+BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserLoginChange on_change, std::string& message)
+{
+    cancel_browser_login();
+    const unsigned                  gen    = ++s_browser_gen;
+    const Region                    reg    = region();
+    const CrealityCloud::ClientInfo info   = client_info();
+    const CrealityCloud::Endpoints  ep     = CrealityCloud::endpoints(reg);
+    s_browser_url                          = CrealityCloud::login_page_url(ep, info.lang);
+
+    // Pages translated here, on the UI thread.
+    const std::string ok_page   = callback_page(_u8L("Login complete"), _u8L("You can close this tab and go back to OrcaSlicer."), true);
+    const std::string done_page = callback_page(_u8L("Login complete"), _u8L("This login was already completed. You can close this tab."), true);
+    const std::string fail_title = _u8L("Login failed");
+    const std::string fail_text  = _u8L("OrcaSlicer could not finish the login: %1%. Go back to OrcaSlicer and try again.");
+
+    auto shared = std::make_shared<BrowserLoginShared>();
+    auto on_code = [reg, info, shared, ok_page, fail_title, fail_text, gen](const std::string& code, bool& accepted) -> std::string {
+        CrealityCloud::Session          s;
+        const CrealityCloud::CallResult r = CrealityCloud::exchange_login_code(reg, info, code, s);
+        if (r.ok) {
+            {
+                std::lock_guard<std::mutex> lock(shared->m);
+                shared->session = s;
+            }
+            accepted = true; // one successful code ends the attempt; a failed one keeps waiting
+            return ok_page;
+        }
+        const std::string msg = r.message;
+        wxGetApp().CallAfter([gen, msg]() { browser_notify(gen, BrowserLoginState::Waiting, msg); });
+        return callback_page(fail_title, (boost::format(fail_text) % msg).str(), false);
+    };
+    auto on_done = [shared, gen]() {
+        wxGetApp().CallAfter([shared, gen]() {
+            if (gen != s_browser_gen)
+                return;
+            Session s;
+            {
+                std::lock_guard<std::mutex> lock(shared->m);
+                s = shared->session;
+            }
+            store_session(s);
+            browser_notify(gen, BrowserLoginState::Done, std::string());
+        });
+    };
+    auto on_timeout = [gen]() { wxGetApp().CallAfter([gen]() { browser_notify(gen, BrowserLoginState::TimedOut, std::string()); }); };
+
+    if (!s_server)
+        s_server = std::make_unique<CrealityCloud::LoopbackCallbackServer>();
+    std::string error;
+    const auto  st = s_server->start(CrealityCloud::CALLBACK_PORT, std::max(5, timeout_s), on_code, done_page, on_done, on_timeout, error);
+    if (st == CrealityCloud::LoopbackCallbackServer::Start::PortBusy) {
+        set_browser_state(BrowserLoginState::PortBusy);
+        message = (boost::format(_u8L("Port %1% on this computer is already in use, most likely by Creality Print, which receives its own "
+                                      "logins there. Close Creality Print and try again, or log in in this window with your e-mail.")) %
+                   CrealityCloud::CALLBACK_PORT)
+                      .str();
+        BOOST_LOG_TRIVIAL(warning) << "Creality Cloud browser login: port " << CrealityCloud::CALLBACK_PORT << " is in use";
+        return BrowserLoginState::PortBusy;
+    }
+    if (st != CrealityCloud::LoopbackCallbackServer::Start::Ok) {
+        set_browser_state(BrowserLoginState::Failed);
+        message = (boost::format(_u8L("The login listener could not start: %1%")) % error).str();
+        return BrowserLoginState::Failed;
+    }
+    set_browser_state(BrowserLoginState::Waiting);
+    s_browser_cb = std::move(on_change);
+    if (open_browser)
+        wxLaunchDefaultBrowser(wxString::FromUTF8(s_browser_url));
+    return BrowserLoginState::Waiting;
+}
+
 // ---- filament presets ------------------------------------------------------------------------------
 
 std::vector<FilamentEntry> user_filaments()
@@ -431,29 +605,136 @@ std::vector<PreparedUpload> prepare_uploads(const std::vector<std::string>& name
     return out;
 }
 
-std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads)
+namespace {
+
+struct Throttle
+{
+    int interval_ms = UPLOAD_INTERVAL_MS;
+    int backoff_ms  = UPLOAD_BACKOFF_MS;
+    int max_ms      = UPLOAD_BACKOFF_MAX;
+};
+
+Throttle throttle()
+{
+    Throttle t;
+    if (!is_mock())
+        return t;
+    const char* env = std::getenv("ORCA_ZOUKEI_CREALITY_CLOUD_THROTTLE");
+    if (env == nullptr)
+        return t;
+    std::vector<std::string> parts;
+    boost::split(parts, std::string(env), boost::is_any_of(","));
+    auto num = [&](size_t i, int def) {
+        try {
+            return i < parts.size() ? std::max(0, std::stoi(parts[i])) : def;
+        } catch (...) {
+            return def;
+        }
+    };
+    t.interval_ms = num(0, t.interval_ms);
+    t.backoff_ms  = num(1, t.backoff_ms);
+    t.max_ms      = num(2, t.max_ms);
+    return t;
+}
+
+std::mutex                            s_upload_run_mutex; // one upload stream at a time
+std::chrono::steady_clock::time_point s_last_upload;      // guarded by s_upload_run_mutex
+
+bool cancelled(const std::shared_ptr<UploadControl>& c) { return c && c->cancel.load(); }
+
+// Sleeps `ms`, reporting the seconds left once per second. False when cancelled.
+bool wait_ms(int ms, const std::shared_ptr<UploadControl>& control, const UploadProgressFn& progress, UploadProgress pr)
+{
+    using clock     = std::chrono::steady_clock;
+    const auto end  = clock::now() + std::chrono::milliseconds(ms);
+    int        last = -1;
+    while (clock::now() < end) {
+        if (cancelled(control))
+            return false;
+        const int left = int(std::chrono::duration_cast<std::chrono::milliseconds>(end - clock::now()).count() + 999) / 1000;
+        if (left != last && progress) {
+            pr.wait_s = std::max(1, left);
+            progress(pr);
+            last = left;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    return !cancelled(control);
+}
+
+std::mutex   s_api_job_mutex;
+ApiUploadJob s_api_job;
+std::shared_ptr<UploadControl> s_api_control;
+
+} // namespace
+
+std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads, UploadProgressFn progress, std::shared_ptr<UploadControl> control)
 {
     std::vector<UploadReport>       out;
+    std::unique_lock<std::mutex>    run_lock(s_upload_run_mutex); // the window, auto sync and the API share one pace
     const Session                   s    = session();
     const CrealityCloud::ClientInfo info = client_info();
+    const Throttle                  th   = throttle();
     bool                            dead = !s.valid();
-    for (const PreparedUpload& up : uploads) {
-        UploadReport rep;
+    std::mt19937                    rng(std::random_device{}());
+    const int                       total = int(uploads.size());
+    for (int i = 0; i < total; ++i) {
+        PreparedUpload& up = uploads[size_t(i)];
+        UploadReport    rep;
         rep.name = up.name;
-        if (!up.error.empty()) {
+        UploadProgress pr;
+        pr.index = i + 1;
+        pr.total = total;
+        pr.name  = up.name;
+        if (cancelled(control)) {
+            rep.cancelled = true;
+            rep.message   = "cancelled";
+        } else if (!up.error.empty()) {
             rep.message = up.error;
         } else if (dead) {
             rep.token_invalid = true;
             rep.message       = "not logged in to the Creality Cloud";
         } else {
-            const CrealityCloud::ProfileUploadResult r = CrealityCloud::upload_filament_profile(s, info, up.upload);
-            remember_upload(s, up, r);
-            rep.ok            = r.ok;
-            rep.created       = r.created;
-            rep.token_invalid = r.token_invalid();
-            rep.message       = r.ok ? (r.created ? "created" : "updated") : r.message;
-            if (rep.token_invalid)
-                dead = true;
+            // Pause between presets (also between two upload batches).
+            const auto since = std::chrono::steady_clock::now() - s_last_upload;
+            const int  gap   = th.interval_ms - int(std::chrono::duration_cast<std::chrono::milliseconds>(since).count());
+            bool       go    = gap <= 0 || s_last_upload.time_since_epoch().count() == 0 || wait_ms(gap, control, progress, pr);
+            CrealityCloud::ProfileUploadResult r;
+            for (int attempt = 0; go; ++attempt) {
+                pr.attempt    = attempt;
+                pr.wait_s     = 0;
+                pr.rate_limit = false;
+                if (progress)
+                    progress(pr);
+                r             = CrealityCloud::upload_filament_profile(s, info, up.upload);
+                s_last_upload = std::chrono::steady_clock::now();
+                remember_upload(s, up, r);
+                if (!r.setting_id.empty())
+                    up.upload.setting_id = r.setting_id; // resume with editProfile: never a second profile
+                rep.attempts = attempt + 1;
+                if (r.ok || !r.rate_limited() || attempt >= UPLOAD_RETRIES)
+                    break;
+                long long delay = std::min<long long>(th.max_ms, (long long) th.backoff_ms << attempt);
+                std::uniform_real_distribution<double> jitter(0.8, 1.2);
+                delay = (long long) (double(delay) * jitter(rng));
+                if (r.retry_after_s > 0)
+                    delay = std::min<long long>(300000, std::max<long long>(delay, (long long) r.retry_after_s * 1000));
+                BOOST_LOG_TRIVIAL(info) << "Creality Cloud: rate limited, retrying \"" << up.name << "\" in " << delay / 1000 << " s";
+                pr.rate_limit = true;
+                go            = wait_ms(int(delay), control, progress, pr);
+            }
+            if (!go && !r.ok) {
+                rep.cancelled = true;
+                rep.message   = "cancelled";
+            } else {
+                rep.ok            = r.ok;
+                rep.created       = r.created;
+                rep.token_invalid = r.token_invalid();
+                rep.rate_limited  = !r.ok && r.rate_limited();
+                rep.message       = r.ok ? (r.created ? "created" : "updated") : r.message;
+                if (rep.token_invalid)
+                    dead = true;
+            }
         }
         BOOST_LOG_TRIVIAL(info) << "Creality Cloud: upload of filament preset \"" << up.name << "\": " << (rep.ok ? "ok" : rep.message);
         out.push_back(std::move(rep));
@@ -463,15 +744,57 @@ std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads)
     return out;
 }
 
-void upload_async(std::vector<PreparedUpload> uploads, std::function<void(const std::vector<UploadReport>&)> done)
+void upload_async(std::vector<PreparedUpload> uploads, std::function<void(const std::vector<UploadReport>&)> done, UploadProgressFn progress,
+                  std::shared_ptr<UploadControl> control)
 {
-    std::thread([uploads = std::move(uploads), done = std::move(done)]() mutable {
-        std::vector<UploadReport> reports = upload_blocking(std::move(uploads));
+    std::thread([uploads = std::move(uploads), done = std::move(done), progress = std::move(progress), control]() mutable {
+        UploadProgressFn on_progress;
+        if (progress)
+            on_progress = [progress](const UploadProgress& p) { wxGetApp().CallAfter([progress, p]() { progress(p); }); };
+        std::vector<UploadReport> reports = upload_blocking(std::move(uploads), on_progress, control);
         wxGetApp().CallAfter([reports = std::move(reports), done = std::move(done)]() {
             if (done)
                 done(reports);
         });
     }).detach();
+}
+
+bool start_api_upload(std::vector<PreparedUpload> uploads)
+{
+    std::shared_ptr<UploadControl> control = std::make_shared<UploadControl>();
+    {
+        std::lock_guard<std::mutex> lock(s_api_job_mutex);
+        if (s_api_job.state == "running")
+            return false;
+        s_api_job                = ApiUploadJob();
+        s_api_job.state          = "running";
+        s_api_job.progress.total = int(uploads.size());
+        s_api_control            = control;
+    }
+    std::thread([uploads = std::move(uploads), control]() mutable {
+        auto on_progress = [](const UploadProgress& p) {
+            std::lock_guard<std::mutex> lock(s_api_job_mutex);
+            s_api_job.progress = p;
+        };
+        std::vector<UploadReport> reports = upload_blocking(std::move(uploads), on_progress, control);
+        std::lock_guard<std::mutex> lock(s_api_job_mutex);
+        s_api_job.results = std::move(reports);
+        s_api_job.state   = control->cancel ? "cancelled" : "done";
+    }).detach();
+    return true;
+}
+
+ApiUploadJob api_upload_status()
+{
+    std::lock_guard<std::mutex> lock(s_api_job_mutex);
+    return s_api_job;
+}
+
+void cancel_api_upload()
+{
+    std::lock_guard<std::mutex> lock(s_api_job_mutex);
+    if (s_api_control)
+        s_api_control->cancel = true;
 }
 
 void on_preset_saved(const Preset& preset)

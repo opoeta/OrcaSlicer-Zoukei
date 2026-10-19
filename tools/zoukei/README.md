@@ -49,3 +49,11 @@ window, the API and the file storage all point at the mock, the login page offer
 (no password field) and the Remote API also accepts `POST /api/v1/creality_cloud/mock_login {callback_url}`.
 `GET /mock/state` shows the uploaded presets (name, `compatible_printers`, ...) and any protocol violation (missing
 `__CXY_*` headers, token sent to the storage host, md5 mismatch, reused login code).
+
+Rate limit and browser login tests: `POST /mock/set {"rate_limit": {"mode": "1088"|"429", "min_interval_s": 1.2,
+"retry_after": 2}}` refuses profile calls that come too fast (like the real code 1088 / HTTP 429), `{"refuse_next": N}`
+refuses the next N whatever the pace and `{"oss_429_next": N}` makes the storage upload answer 429 (the client must
+resume through `editProfile`, never create a second profile). With the mock, Orca also honours
+`ORCA_ZOUKEI_CREALITY_CLOUD_THROTTLE="interval_ms,backoff_ms,max_ms"` (default 3000,10000,120000) and the Remote API
+offers `POST /api/v1/creality_cloud/mock_browser_login {timeout_s}` (starts the 127.0.0.1:13666 listener without opening
+a browser; then GET `http://127.0.0.1:13666/login?code=...` as the browser would) and `mock_browser_cancel`.

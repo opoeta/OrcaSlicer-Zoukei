@@ -42603,3 +42603,87 @@ msgstr "Enviar à Creality Cloud os perfis de filamento salvos"
 
 msgid "When logged in to the Creality Cloud, every filament preset of your own you save is also uploaded to the account in the background (linked to the printer it was sent for before, else to the selected Creality printer)."
 msgstr "Com a Creality Cloud conectada, todo perfil de filamento próprio que você salvar também é enviado à conta em segundo plano (vinculado à impressora do envio anterior, senão à impressora Creality selecionada)."
+
+msgid "The Creality login page opens in your web browser, where Google, Apple and e-mail sign-in all work. When it is done, the browser hands the session back to OrcaSlicer. OrcaSlicer never sees your password; it keeps the session in the system's secure credential store."
+msgstr "A página de login da Creality abre no seu navegador, onde o login com Google, Apple e e-mail funciona. Ao terminar, o navegador devolve a sessão ao OrcaSlicer. O OrcaSlicer nunca vê sua senha; ele guarda a sessão no cofre de credenciais seguro do sistema."
+
+msgid "Use my browser (Google/Apple)"
+msgstr "Usar meu navegador (Google/Apple)"
+
+msgid "Open the Creality login page in the default browser."
+msgstr "Abre a página de login da Creality no navegador padrão."
+
+msgid "Open the page again"
+msgstr "Abrir a página de novo"
+
+msgid "Log in in this window"
+msgstr "Entrar nesta janela"
+
+msgid "Show the Creality page inside OrcaSlicer (e-mail and password; Google and Apple still open the browser)."
+msgstr "Mostra a página da Creality dentro do OrcaSlicer (e-mail e senha; Google e Apple continuam abrindo o navegador)."
+
+msgid "Waiting for the login in your browser... Finish it there; this window closes by itself."
+msgstr "Aguardando o login no navegador... Conclua por lá; esta janela fecha sozinha."
+
+msgid "Login failed: %s. Try again in the browser."
+msgstr "Falha no login: %s. Tente de novo no navegador."
+
+msgid "No login arrived from the browser in 5 minutes. Click \"Use my browser\" to try again."
+msgstr "Nenhum login chegou do navegador em 5 minutos. Clique em \"Usar meu navegador\" para tentar de novo."
+
+msgid "Log in with your Creality e-mail below. For Google or Apple, use your browser."
+msgstr "Entre abaixo com seu e-mail da Creality. Para Google ou Apple, use o navegador."
+
+msgid "Google, Apple and other sign-in services do not work inside OrcaSlicer, so the login continues in your browser."
+msgstr "Google, Apple e outros serviços de login não funcionam dentro do OrcaSlicer, então o login continua no seu navegador."
+
+msgid "Resend failed"
+msgstr "Reenviar falhos"
+
+msgid "Send again the presets that failed in this window (for example after the Creality rate limit)."
+msgstr "Envia de novo os perfis que falharam nesta janela (por exemplo, depois do limite de envios da Creality)."
+
+msgid "Stop sending"
+msgstr "Parar envio"
+
+msgid "Stopping after the current preset..."
+msgstr "Parando depois do perfil atual..."
+
+msgid "error - try again"
+msgstr "erro - tentar de novo"
+
+msgid "Sending %d of %d: %s"
+msgstr "Enviando %d de %d: %s"
+
+msgid "waiting for the Creality Cloud limit (%d s)"
+msgstr "aguardando o limite da Creality Cloud (%d s)"
+
+msgid "pause between presets (%d s)"
+msgstr "pausa entre perfis (%d s)"
+
+msgid "attempt %d"
+msgstr "tentativa %d"
+
+msgid "not sent (stopped)"
+msgstr "não enviado (interrompido)"
+
+msgid "the Creality Cloud still refuses (rate limit) after several tries; resend it later"
+msgstr "a Creality Cloud continua recusando (limite de envios) após várias tentativas; reenvie mais tarde"
+
+msgid "Login complete"
+msgstr "Login concluído"
+
+msgid "You can close this tab and go back to OrcaSlicer."
+msgstr "Pode fechar esta aba e voltar ao OrcaSlicer."
+
+msgid "This login was already completed. You can close this tab."
+msgstr "Este login já foi concluído. Pode fechar esta aba."
+
+msgid "OrcaSlicer could not finish the login: %1%. Go back to OrcaSlicer and try again."
+msgstr "O OrcaSlicer não conseguiu concluir o login: %1%. Volte ao OrcaSlicer e tente de novo."
+
+msgid "Port %1% on this computer is already in use, most likely by Creality Print, which receives its own logins there. Close Creality Print and try again, or log in in this window with your e-mail."
+msgstr "A porta %1% deste computador já está em uso, provavelmente pelo Creality Print, que recebe os próprios logins nela. Feche o Creality Print e tente de novo, ou entre nesta janela com seu e-mail."
+
+msgid "The login listener could not start: %1%"
+msgstr "O receptor de login não pôde iniciar: %1%"

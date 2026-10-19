@@ -47,6 +47,7 @@ Endpoints   endpoints(Region region);
 // The login page redirects the browser to this address with ?code=...; the login window catches the navigation
 // (nothing listens on the port). Same address as Creality Print, which the account centre expects.
 extern const char* const CALLBACK_URL;
+constexpr unsigned short CALLBACK_PORT = 13666; // fixed, like Creality Print (the account centre only knows this one)
 std::string redirect_uri(const Endpoints& ep);
 std::string login_page_url(const Endpoints& ep, const std::string& orca_lang);
 bool        is_callback_url(const std::string& url);
@@ -78,7 +79,10 @@ struct CallResult
     int         cloud_code  = -1; // "code" of the answer: 0 ok, 4 token invalid / expired, 517 profile not found; -1 no answer
     unsigned    http_status = 0;
     std::string message;          // readable error (never contains the token)
+    int         retry_after_s = 0; // Retry-After header of a rate-limited answer (0 = none)
     bool        token_invalid() const { return cloud_code == 4; }
+    // "Please do not repeat the same operation many times" (code 1088) or HTTP 429: wait and try again.
+    bool        rate_limited() const { return cloud_code == 1088 || http_status == 429; }
 };
 
 // POST /api/cxy/account/v2/oauthLogin. Fills `out` (token, user id, nickname, region) on success.

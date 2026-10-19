@@ -90,14 +90,38 @@ void add_headers(Http& http, const ClientInfo& info, const Session* session)
     }
 }
 
+// Seconds of the last Retry-After header in a raw header block (0 when absent or not a number of seconds).
+int parse_retry_after(const std::string& headers)
+{
+    int        out = 0;
+    const auto lowered = lower(headers);
+    size_t     pos = 0;
+    while ((pos = lowered.find("retry-after:", pos)) != std::string::npos) {
+        pos += 12;
+        while (pos < lowered.size() && lowered[pos] == ' ')
+            ++pos;
+        int v = 0;
+        bool any = false;
+        while (pos < lowered.size() && lowered[pos] >= '0' && lowered[pos] <= '9' && v < 100000) {
+            v = v * 10 + (lowered[pos++] - '0');
+            any = true;
+        }
+        if (any)
+            out = v;
+    }
+    return out;
+}
+
 // POST <api><path> with a JSON body; parses {"code", "msg", "result"}.
 CallResult post_json(const std::string& api, const std::string& path, const json& body, const ClientInfo& info, const Session* session,
                      json& result_out)
 {
-    CallResult r;
-    Http       http = Http::post(api + path);
+    CallResult  r;
+    std::string raw_headers;
+    Http        http = Http::post(api + path);
     add_headers(http, info, session);
-    http.timeout_connect(10)
+    http.on_header_callback([&raw_headers](std::string h) { raw_headers = std::move(h); })
+        .timeout_connect(10)
         .timeout_max(30)
         .set_post_body(body.dump())
         .on_complete([&](std::string resp, unsigned status) {
@@ -129,8 +153,14 @@ CallResult post_json(const std::string& api, const std::string& path, const json
             }
         })
         .perform_sync();
-    if (!r.ok)
+    if (!r.ok) {
+        if (r.rate_limited()) {
+            r.retry_after_s = parse_retry_after(raw_headers);
+            if (r.http_status == 429 && r.cloud_code != 1088)
+                r.message = "the Creality Cloud asks to slow down (HTTP 429)";
+        }
         BOOST_LOG_TRIVIAL(warning) << "Creality Cloud: " << path << " failed: " << r.message;
+    }
     return r;
 }
 
@@ -166,8 +196,10 @@ CallResult post_to_oss(const json& policy, const ProfileUpload& upload, bool moc
             return r;
         }
     }
-    Http http = Http::post(host);
+    std::string raw_headers;
+    Http        http = Http::post(host);
     http.headers_reset(); // only the form goes to the storage host, never the __CXY_* headers
+    http.on_header_callback([&raw_headers](std::string h) { raw_headers = std::move(h); });
     http.form_add("OSSAccessKeyId", json_str(policy, "OSSAccessKeyId"))
         .form_add("Signature", json_str(policy, "Signature"))
         .form_add("Policy", json_str(policy, "Policy"))
@@ -186,6 +218,8 @@ CallResult post_to_oss(const json& policy, const ProfileUpload& upload, bool moc
             r.message     = "upload of the file failed: " + (error.empty() ? "HTTP " + std::to_string(status) : error);
         })
         .perform_sync();
+    if (!r.ok && r.http_status == 429)
+        r.retry_after_s = parse_retry_after(raw_headers);
     boost::system::error_code ec;
     fs::remove(tmp, ec);
     return r;

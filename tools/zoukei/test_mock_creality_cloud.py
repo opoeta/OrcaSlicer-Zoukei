@@ -154,5 +154,40 @@ class MockCrealityCloudTests(unittest.TestCase):
         self.assertNotEqual(r["code"], 0)
 
 
+    def mock_set(self, body):
+        req = urllib.request.Request(self.base + "/mock/set", data=json.dumps(body).encode(), method="POST")
+        urllib.request.urlopen(req, timeout=5).read()
+
+    def test_rate_limit_1088_and_429(self):
+        s = self.login()
+        md5 = hashlib.md5(self.preset()).hexdigest()
+        self.mock_set({"rate_limit": {"mode": "1088", "min_interval_s": 5}})
+        self.assertEqual(self.api("/api/cxy/v2/slice/profile/user/preUploadProfile", {"md5": md5, "type": "materia"}, s)["code"], 0)
+        self.assertEqual(self.api("/api/cxy/v2/slice/profile/user/preUploadProfile", {"md5": md5, "type": "materia"}, s)["code"], 1088)
+        self.mock_set({"rate_limit": None, "refuse_next": 1, "refuse_mode": "429"})
+        req = urllib.request.Request(self.base + "/api/cxy/v2/slice/profile/user/editProfile", data=b'{"id": "x"}', headers=headers(s), method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(cm.exception.code, 429)
+        self.mock_set({"refuse_next": 1, "refuse_mode": "429", "rate_limit": None})
+        self.mock_set({"rate_limit": {"mode": "429", "min_interval_s": 0, "retry_after": 7}, "refuse_next": 0})
+        self.mock_set({"rate_limit": {"mode": "429", "min_interval_s": 60, "retry_after": 7}})
+        req = urllib.request.Request(self.base + "/api/cxy/v2/slice/profile/user/editProfile", data=b'{"id": "x"}', headers=headers(s), method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(cm.exception.headers.get("Retry-After"), "7")
+        self.assertGreaterEqual(len(self.state()["refused"]), 3)
+
+    def test_oss_429_keeps_profile_for_edit(self):
+        s = self.login()
+        content = self.preset()
+        r = self.api("/api/cxy/v2/slice/profile/user/preUploadProfile", {"md5": hashlib.md5(content).hexdigest(), "type": "materia"}, s)
+        self.mock_set({"oss_429_next": 1})
+        self.assertEqual(self.oss(r["result"]["uploadPolicy"], content, "x"), 429)
+        r2 = self.api("/api/cxy/v2/slice/profile/user/editProfile", {"id": r["result"]["id"]}, s)
+        self.assertEqual(self.oss(r2["result"]["uploadPolicy"], content, "x"), 200)
+        self.assertEqual(len(self.state()["profiles"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

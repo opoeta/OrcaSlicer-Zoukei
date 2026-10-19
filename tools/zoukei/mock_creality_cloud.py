@@ -24,6 +24,12 @@ Answers {"code": 0, "msg": "ok", "result": ...}; code 4 = token invalid.
 Test hooks:
   GET  /mock/state          accounts, profiles (parsed file summary), violations, request log (tokens redacted)
   POST /mock/set {"expire_tokens": true} | {"fail_oss": true} | {"fail_oss": false}
+                 {"rate_limit": {"mode": "1088" | "429", "min_interval_s": 2.0, "retry_after": 1}}  refuse profile calls
+                     (preUploadProfile / editProfile) closer than min_interval_s to the previous accepted one, like the
+                     real "Please do not repeat the same operation many times" (code 1088) or HTTP 429 (+ Retry-After)
+                 {"rate_limit": null}             off
+                 {"refuse_next": 2, "refuse_mode": "1088" | "429"}   refuse the next N profile calls whatever the pace
+                 {"oss_429_next": 1}              the next N storage uploads answer HTTP 429 (resume test)
   POST /mock/reset
 Violations recorded: missing __CXY_* headers, the token sent to the storage host, a wrong client id / redirect uri,
 a reused or unknown code, an md5 that does not match the file, a file that is not a filament preset.
@@ -61,6 +67,12 @@ class State:
         self.log = []
         self.fail_oss = False
         self.next_id = 1
+        self.rate_limit = None      # {"mode", "min_interval_s", "retry_after"}
+        self.last_profile_call = 0.0
+        self.refuse_next = 0
+        self.refuse_mode = "1088"
+        self.oss_429_next = 0
+        self.refused = []           # (time, path, mode) of every refused call
 
     def violation(self, text):
         self.violations.append(text)
@@ -136,6 +148,37 @@ class Handler(BaseHTTPRequestHandler):
                 return None
         return uid
 
+    def _rate_limited(self):
+        """True when this profile call is refused (the answer is already sent)."""
+        now = time.time()
+        with STATE.lock:
+            mode = None
+            retry_after = None
+            if STATE.refuse_next > 0:
+                STATE.refuse_next -= 1
+                mode = STATE.refuse_mode
+            elif STATE.rate_limit:
+                rl = STATE.rate_limit
+                if now - STATE.last_profile_call < float(rl.get("min_interval_s", 0)):
+                    mode = str(rl.get("mode", "1088"))
+                    retry_after = rl.get("retry_after")
+            if mode is None:
+                STATE.last_profile_call = now
+                return False
+            STATE.refused.append((now, urlparse(self.path).path, mode))
+        if mode == "429":
+            data = b'{"error":"Too Many Requests"}'
+            self.send_response(429)
+            self.send_header("Content-Type", "application/json")
+            if retry_after is not None:
+                self.send_header("Retry-After", str(retry_after))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        else:
+            self._err(1088, "Please do not repeat the same operation many times. Take a rest and try it later.")
+        return True
+
     def _policy(self, pid, uid):
         key = f"profiles/{uid}/{pid}/{secrets.token_hex(4)}.json"
         return key, {"OSSAccessKeyId": "MOCKACCESSKEY", "Signature": "mock-signature", "Policy": "mock-policy", "Key": key,
@@ -184,6 +227,7 @@ Log in as {MOCK_NICK} (simulated)</a></p></body></html>"""
                     "violations": list(STATE.violations),
                     "log": list(STATE.log[-60:]),
                     "fail_oss": STATE.fail_oss,
+                    "refused": list(STATE.refused),
                 })
         return self._send(404, {"error": "not found"})
 
@@ -202,6 +246,13 @@ Log in as {MOCK_NICK} (simulated)</a></p></body></html>"""
                     STATE.tokens.clear()
                 if "fail_oss" in body:
                     STATE.fail_oss = bool(body["fail_oss"])
+                if "rate_limit" in body:
+                    STATE.rate_limit = body["rate_limit"]
+                if "refuse_next" in body:
+                    STATE.refuse_next = int(body["refuse_next"])
+                    STATE.refuse_mode = str(body.get("refuse_mode", "1088"))
+                if "oss_429_next" in body:
+                    STATE.oss_429_next = int(body["oss_429_next"])
             return self._send(200, {"ok": True})
         if u.path == "/oss":
             return self._oss()
@@ -242,6 +293,9 @@ Log in as {MOCK_NICK} (simulated)</a></p></body></html>"""
                           "nozzleDiameter": [], "version": "", "zipUrl": ""} for p in STATE.profiles.values() if p["uid"] == uid]
             return self._ok({"list": items, "count": len(items)})
 
+        if u.path in ("/api/cxy/v2/slice/profile/user/preUploadProfile", "/api/cxy/v2/slice/profile/user/editProfile") and self._rate_limited():
+            return
+
         if u.path == "/api/cxy/v2/slice/profile/user/preUploadProfile":
             md5 = str(body.get("md5", ""))
             if body.get("type") != "materia":
@@ -277,6 +331,14 @@ Log in as {MOCK_NICK} (simulated)</a></p></body></html>"""
         raw = self._body()
         if STATE.fail_oss:
             return self._send(403, "<Error><Code>AccessDenied</Code></Error>", "application/xml")
+        with STATE.lock:
+            oss_429 = STATE.oss_429_next > 0
+            if oss_429:
+                STATE.oss_429_next -= 1
+                STATE.refused.append((time.time(), "/oss", "429"))
+        if oss_429:
+            # the key stays pending: the client must come back through editProfile (a new key), not create again
+            return self._send(429, "<Error><Code>SlowDown</Code></Error>", "application/xml")
         if not ctype.startswith("multipart/form-data"):
             STATE.violation(f"oss: content type {ctype!r}")
             return self._send(400, "<Error>not multipart</Error>", "application/xml")

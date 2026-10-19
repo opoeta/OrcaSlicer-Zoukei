@@ -11,7 +11,8 @@ class DevicesToolsTest(ToolTestCase):
         self.assertEqual(sorted(self.mcp.tools), sorted([
             "device_list", "device_status", "device_slots", "print_hosts", "printer_control_status", "print_send",
             "print_pause", "print_resume", "print_stop", "printer_set_temperature", "filament_load", "filament_unload",
-            "slot_write", "creality_cloud_status", "creality_cloud_filaments", "creality_cloud_upload"]))
+            "slot_write", "creality_cloud_status", "creality_cloud_filaments", "creality_cloud_upload",
+            "creality_cloud_upload_status", "creality_cloud_upload_cancel"]))
 
     def test_reads(self):
         self.run_tool("device_list")
@@ -38,6 +39,12 @@ class DevicesToolsTest(ToolTestCase):
         self.assertEqual(self.last()[2], {"presets": ["My PLA"]})
         self.run_tool("creality_cloud_upload", presets=["A", "B"], printer="Creality K2 Plus 0.4 nozzle", dry_run=False, confirm=True)
         self.assertEqual(self.last()[2], {"presets": ["A", "B"], "printer": "Creality K2 Plus 0.4 nozzle", "confirm": True})
+        self.run_tool("creality_cloud_upload", presets=["A"], dry_run=False, confirm=True, wait=True)
+        self.assertEqual(self.last()[2], {"presets": ["A"], "confirm": True, "wait": True})
+        self.run_tool("creality_cloud_upload_status")
+        self.assertEqual(self.last()[:2], ("GET", "/api/v1/creality_cloud/upload_status"))
+        self.run_tool("creality_cloud_upload_cancel")
+        self.assertEqual(self.last()[:2], ("POST", "/api/v1/creality_cloud/upload_cancel"))
 
     def test_control_without_confirm_sends_no_confirm(self):
         # The app answers 403; the tool must never add confirm on its own.

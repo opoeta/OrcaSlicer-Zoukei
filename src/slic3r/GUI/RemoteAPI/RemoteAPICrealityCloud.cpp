@@ -4,18 +4,27 @@
 // through the API (it needs the owner on Creality's page) and the token is never returned.
 //
 // Read-only (always allowed):
-//   GET  /api/v1/creality_cloud                {logged_in, region, auto_sync, secure_storage, test_server}
+//   GET  /api/v1/creality_cloud                {logged_in, region, auto_sync, secure_storage, test_server, browser_login}
+//   GET  /api/v1/creality_cloud/upload_status  the running / last upload started here: state (idle | running | done |
+//                                              cancelled), progress {index, total, name, attempt, wait_s, rate_limit},
+//                                              results [{name, ok, created, rate_limited, attempts, message}]
+//   POST /api/v1/creality_cloud/upload_cancel  stops that upload after the current preset
 //   GET  /api/v1/creality_cloud/filaments      user filament presets {name, type, vendor, uploaded, changed},
 //                                              printer_targets, default_printer
 //   POST /api/v1/creality_cloud/upload         {presets: [names], printer?, dry_run: true}
 //                                              what would be sent (create / update, linked printer, bytes); no network
 //
 // Control (Preferences > Remote API > "Allow printer control from the Remote API" AND "confirm": true):
-//   POST /api/v1/creality_cloud/upload         {presets: [names], printer?, confirm: true}
-//                                              uploads to the logged in account; per-preset result
+//   POST /api/v1/creality_cloud/upload         {presets: [names], printer?, confirm: true, wait?: false}
+//                                              starts the upload to the logged in account in the background (one preset
+//                                              every few seconds, waits out the Creality rate limit) and answers at once;
+//                                              follow it with GET upload_status. wait: true blocks until it is done.
 //
 // Test only, when OrcaSlicer runs with ORCA_ZOUKEI_CREALITY_CLOUD_MOCK (tools/zoukei/mock_creality_cloud.py):
 //   POST /api/v1/creality_cloud/mock_login     {callback_url}: the redirect the login window would catch
+//   POST /api/v1/creality_cloud/mock_browser_login {timeout_s?}: starts the browser-mode listener without opening a
+//                                              browser (the test then calls http://127.0.0.1:13666/login?code=...)
+//   POST /api/v1/creality_cloud/mock_browser_cancel
 #include "RemoteAPIController.hpp"
 #include "RemoteAPIUtil.hpp"
 
@@ -26,7 +35,9 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <chrono>
 #include <memory>
+#include <thread>
 
 namespace Slic3r { namespace GUI { namespace RemoteAPI {
 
@@ -55,6 +66,7 @@ json status_json()
             {"auto_sync", wxGetApp().app_config->get_bool("creality_cloud_auto_sync")},
             {"secure_storage", CrCloud::secure_storage_available()},
             {"test_server", CrCloud::is_mock()},
+            {"browser_login", CrCloud::browser_login_state_key(CrCloud::browser_login_state())},
             {"login", "only in OrcaSlicer: Preferences > Creality Cloud account, or the Creality device tab"}};
 }
 
@@ -65,6 +77,24 @@ json filaments_json()
         list.push_back({{"name", e.name}, {"type", e.type}, {"vendor", e.vendor}, {"inherits", e.inherits}, {"uploaded", e.uploaded}, {"changed", e.changed}});
     return {{"filaments", list}, {"printer_targets", CrCloud::printer_targets()}, {"default_printer", CrCloud::default_printer_target()},
             {"logged_in", CrCloud::logged_in()}};
+}
+
+json upload_status_json()
+{
+    const CrCloud::ApiUploadJob job = CrCloud::api_upload_status();
+    json results = json::array();
+    int  ok      = 0;
+    for (const CrCloud::UploadReport& r : job.results) {
+        results.push_back({{"name", r.name}, {"ok", r.ok}, {"created", r.created}, {"rate_limited", r.rate_limited}, {"cancelled", r.cancelled},
+                           {"attempts", r.attempts}, {"message", r.message}});
+        ok += r.ok ? 1 : 0;
+    }
+    const CrCloud::UploadProgress& p = job.progress;
+    return {{"state", job.state},
+            {"progress", {{"index", p.index}, {"total", p.total}, {"name", p.name}, {"attempt", p.attempt}, {"wait_s", p.wait_s}, {"rate_limit", p.rate_limit}}},
+            {"results", results},
+            {"sent", ok},
+            {"total", p.total}};
 }
 
 std::vector<std::string> need_presets(const json& body)
@@ -102,14 +132,43 @@ bool Controller::dispatch_creality_cloud(const Request& req, Response& out)
         return true;
     }
 
-    const bool upload     = m == "POST" && rest == "/upload";
-    const bool mock_login = m == "POST" && rest == "/mock_login" && CrCloud::is_mock();
-    if (!upload && !mock_login)
+    if (m == "GET" && rest == "/upload_status") {
+        out = zk::reply(upload_status_json());
+        return true;
+    }
+    if (m == "POST" && rest == "/upload_cancel") {
+        CrCloud::cancel_api_upload();
+        out = zk::reply(upload_status_json());
+        return true;
+    }
+    if (m == "POST" && rest == "/mock_browser_cancel" && CrCloud::is_mock()) {
+        out = zk::reply(run_on_ui([]() -> json {
+            CrCloud::cancel_browser_login();
+            return {{"browser_login", CrCloud::browser_login_state_key(CrCloud::browser_login_state())}};
+        }, 30));
+        return true;
+    }
+
+    const bool upload       = m == "POST" && rest == "/upload";
+    const bool mock_login   = m == "POST" && rest == "/mock_login" && CrCloud::is_mock();
+    const bool mock_browser = m == "POST" && rest == "/mock_browser_login" && CrCloud::is_mock();
+    if (!upload && !mock_login && !mock_browser)
         return false;
 
     json body = json::object();
     if (!zk::parse_body(req, body)) {
         out = {400, {{"error", "invalid_json"}}};
+        return true;
+    }
+
+    if (mock_browser) {
+        const int timeout_s = body.contains("timeout_s") && body["timeout_s"].is_number_integer() ? body["timeout_s"].get<int>() :
+                                                                                                  CrCloud::BROWSER_LOGIN_TIMEOUT_S;
+        out = zk::reply(run_on_ui([timeout_s]() -> json {
+            std::string message;
+            const auto  st = CrCloud::start_browser_login(false, timeout_s, nullptr, message);
+            return {{"browser_login", CrCloud::browser_login_state_key(st)}, {"message", message}, {"login_url", CrCloud::browser_login_url()}};
+        }, 30));
         return true;
     }
 
@@ -201,15 +260,24 @@ bool Controller::dispatch_creality_cloud(const Request& req, Response& out)
         return true;
     }
     BOOST_LOG_TRIVIAL(info) << "RemoteAPI printer control: creality cloud upload of " << prepared.size() << " filament preset(s)";
-    const std::vector<CrCloud::UploadReport> reports = CrCloud::upload_blocking(std::move(prepared));
-    json results = json::array();
-    int  ok      = 0;
-    for (const CrCloud::UploadReport& r : reports) {
-        results.push_back({{"name", r.name}, {"ok", r.ok}, {"created", r.created}, {"message", r.message}});
-        ok += r.ok ? 1 : 0;
+    const bool wait = body.contains("wait") && body["wait"].is_boolean() && body["wait"].get<bool>();
+    if (!CrCloud::start_api_upload(std::move(prepared))) {
+        out = zk::reply(json{{"error", "busy"}, {"detail", "an upload started by the Remote API is still running; see GET /creality_cloud/upload_status"}});
+        return true;
     }
-    zk::notify("Creality Cloud: " + std::to_string(ok) + " of " + std::to_string(reports.size()) + " filament preset(s) sent by the Remote API");
-    out = zk::reply(json{{"action", "creality cloud upload"}, {"sent", ok}, {"total", reports.size()}, {"results", results}, {"ok", ok == int(reports.size())}});
+    zk::notify("Creality Cloud: filament upload started by the Remote API");
+    if (!wait) {
+        json r = upload_status_json();
+        r["action"] = "creality cloud upload";
+        r["next"]   = "poll GET /api/v1/creality_cloud/upload_status";
+        out         = zk::reply(r);
+        return true;
+    }
+    while (CrCloud::api_upload_status().state == "running")
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    json r = upload_status_json();
+    r["action"] = "creality cloud upload";
+    out         = zk::reply(r);
     return true;
 }
 

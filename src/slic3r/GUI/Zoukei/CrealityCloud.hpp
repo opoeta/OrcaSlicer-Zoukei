@@ -15,7 +15,9 @@
 
 #include "slic3r/Utils/CrealityCloudClient.hpp"
 
+#include <atomic>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -42,6 +44,21 @@ bool store_session(const Session& s);
 void logout();
 // The cloud said the token is no longer valid: forget it (same as logout, keeps nothing).
 void on_token_invalid();
+
+// ---- browser login (system browser + temporary loopback listener) --------------------------------
+// The Creality page is opened in the default browser (Google / Apple sign-in refuse embedded web views); the browser
+// is redirected to http://localhost:13666/login?code=..., which a listener bound to 127.0.0.1 only during this login
+// receives (CrealityCloudCallback). The port is the one Creality Print uses: while Creality Print runs it is taken.
+enum class BrowserLoginState { Idle, Waiting, Done, Failed, TimedOut, PortBusy, Cancelled };
+std::string browser_login_state_key(BrowserLoginState s); // "idle", "waiting", ...
+using BrowserLoginChange = std::function<void(BrowserLoginState state, const std::string& message)>;
+constexpr int BROWSER_LOGIN_TIMEOUT_S = 300;
+// UI thread. Returns Waiting, PortBusy or Failed (`message` says why). `on_change` runs on the UI thread for every
+// later change (a failed code exchange keeps Waiting with a message; Done / TimedOut end it).
+BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserLoginChange on_change, std::string& message);
+void              cancel_browser_login();   // UI thread; also drops the on_change callback
+BrowserLoginState browser_login_state();    // any thread
+std::string       browser_login_url();      // the Creality page of the running attempt (UI thread)
 
 // ---- user filament presets ----------------------------------------------------------------------
 struct FilamentEntry
@@ -80,12 +97,54 @@ struct UploadReport
     bool        ok            = false;
     bool        created       = false;
     bool        token_invalid = false;
+    bool        rate_limited  = false; // still refused by the Creality rate limit after every retry
+    bool        cancelled     = false;
+    int         attempts      = 0;
     std::string message;
 };
-// Runs the uploads on a worker thread, remembers the cloud ids, then calls `done` on the UI thread.
-void upload_async(std::vector<PreparedUpload> uploads, std::function<void(const std::vector<UploadReport>&)> done);
-// Blocking version (worker / Remote API io thread).
-std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads);
+
+// Pacing of every upload (window, auto sync, Remote API), shared by all of them: presets go one after the other with
+// UPLOAD_INTERVAL between them; a rate-limited answer (Creality code 1088 / HTTP 429) is retried after an exponential
+// backoff with jitter (10 s, 20 s, 40 s ... 2 min, or the Retry-After the server sends), up to UPLOAD_RETRIES times.
+// A retry never creates the profile twice: once the cloud gave an id, it goes on with editProfile.
+// Test builds pointed at the mock may shorten it: ORCA_ZOUKEI_CREALITY_CLOUD_THROTTLE="interval_ms,backoff_ms,max_ms".
+constexpr int UPLOAD_INTERVAL_MS = 3000;
+constexpr int UPLOAD_BACKOFF_MS  = 10000;
+constexpr int UPLOAD_BACKOFF_MAX = 120000;
+constexpr int UPLOAD_RETRIES     = 5;
+
+struct UploadProgress
+{
+    int         index   = 0; // 1-based preset being sent
+    int         total   = 0;
+    std::string name;
+    int         attempt = 0; // 0 = first try
+    int         wait_s  = 0; // > 0: waiting (rate_limit: for the Creality limit, else the pause between presets)
+    bool        rate_limit = false;
+};
+using UploadProgressFn = std::function<void(const UploadProgress&)>;
+struct UploadControl
+{
+    std::atomic<bool> cancel{false};
+};
+
+// Blocking (worker / Remote API io thread). `progress` runs on the calling thread.
+std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads, UploadProgressFn progress = nullptr,
+                                          std::shared_ptr<UploadControl> control = nullptr);
+// Runs the uploads on a worker thread; `progress` and `done` run on the UI thread.
+void upload_async(std::vector<PreparedUpload> uploads, std::function<void(const std::vector<UploadReport>&)> done,
+                  UploadProgressFn progress = nullptr, std::shared_ptr<UploadControl> control = nullptr);
+
+// One background upload started by the Remote API at a time; its state is polled.
+struct ApiUploadJob
+{
+    std::string               state = "idle"; // idle | running | done | cancelled
+    UploadProgress            progress;
+    std::vector<UploadReport> results;
+};
+bool         start_api_upload(std::vector<PreparedUpload> uploads); // false: one is already running
+ApiUploadJob api_upload_status();                                   // any thread
+void         cancel_api_upload();
 
 // Called after a preset was saved (UI thread): with Preferences "creality_cloud_auto_sync" on and a session, a user
 // filament preset is uploaded in the background (default target printer) and the result shown as a notification.

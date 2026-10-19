@@ -1076,6 +1076,7 @@ add_library(libslic3r_creality_net STATIC
     GUI/CrealityDevice/ImageServer.cpp
     GUI/CrealityDevice/WsProxy.cpp
     Utils/CrealityCfsClient.cpp
+    Utils/CrealityCloudCallback.cpp
 )
 target_include_directories(libslic3r_creality_net PRIVATE Utils ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(libslic3r_creality_net libslic3r ${wxWidgets_LIBRARIES} libcurl OpenSSL::SSL OpenSSL::Crypto)

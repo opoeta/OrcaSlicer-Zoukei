@@ -181,13 +181,28 @@ def register(mcp) -> None:
         printer: Annotated[str | None, Field(description="Creality printer preset to link them to (printer_targets); default: the selected Creality printer.")] = None,
         dry_run: Annotated[bool, Field(description="True (default): only report what would be sent (create / update, printer, bytes); nothing leaves the computer.")] = True,
         confirm: Confirm = False,
+        wait: Annotated[bool, Field(description="Block until every preset is done. Default False: the upload runs in the background (one preset every few seconds, waiting out the Creality rate limit); follow it with creality_cloud_upload_status.")] = False,
     ) -> dict:
         """Upload filament presets to the logged in Creality Cloud account, so a printer bound to it (K2 / K2 Plus with CFS)
         lists them among its materials. With dry_run=True (default) nothing is sent. A real upload (dry_run=False) is CONTROL:
-        it needs Preferences > Remote API > 'Allow printer control from the Remote API' and confirm=True."""
+        it needs Preferences > Remote API > 'Allow printer control from the Remote API' and confirm=True. It starts in the
+        background and is paced (a few seconds between presets, backoff on the Creality rate limit)."""
         body = clean(presets=presets, printer=printer)
         if dry_run:
             body["dry_run"] = True
         elif confirm:
             body["confirm"] = True
+            if wait:
+                body["wait"] = True
         return await call("POST", "creality_cloud/upload", body)
+
+    @mcp.tool()
+    async def creality_cloud_upload_status() -> dict:
+        """Progress of the Creality Cloud upload started through the API: state (idle | running | done | cancelled), the preset
+        being sent (index / total, attempt, seconds waited for the rate limit) and the per-preset results."""
+        return await call("GET", "creality_cloud/upload_status")
+
+    @mcp.tool()
+    async def creality_cloud_upload_cancel() -> dict:
+        """Stop the running Creality Cloud upload after the current preset (the rest stays unsent)."""
+        return await call("POST", "creality_cloud/upload_cancel")
