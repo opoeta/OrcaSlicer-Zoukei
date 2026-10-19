@@ -352,13 +352,86 @@ void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& f
     dc.DrawText(txt, r.x + (r.width - ts.x) / 2, r.y + (r.height - ts.y) / 2);
 }
 
-// Label of the slot filament `idx` maps to (explicit choice, else same colour+type, else the idx-th CFS slot).
+// Slot every project filament maps to, without repeats: explicit choices (project filament_cfs_slot) are reserved
+// first; then each remaining filament, in order, takes the first FREE loaded slot with the same type+colour (slot
+// order breaks ties); the rest fall back to their own position, then to any free CFS slot. A physical slot is thus
+// never given to two filaments while an equivalent free one exists (e.g. same spool in 1B and 2B).
+std::vector<const Entry*> assign_slots(const std::vector<Entry>& es)
+{
+    PresetBundle* b = wxGetApp().preset_bundle;
+    std::vector<const Entry*> out;
+    if (es.empty() || b == nullptr)
+        return out;
+    const size_t n = b->filament_presets.size();
+    out.assign(n, nullptr);
+    std::vector<bool> used(es.size(), false);
+    for (size_t i = 0; i < n; ++i)
+        if (const auto chosen = chosen_slot(int(i)))
+            for (size_t k = 0; k < es.size(); ++k)
+                if (es[k].box == chosen->first && es[k].slot == chosen->second) {
+                    out[i] = &es[k];
+                    used[k] = true;
+                    break;
+                }
+    const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
+    for (size_t i = 0; i < n; ++i) {
+        if (out[i] != nullptr || chosen_slot(int(i)))
+            continue;
+        std::string type;
+        if (const Preset* p = b->filaments.find_preset(b->filament_presets[i]))
+            if (const auto* o = p->config.option<ConfigOptionStrings>("filament_type"); o != nullptr && !o->values.empty())
+                type = o->values.front();
+        const wxColour col = cols != nullptr && i < cols->values.size() ? wxColour(cols->values[i]) : wxColour();
+        for (size_t k = 0; k < es.size(); ++k) {
+            const Entry& x = es[k];
+            if (!used[k] && x.box != 0 && x.loaded && x.type == type && x.colour.IsOk() && col.IsOk() && x.colour == col) {
+                out[i] = &x;
+                used[k] = true;
+                break;
+            }
+        }
+    }
+    for (size_t i = 0; i < n; ++i) {
+        if (out[i] != nullptr || chosen_slot(int(i)))
+            continue;
+        size_t pos = 0;
+        int    first_free = -1;
+        for (size_t k = 0; k < es.size(); ++k) {
+            if (es[k].box == 0)
+                continue;
+            if (pos++ == i && !used[k]) {
+                first_free = int(k);
+                break;
+            }
+        }
+        if (first_free < 0)
+            for (size_t k = 0; k < es.size(); ++k)
+                if (es[k].box != 0 && !used[k]) {
+                    first_free = int(k);
+                    break;
+                }
+        if (first_free < 0) { // every slot is taken: reuse the positional one (more filaments than slots)
+            pos = 0;
+            for (size_t k = 0; k < es.size(); ++k)
+                if (es[k].box != 0 && pos++ == i) {
+                    first_free = int(k);
+                    break;
+                }
+        }
+        if (first_free >= 0) {
+            out[i] = &es[size_t(first_free)];
+            used[size_t(first_free)] = true;
+        }
+    }
+    return out;
+}
+
+// Label of the slot filament `idx` maps to (see assign_slots).
 wxString label_of(int idx, const std::vector<Entry>& es, const Entry** found = nullptr)
 {
     if (found)
         *found = nullptr;
-    PresetBundle* b = wxGetApp().preset_bundle;
-    if (es.empty() || b == nullptr)
+    if (es.empty() || wxGetApp().preset_bundle == nullptr)
         return "-";
     const Entry* e = nullptr;
     if (const auto chosen = chosen_slot(idx)) {
@@ -368,26 +441,9 @@ wxString label_of(int idx, const std::vector<Entry>& es, const Entry** found = n
                 break;
             }
     } else {
-        std::string type;
-        if (idx < (int) b->filament_presets.size())
-            if (const Preset* p = b->filaments.find_preset(b->filament_presets[idx]))
-                if (const auto* o = p->config.option<ConfigOptionStrings>("filament_type"); o != nullptr && !o->values.empty())
-                    type = o->values.front();
-        const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
-        const wxColour col = cols != nullptr && idx < (int) cols->values.size() ? wxColour(cols->values[idx]) : wxColour();
-        for (const Entry& x : es)
-            if (x.box != 0 && x.loaded && x.type == type && x.colour.IsOk() && col.IsOk() && x.colour == col) {
-                e = &x;
-                break;
-            }
-        if (e == nullptr) {
-            int n = 0;
-            for (const Entry& x : es)
-                if (x.box != 0 && n++ == idx) {
-                    e = &x;
-                    break;
-                }
-        }
+        const auto all = assign_slots(es);
+        if (idx >= 0 && size_t(idx) < all.size())
+            e = all[size_t(idx)];
     }
     if (found)
         *found = e;
