@@ -121,6 +121,8 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 .seg.small button { min-height: 26px; padding: 0 12px; font-size: 12px; }
 
 .alert { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px; border-radius: 6px; background: rgba(229, 72, 77, .14); color: var(--danger); }
+.alert.warning { background: rgba(227, 162, 47, .16); color: var(--warn); }
+.alert .hint { display: block; margin-top: 2px; opacity: .85; font-size: 12px; }
 
 /* ---- layout ----------------------------------------------------------------------------- */
 .screen { padding: 16px 20px 28px; max-width: 1500px; margin: 0 auto; }

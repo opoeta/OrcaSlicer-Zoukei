@@ -227,9 +227,23 @@
                 stateBadge.textContent = !link.online ? (link.hasStatus ? Z.t('offline') : Z.t('connecting')) : Z.t('phase_' + d.phase);
                 name.textContent = dev.name || s.hostname || dev.modelName || dev.model || dev.address;
 
-                const err = s.err && Number(s.err.errcode) ? s.err : null;
+                const err = s.err && (Number(s.err.errcode) || Number(s.err.key)) ? s.err : null;
                 alertBox.hidden = !err;
-                if (err) alertBox.lastChild.textContent = Z.t('printer_error') + ' ' + err.errcode + (err.value ? ': ' + err.value : '');
+                if (err) {
+                    const k2 = Z.k2Error ? Z.k2Error(err) : null;
+                    const box = alertBox.lastChild;
+                    alertBox.classList.toggle('warning', !!k2 && k2.level === 'warning');
+                    if (k2) {
+                        // Creality K2 table: real message + code; unknown codes keep the generic text with the code.
+                        box.textContent = k2.known ? k2.text + ' (' + k2.code + ')' : Z.t('printer_error') + ' ' + k2.code + (err.value ? ': ' + err.value : '');
+                        if (k2.creality) box.textContent += ' [' + k2.creality + ']';
+                        if (k2.hint) box.appendChild(h('small.hint', { text: k2.hint }));
+                        alertBox.title = k2.hint || '';
+                    } else {
+                        box.textContent = Z.t('printer_error') + ' ' + err.errcode + (err.value ? ': ' + err.value : '');
+                        alertBox.title = '';
+                    }
+                }
 
                 const job = Z.fmt.baseName(s.printFileName);
                 fileName.textContent = job || Z.t('no_job');
