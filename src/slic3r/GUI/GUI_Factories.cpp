@@ -9,6 +9,7 @@
 #include "Zoukei/LibreMode.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Libre Mode
 #include "Shortcuts.hpp"
 #include "SpoolmanUi.hpp"
+#include "Zoukei/CrealityCloudUi.hpp"
 #include "I18N.hpp"
 #include "Plater.hpp"
 #include "ObjectDataViewModel.hpp"
@@ -1897,6 +1898,23 @@ void MenuFactory::create_filament_action_menu(bool init, int active_filament_men
         menu, wxID_ANY, _L("Spoolman spool") + dots, _L("Pick the Spoolman spool of this filament"), [active_filament_menu_id](wxCommandEvent&) {
             wxTheApp->CallAfter([active_filament_menu_id] { SpoolmanUi::pick_spool(plater(), active_filament_menu_id); }); }, "", nullptr,
         [active_filament_menu_id]() { return active_filament_menu_id >= 0; }, m_parent);
+
+    // Orca Zoukei: upload user filament presets to the Creality Cloud (a K2 bound to the account lists them)
+    append_menu_item(
+        menu, wxID_ANY, _L("Send filaments to the Creality Cloud") + dots,
+        _L("Upload your filament presets to your Creality Cloud account, so the printer bound to it lists them"),
+        [active_filament_menu_id](wxCommandEvent&) {
+            wxTheApp->CallAfter([active_filament_menu_id] {
+                std::string preselect;
+                PresetBundle* bundle = wxGetApp().preset_bundle;
+                if (bundle != nullptr && active_filament_menu_id >= 0 && active_filament_menu_id < int(bundle->filament_presets.size())) {
+                    const Preset* p = bundle->filaments.find_preset(bundle->filament_presets[active_filament_menu_id]);
+                    if (p != nullptr && p->is_user())
+                        preselect = p->name;
+                }
+                CrCloudUi::show_upload_dialog(plater(), preselect);
+            }); }, "", nullptr,
+        []() { return true; }, m_parent);
 
     wxMenu* sub_menu = new wxMenu();
     std::vector<wxBitmap*> icons = get_extruder_color_icons(true);

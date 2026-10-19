@@ -2,6 +2,7 @@
 
 #include "CrealityDevice/DeviceStore.hpp"
 #include "Zoukei/PrintMarkers.hpp"
+#include "Zoukei/CrealityCloudUi.hpp"
 #include "CrealityDevice/ImageServer.hpp"
 #include "CrealityDevice/LanDeviceProbe.hpp"
 #include "CrealityDevice/WsProxy.hpp"
@@ -256,6 +257,8 @@ CrealityDevicePanel::CrealityDevicePanel(wxWindow* parent)
 
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     SetSizer(sizer);
+    // Orca Zoukei: Creality Cloud account bar (send filament presets to the account the printer is bound to).
+    sizer->Add(CrCloudUi::create_device_bar(this), wxSizerFlags().Expand().Border(wxTOP | wxBOTTOM, FromDIP(4)));
     create_browser();
     register_routes();
 }

@@ -33,3 +33,19 @@ Pointing Orca Zoukei at it:
 
 The mock is built from the open firmware (github.com/Snapmaker/u1-klipper: `print_task_config.py`,
 `filament_feed.py`, `lava/fluidd.cfg`), not from a real printer: the real U1 may differ in details.
+
+## Mock Creality Cloud (`mock_creality_cloud.py`)
+
+A fake Creality Cloud (account page, `oauthLogin`, profile `preUploadProfile` / `editProfile` / `list`, OSS form upload)
+for testing the Creality Cloud filament upload without an account. Standard library only, binds to `127.0.0.1`.
+
+```
+python tools/zoukei/mock_creality_cloud.py --port 8790
+python tools/zoukei/test_mock_creality_cloud.py      # protocol checks
+```
+
+Start Orca with `ORCA_ZOUKEI_CREALITY_CLOUD_MOCK=http://127.0.0.1:8790` (use `127.0.0.1`, not `localhost`): the login
+window, the API and the file storage all point at the mock, the login page offers one "Log in (simulated)" button
+(no password field) and the Remote API also accepts `POST /api/v1/creality_cloud/mock_login {callback_url}`.
+`GET /mock/state` shows the uploaded presets (name, `compatible_printers`, ...) and any protocol violation (missing
+`__CXY_*` headers, token sent to the storage host, md5 mismatch, reused login code).

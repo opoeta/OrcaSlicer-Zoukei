@@ -160,3 +160,34 @@ def register(mcp) -> None:
         return await call("PUT", f"devices/{_dev(device)}/slots",
                           _body(confirm, slot=slot, unit=unit, type=type, color=color, colors=colors,
                                 filament_id=filament_id, setting_id=setting_id))
+
+    # ---- Creality Cloud (filament presets to the account a K2 / K2 Plus is bound to) ----
+    @mcp.tool()
+    async def creality_cloud_status() -> dict:
+        """Whether a Creality Cloud account is logged in in OrcaSlicer, its region (global / china) and whether saved filament
+        presets are synced automatically. The login itself only happens in OrcaSlicer (the owner signs in on Creality's page);
+        the token is never returned."""
+        return await call("GET", "creality_cloud")
+
+    @mcp.tool()
+    async def creality_cloud_filaments() -> dict:
+        """The owner's own filament presets with their Creality Cloud state (uploaded, changed since), the Creality printer
+        presets a filament can be linked to (printer_targets) and the default one."""
+        return await call("GET", "creality_cloud/filaments")
+
+    @mcp.tool()
+    async def creality_cloud_upload(
+        presets: Annotated[list[str], Field(description="Names of the owner's filament presets (from creality_cloud_filaments).")],
+        printer: Annotated[str | None, Field(description="Creality printer preset to link them to (printer_targets); default: the selected Creality printer.")] = None,
+        dry_run: Annotated[bool, Field(description="True (default): only report what would be sent (create / update, printer, bytes); nothing leaves the computer.")] = True,
+        confirm: Confirm = False,
+    ) -> dict:
+        """Upload filament presets to the logged in Creality Cloud account, so a printer bound to it (K2 / K2 Plus with CFS)
+        lists them among its materials. With dry_run=True (default) nothing is sent. A real upload (dry_run=False) is CONTROL:
+        it needs Preferences > Remote API > 'Allow printer control from the Remote API' and confirm=True."""
+        body = clean(presets=presets, printer=printer)
+        if dry_run:
+            body["dry_run"] = True
+        elif confirm:
+            body["confirm"] = True
+        return await call("POST", "creality_cloud/upload", body)

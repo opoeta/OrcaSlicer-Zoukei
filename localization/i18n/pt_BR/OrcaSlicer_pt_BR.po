@@ -42468,3 +42468,138 @@ msgstr "Brilha no escuro"
 
 msgid "Clear / resin"
 msgstr "Transparente / resina"
+
+msgid "China (mainland)"
+msgstr "China (continental)"
+
+msgid "Creality Cloud: not logged in"
+msgstr "Creality Cloud: não conectado"
+
+msgid "Creality Cloud: %s (%s)"
+msgstr "Creality Cloud: %s (%s)"
+
+msgid "test server"
+msgstr "servidor de teste"
+
+msgid "Log in to the Creality Cloud"
+msgstr "Entrar na Creality Cloud"
+
+msgid "Region"
+msgstr "Região"
+
+msgid "Creality Cloud accounts of mainland China live on a separate server (crealitycloud.cn)."
+msgstr "Contas da Creality Cloud da China continental ficam em um servidor separado (crealitycloud.cn)."
+
+msgid "Sign in on Creality's own page below. OrcaSlicer does not read or store your password: it only keeps the session the page hands back, in the system's secure credential store."
+msgstr "Entre na própria página da Creality abaixo. O OrcaSlicer não lê nem guarda sua senha: só guarda a sessão que a página devolve, no cofre de credenciais seguro do sistema."
+
+msgid "Test mode: the login page comes from the local mock server."
+msgstr "Modo de teste: a página de login vem do servidor simulado local."
+
+msgid "The web view could not be created, so the Creality login page cannot be shown."
+msgstr "Não foi possível criar o navegador interno, então a página de login da Creality não pode ser exibida."
+
+msgid "The Creality page did not complete the login. Try again."
+msgstr "A página da Creality não concluiu o login. Tente de novo."
+
+msgid "Signing in..."
+msgstr "Entrando..."
+
+msgid "Login failed: %s"
+msgstr "Falha no login: %s"
+
+msgid "The system's secure credential store is not available, so this login is only kept until OrcaSlicer is closed."
+msgstr "O cofre de credenciais seguro do sistema não está disponível; este login só vale até fechar o OrcaSlicer."
+
+msgid "Creality Cloud"
+msgstr "Creality Cloud"
+
+msgid "Send filaments to the Creality Cloud"
+msgstr "Enviar filamentos para a Creality Cloud"
+
+msgid "Log in"
+msgstr "Entrar"
+
+msgid "The ticked presets go to your Creality Cloud account like in Creality Print. A printer bound to the same account (K2 / K2 Plus with CFS) then lists them among its materials. Each preset is sent complete (inherited values included) and linked to the printer below."
+msgstr "Os perfis marcados vão para sua conta da Creality Cloud como no Creality Print. Uma impressora vinculada à mesma conta (K2 / K2 Plus com CFS) passa a listá-los entre os seus materiais. Cada perfil é enviado completo (com os valores herdados) e vinculado à impressora abaixo."
+
+msgid "Link to printer"
+msgstr "Vincular à impressora"
+
+msgid "Creality printer preset the filaments are made for (compatible_printers of the uploaded preset)."
+msgstr "Perfil de impressora Creality para o qual os filamentos são feitos (compatible_printers do perfil enviado)."
+
+msgid "Select none"
+msgstr "Desmarcar todos"
+
+msgid "Select new and changed"
+msgstr "Marcar novos e alterados"
+
+msgid "Log out"
+msgstr "Sair"
+
+msgid "not sent yet"
+msgstr "ainda não enviado"
+
+msgid "changed since sent"
+msgstr "alterado desde o envio"
+
+msgid "sent"
+msgstr "enviado"
+
+msgid "You have no filament presets of your own. Save a filament preset first."
+msgstr "Você não tem perfis de filamento próprios. Salve um perfil de filamento primeiro."
+
+msgid "Send %d filament preset(s) to the Creality Cloud account %s, linked to %s?"
+msgstr "Enviar %d perfil(is) de filamento para a conta %s da Creality Cloud, vinculado(s) a %s?"
+
+msgid "Presets sent before are replaced by the current version."
+msgstr "Perfis enviados antes são substituídos pela versão atual."
+
+msgid "Sending %d preset(s)..."
+msgstr "Enviando %d perfil(is)..."
+
+msgid "created"
+msgstr "criado"
+
+msgid "updated"
+msgstr "atualizado"
+
+msgid "error:"
+msgstr "erro:"
+
+msgid "%d of %d sent."
+msgstr "%d de %d enviados."
+
+msgid "The login has expired: log in again and send the rest."
+msgstr "O login expirou: entre de novo e envie o restante."
+
+msgid "Upload your filament presets to your Creality Cloud account, so the printer bound to it lists them."
+msgstr "Envia seus perfis de filamento para a sua conta da Creality Cloud, para que a impressora vinculada a ela os liste."
+
+msgid "Upload your filament presets to your Creality Cloud account, so the printer bound to it lists them"
+msgstr "Envia seus perfis de filamento para a sua conta da Creality Cloud, para que a impressora vinculada a ela os liste"
+
+msgid "Log out of the Creality Cloud on this computer?"
+msgstr "Sair da Creality Cloud neste computador?"
+
+msgid "Creality Cloud accounts of mainland China live on a separate server (crealitycloud.cn). Changing it logs out."
+msgstr "Contas da Creality Cloud da China continental ficam em um servidor separado (crealitycloud.cn). Mudar a região encerra a sessão."
+
+msgid "Filament \"%1%\" sent to the Creality Cloud."
+msgstr "Filamento \"%1%\" enviado para a Creality Cloud."
+
+msgid "Filament \"%1%\" was not sent to the Creality Cloud: %2%"
+msgstr "Filamento \"%1%\" não foi enviado para a Creality Cloud: %2%"
+
+msgid "Creality Cloud account"
+msgstr "Conta Creality Cloud"
+
+msgid "Log in on Creality's own page to send your filament presets to your Creality Cloud account, like Creality Print does. A printer bound to the same account then lists them among its materials. The session is kept in the system's secure credential store; OrcaSlicer never sees your password."
+msgstr "Entre na própria página da Creality para enviar seus perfis de filamento para a sua conta da Creality Cloud, como o Creality Print faz. Uma impressora vinculada à mesma conta passa a listá-los entre os seus materiais. A sessão fica no cofre de credenciais seguro do sistema; o OrcaSlicer nunca vê sua senha."
+
+msgid "Send saved filament presets to the Creality Cloud"
+msgstr "Enviar à Creality Cloud os perfis de filamento salvos"
+
+msgid "When logged in to the Creality Cloud, every filament preset of your own you save is also uploaded to the account in the background (linked to the printer it was sent for before, else to the selected Creality printer)."
+msgstr "Com a Creality Cloud conectada, todo perfil de filamento próprio que você salvar também é enviado à conta em segundo plano (vinculado à impressora do envio anterior, senão à impressora Creality selecionada)."

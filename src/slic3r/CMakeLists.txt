@@ -113,6 +113,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/FlowCalibChain.hpp
     GUI/Zoukei/PrintMarkerTimeline.cpp
     GUI/Zoukei/PrintMarkerTimeline.hpp
+    GUI/Zoukei/CrealityCloud.cpp
+    GUI/Zoukei/CrealityCloud.hpp
+    GUI/Zoukei/CrealityCloudUi.cpp
+    GUI/Zoukei/CrealityCloudUi.hpp
     GUI/CrealityCfsUi.cpp
     GUI/CrealityCfsUi.hpp
     GUI/CrealityDevicePanel.cpp
@@ -359,6 +363,7 @@ set(SLIC3R_GUI_SOURCES
     GUI/RemoteAPI/RemoteAPILayers.cpp
     GUI/RemoteAPI/RemoteAPIDevices.cpp
     GUI/RemoteAPI/RemoteAPICalib.cpp
+    GUI/RemoteAPI/RemoteAPICrealityCloud.cpp
     GUI/I18N.cpp
     GUI/I18N.hpp
     GUI/DragDropPanel.cpp
@@ -894,6 +899,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/FlashforgePrinterAgent.hpp
     Utils/Spoolman.cpp
     Utils/Spoolman.hpp
+    Utils/CrealityCloudClient.cpp
+    Utils/CrealityCloudClient.hpp
     Utils/ZoukeiUpdate.cpp
     Utils/ZoukeiUpdate.hpp
     Utils/MoonrakerPrinterAgent.cpp

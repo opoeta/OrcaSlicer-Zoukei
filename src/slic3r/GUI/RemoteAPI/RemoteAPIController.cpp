@@ -2398,6 +2398,7 @@ Response Controller::dispatch(const Request &req)
             if (dispatch_layers(req, zr)) return zr;
             if (dispatch_devices(req, zr)) return zr;
             if (dispatch_calib(req, zr)) return zr;
+            if (dispatch_creality_cloud(req, zr)) return zr;
         }
         if (is("GET", "/api/v1/status"))        return handle_status();
         if (is("GET", "/api/v1/config"))        return handle_get_config(t);

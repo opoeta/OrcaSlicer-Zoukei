@@ -71,6 +71,7 @@
 #include "Widgets/RadioGroup.hpp"
 #include "Shortcuts.hpp"
 #include "SpoolmanUi.hpp"
+#include "Zoukei/CrealityCloudUi.hpp"
 #include "slic3r/Utils/Spoolman.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
@@ -1964,6 +1965,21 @@ void PreferencesDialog::create_items()
         _L("Address of your Spoolman server on the local network (for example 10.10.1.254:7912). It is only read, never changed. "
            "Left empty, it is taken from a connected Moonraker printer that has [spoolman] configured."));
     g_sizer->Add(item_spoolman);
+
+    // Orca Zoukei: Creality Cloud account, used to send filament presets to the printer bound to it (K2 / K2 Plus).
+    {
+        wxBoxSizer* item_crcloud = create_item_label(_L("Creality Cloud account"),
+            _L("Log in on Creality's own page to send your filament presets to your Creality Cloud account, like Creality Print does. "
+               "A printer bound to the same account then lists them among its materials. The session is kept in the system's secure "
+               "credential store; OrcaSlicer never sees your password."));
+        CrCloudUi::build_preferences_row(m_parent, item_crcloud);
+        g_sizer->Add(item_crcloud);
+    }
+    auto item_crcloud_sync = create_item_checkbox(_L("Send saved filament presets to the Creality Cloud"),
+        _L("When logged in to the Creality Cloud, every filament preset of your own you save is also uploaded to the account in the background "
+           "(linked to the printer it was sent for before, else to the selected Creality printer)."),
+        "creality_cloud_auto_sync");
+    g_sizer->Add(item_crcloud_sync);
 
     auto item_speed_dial = create_item_checkbox(_L("Open the Speed Dial from the keyboard"),
         _L("When enabled, the Speed Dial keyboard shortcut (Space by default) opens the action search from any page."),

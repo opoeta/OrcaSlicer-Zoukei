@@ -742,6 +742,9 @@ void AppConfig::set_defaults()
     // writes) stays OFF until the owner ticks it in Preferences > Remote API.
     if (get("remote_api_printer_control").empty())
         set_bool("remote_api_printer_control", false);
+    // Orca Zoukei: upload saved user filament presets to the Creality Cloud account (needs a login). Default OFF.
+    if (get("creality_cloud_auto_sync").empty())
+        set_bool("creality_cloud_auto_sync", false);
 
     if (get("use_printer_agents").empty())
     {

@@ -1,5 +1,6 @@
 //#include "slic3r/Utils/Serial.hpp"
 #include "Tab.hpp"
+#include "Zoukei/CrealityCloud.hpp"
 #include "RemoteAPI/RemoteAPIController.hpp"
 #include "PresetHints.hpp"
 #include "libslic3r/IMEXHelpers.hpp"
@@ -8229,6 +8230,9 @@ void Tab::save_preset(std::string name /*= ""*/, bool detach, bool save_to_proje
         BOOST_LOG_TRIVIAL(info) << "sync_preset: create preset = " << new_preset->name;
     }
     new_preset->save_info();
+    // Orca Zoukei: optional upload of a saved user filament preset to the Creality Cloud (off by default).
+    if (!save_to_project)
+        CrCloud::on_preset_saved(*new_preset);
 
     // Mark the print & filament enabled if they are compatible with the currently selected preset.
     // If saving the preset changes compatibility with other presets, keep the now incompatible dependent presets selected, however with a "red flag" icon showing that they are no more compatible.
