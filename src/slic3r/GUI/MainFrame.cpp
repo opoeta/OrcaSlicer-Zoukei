@@ -157,6 +157,8 @@
 #include "slic3r/GUI/Widgets/SideButton.hpp"
 #include "slic3r/plugin/host/PluginPages.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
+#include "slic3r/GUI/Zoukei/LayerSlayer.hpp"
+#include "slic3r/GUI/Zoukei/LayerSlayerDialog.hpp"
 #include <wx/defs.h>
 #include <cassert>
 #include <wx/display.h>
@@ -167,6 +169,28 @@ using json = nlohmann::json;
 
 namespace Slic3r {
 namespace GUI {
+
+// Orca Zoukei: the Layer Slayer calibrations (native port of the plugin): "All tests..." opens the dialog with the
+// list, every other item opens it on that test.
+static wxMenu *create_layer_slayer_menu(MainFrame *frame, Plater *plater)
+{
+    auto *menu = new wxMenu();
+    append_menu_item(menu, wxID_ANY, _L("All tests") + dots, _L("Layer Slayer calibrations"),
+        [plater](wxCommandEvent &) { open_layer_slayer_dialog(plater); }, "", nullptr,
+        [plater]() { return plater->is_view3D_shown(); }, frame);
+    for (const std::string &group : LayerSlayer::groups()) {
+        menu->AppendSeparator();
+        for (const LayerSlayer::Calib &c : LayerSlayer::all()) {
+            if (c.group != group)
+                continue;
+            const std::string id = c.id;
+            append_menu_item(menu, wxID_ANY, _(LayerSlayer::name(id)) + dots, _(LayerSlayer::description(id)),
+                [plater, id](wxCommandEvent &) { open_layer_slayer_dialog(plater, id); }, "", nullptr,
+                [plater]() { return plater->is_view3D_shown(); }, frame);
+        }
+    }
+    return menu;
+}
 
 wxDEFINE_EVENT(EVT_SELECT_TAB, wxCommandEvent);
 wxDEFINE_EVENT(EVT_HTTP_ERROR, wxCommandEvent);
@@ -3704,6 +3728,9 @@ void MainFrame::init_menubar_as_editor()
         [this]() {return m_plater->is_view3D_shown();; }, this);
     m_topbar->GetCalibMenu()->AppendSubMenu(input_shaping_menu, _L("Input Shaping"));
 
+    // Layer Slayer
+    m_topbar->GetCalibMenu()->AppendSubMenu(create_layer_slayer_menu(this, m_plater), _L("Layer Slayer"));
+
     // VFA
     append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("VFA"), _L("VFA"),
         [this](wxCommandEvent&) { run_calibration(CalibKind::VFA); }, "", nullptr,
@@ -3809,6 +3836,9 @@ void MainFrame::init_menubar_as_editor()
         "", nullptr,
         [this]() {return m_plater->is_view3D_shown();; }, this);
     calib_menu->AppendSubMenu(input_shaping_menu, _L("Input Shaping"));
+
+    // Layer Slayer
+    calib_menu->AppendSubMenu(create_layer_slayer_menu(this, m_plater), _L("Layer Slayer"));
 
     // VFA
     append_menu_item(calib_menu, wxID_ANY, _L("VFA"), _L("VFA"),

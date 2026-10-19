@@ -11,7 +11,9 @@
 //   POST /api/v1/calibrations/{kind}/start     {discard_changes?, <parameters of the kind>}
 //
 // kinds: temperature, max_volumetric_speed, pressure_advance, flow_rate, retraction, vfa, cornering,
-//        input_shaping_freq, input_shaping_damp
+//        input_shaping_freq, input_shaping_damp,
+//        ls_<test> for the 22 Layer Slayer tests (Calibration > Layer Slayer; ls_z_offset, ls_temp_tower, ...):
+//        their parameters are listed with their limits; lists take a JSON array (or "1, 2, 3").
 //
 // The calibration uses the presets that are selected now (printer, print, filament): choose the filament /
 // printer / plate first (PUT /preset, plates endpoints). A running project with unsaved changes is refused
@@ -30,6 +32,7 @@
 #include "slic3r/GUI/PartPlate.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Tab.hpp"
+#include "slic3r/GUI/Zoukei/LayerSlayer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -202,6 +205,43 @@ json catalog()
                        enum_param("shaper_type", shapers, shapers.empty() ? json("") : shapers[0], "Input shaper of the printer's firmware."),
                        enum_param("test_model", json::array({0, 1}), 0, "0 ringing tower, 1 fast tower.")})}});
 
+    for (const LayerSlayer::Calib &c : LayerSlayer::all()) {
+        json params = json::array();
+        for (const LayerSlayer::Param &prm : c.params) {
+            json j = {{"name", prm.key}, {"label", LayerSlayer::param_label(prm.key)}, {"unit", prm.unit}};
+            switch (prm.kind) {
+            case LayerSlayer::Kind::Select: {
+                json values = json::array();
+                for (const LayerSlayer::Option &o : prm.options)
+                    values.push_back(o.value);
+                j["type"]    = "enum";
+                j["values"]  = values;
+                j["default"] = prm.def_str;
+                break;
+            }
+            case LayerSlayer::Kind::Floats:
+                j["type"]    = "number list";
+                j["default"] = prm.def_list;
+                j["min"]     = prm.min;
+                j["max"]     = prm.max;
+                break;
+            default:
+                j["type"]    = prm.kind == LayerSlayer::Kind::Int ? "integer" : "number";
+                j["default"] = prm.def;
+                j["min"]     = prm.min;
+                j["max"]     = prm.max;
+                break;
+            }
+            params.push_back(j);
+        }
+        cal.push_back({{"kind", "ls_" + c.id},
+                       {"menu", std::string("Calibration > Layer Slayer > ") + LayerSlayer::name(c.id)},
+                       {"group", c.group},
+                       {"what", LayerSlayer::description(c.id)},
+                       {"how_to_read", LayerSlayer::how_to_read(c.id)},
+                       {"parameters", params}});
+    }
+
     const PresetBundle *bundle = wxGetApp().preset_bundle;
     return {{"calibrations", cal},
             {"context", {{"printer", bundle->printers.get_selected_preset_name()},
@@ -278,8 +318,103 @@ std::string resolve_shaper(const json &body)
 
 // ---- start -----------------------------------------------------------------------------------
 
+// Layer Slayer test (kind "ls_<id>"): validates with the dialog's rules, then builds the plate natively.
+json start_layer_slayer(const std::string &kind, const json &body)
+{
+    const std::string         id = kind.substr(3);
+    const LayerSlayer::Calib *c  = LayerSlayer::find(id);
+    if (c == nullptr)
+        zk::fail("unknown_calibration", "see GET /calibrations for the kinds");
+    Plater *p = wxGetApp().plater();
+    if (p->printer_technology() != ptFFF)
+        zk::fail("not_fff", "calibrations are for FFF printers");
+    if (p->is_background_process_slicing())
+        zk::fail("slicing", "wait for or cancel the running slice first");
+
+    LayerSlayer::Values values    = LayerSlayer::defaults(*c);
+    json                requested = json::object();
+    for (const LayerSlayer::Param &prm : c->params) {
+        if (body.contains(prm.key) && !body[prm.key].is_null()) {
+            const json &jv = body[prm.key];
+            std::string raw;
+            if (jv.is_string())
+                raw = jv.get<std::string>();
+            else if (jv.is_boolean())
+                raw = jv.get<bool>() ? "1" : "0";
+            else if (jv.is_array()) {
+                for (const json &x : jv)
+                    raw += (raw.empty() ? "" : ",") + (x.is_string() ? x.get<std::string>() : x.dump());
+            } else
+                raw = jv.dump(); // numbers in the classic format
+            const std::string err = LayerSlayer::parse(prm, raw, values);
+            if (!err.empty())
+                zk::fail("bad_value", "'" + prm.key + "': " + err);
+        }
+        if (prm.kind == LayerSlayer::Kind::Select)
+            requested[prm.key] = values.s(prm.key);
+        else if (prm.kind == LayerSlayer::Kind::Floats)
+            requested[prm.key] = values.l(prm.key);
+        else
+            requested[prm.key] = values.n(prm.key);
+    }
+    // the plate is built before the project is touched, so bad values leave it alone
+    try {
+        LayerSlayer::build(*c, values, LayerSlayer::read_env(p));
+    } catch (const std::exception &ex) {
+        zk::fail("bad_value", ex.what());
+    }
+
+    if (project_dirty(p)) {
+        if (!zk::opt_bool(body, "discard_changes", false))
+            zk::fail("unsaved_changes", "the project has unsaved changes; save it first or pass discard_changes:true");
+        p->new_project(true, false);
+        if (project_dirty(p))
+            zk::fail("unsaved_changes", "modified presets are still pending; save or discard them in the window first");
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "RemoteAPI calibration start: " << kind;
+    std::string        err;
+    LayerSlayer::Plate plate;
+    if (!LayerSlayer::run(p, id, values, true, err, &plate))
+        zk::fail("calibration_failed", err.empty() ? std::string("the plate was not created") : err);
+
+    const Model &model = p->model();
+    json objs = json::array();
+    for (size_t i = 0; i < model.objects.size(); ++i) {
+        const ModelObject  *mo = model.objects[i];
+        const BoundingBoxf3 bb = mo->bounding_box_exact();
+        json cfg = json::array();
+        for (const std::string &k : mo->config.keys())
+            cfg.push_back(k);
+        objs.push_back({{"id", (uint64_t) mo->id().id}, {"index", i}, {"name", mo->name},
+                        {"size_mm", {bb.size().x(), bb.size().y(), bb.size().z()}}, {"object_settings", cfg},
+                        {"height_ranges", mo->layer_config_ranges.size()}});
+    }
+    json legend = json::array();
+    for (const LayerSlayer::LegendRow &r : plate.legend())
+        legend.push_back({{"piece", r.name}, {"changes", r.text}});
+    PresetBundle *bundle = wxGetApp().preset_bundle;
+    json result = {{"started", kind},
+                   {"requested", requested},
+                   {"objects", objs},
+                   {"layer_gcodes", plate.gcodes.size()},
+                   {"print_by_object", plate.by_object},
+                   {"legend", legend},
+                   {"how_to_read", LayerSlayer::how_to_read(id)},
+                   {"modified_presets", {{"print", bundle->prints.current_dirty_options(true)},
+                                         {"filament", bundle->filaments.current_dirty_options(true)},
+                                         {"printer", bundle->printers.current_dirty_options(true)}}},
+                   {"next", "POST /slice (or slice_and_wait), then print from the window"}};
+    if (!plate.warnings.empty())
+        result["warnings"] = plate.warnings;
+    zk::notify("Calibration project created: " + kind);
+    return result;
+}
+
 json start_calibration(const std::string &kind, const json &body)
 {
+    if (kind.rfind("ls_", 0) == 0)
+        return start_layer_slayer(kind, body);
     static const std::vector<std::string> kinds = {"temperature", "max_volumetric_speed", "pressure_advance", "flow_rate", "retraction",
                                                    "vfa", "cornering", "input_shaping_freq", "input_shaping_damp"};
     if (std::find(kinds.begin(), kinds.end(), kind) == kinds.end())

@@ -7,6 +7,7 @@
 	"family": "Flashforge",
 	"bed_model": "flashforge_adventurer5m_series_buildplate_model.STL",
 	"bed_texture": "flashforge_ad5x_buildplate_texture.svg",
+	"bed_texture_per_type": "Cool Plate=flashforge_ad5x_bed_cool.svg;Engineering Plate=flashforge_ad5x_bed_engineering.svg;High Temp Plate=flashforge_ad5x_bed_smooth_pei.svg;Textured PEI Plate=flashforge_ad5x_bed_textured_pei.svg;Textured Cool Plate=flashforge_ad5x_bed_holographic.svg;Supertack Plate=flashforge_ad5x_bed_cool.svg",
 	"hotend_model": "flashforge_adventurer_5m_series_hotend.STL",
 	"url": "",
 	"default_materials": "Generic ABS @Flashforge;Generic PETG @Flashforge;Generic PLA @Flashforge;Generic PLA @FF AD5M 0.25 Nozzle"

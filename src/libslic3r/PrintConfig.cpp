@@ -1151,6 +1151,15 @@ void PrintConfigDef::init_common_params()
     def->gui_type = ConfigOptionDef::GUIType::one_string;
     def->set_default_value(new ConfigOptionString());
 
+    def = this->add("bed_texture_per_type", coString);
+    def->label = L("Bed texture per plate type");
+    def->tooltip = L("Optional. Bed texture shown for each plate type, as \"Plate type=file;Plate type=file\", for example "
+                     "\"Textured PEI Plate=textured_pei.svg;Cool Plate=smooth_pei.svg\". Files are looked up in the vendor profile folder. "
+                     "File names containing \"holo\" get the holographic effect. Plate types without an entry keep the default bed texture.");
+    def->mode = comAdvanced;
+    def->gui_type = ConfigOptionDef::GUIType::one_string;
+    def->set_default_value(new ConfigOptionString());
+
     def = this->add("bed_custom_model", coString);
     def->label = L("Bed custom model");
     def->mode = comAdvanced;

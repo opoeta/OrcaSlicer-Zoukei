@@ -1121,6 +1121,14 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                 }
             }
         }
+        else if (param == "bed_holographic_effect") {
+            if (Plater* plater = wxGetApp().plater()) {
+                if (GLCanvas3D* canvas = plater->get_view3D_canvas3D()) {
+                    canvas->set_as_dirty();
+                    canvas->request_extra_frame();
+                }
+            }
+        }
         else if (param == "zoukei_print_markers") {
             Zoukei::PrintMarkerTimeline::refresh_all();
         }
@@ -2137,6 +2145,13 @@ void PreferencesDialog::create_items()
         SETTING_OPENGL_PHONG_SMOOTH_NORMALS
     );
     g_sizer->Add(smooth_normals);
+
+    auto item_bed_holo = create_item_checkbox(
+        _L("Holographic bed effect"),
+        _L("Adds a subtle iridescent shimmer to the 3D bed when the selected plate type has a holographic texture. The colors shift with the viewing angle. Disable it to show the plain texture."),
+        "bed_holographic_effect"
+    );
+    g_sizer->Add(item_bed_holo);
 
     //// GRAPHICS > Realistic view
     g_sizer->Add(create_item_title(_L("Realistic View")), 1, wxEXPAND);

@@ -500,6 +500,9 @@ void AppConfig::set_defaults()
         set_bool("zoukei_update_check", true);
     if (get("zoukei_update_beta").empty())
         set_bool("zoukei_update_beta", false);
+    // Orca Zoukei: iridescent shader on the 3D bed for holographic plate types (Preferences > Graphics).
+    if (get("bed_holographic_effect").empty())
+        set_bool("bed_holographic_effect", true);
     // Orca Zoukei: markers for pauses / colour changes on the print progress bars and the slice summary.
     if (get("zoukei_print_markers").empty())
         set_bool("zoukei_print_markers", true);

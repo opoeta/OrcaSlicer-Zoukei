@@ -40015,3 +40015,416 @@ msgstr "(nao impresso)"
 
 msgid "A sticker on a bottom face needs recipes with a Bottom zone."
 msgstr "Um adesivo numa face inferior precisa de receitas com zona Base."
+
+msgid "Holographic bed effect"
+msgstr "Efeito holográfico da mesa"
+
+msgid ""
+"Adds a subtle iridescent shimmer to the 3D bed when the selected plate type "
+"has a holographic texture. The colors shift with the viewing angle. Disable "
+"it to show the plain texture."
+msgstr ""
+"Adiciona um brilho iridescente sutil à mesa 3D quando o tipo de placa "
+"selecionado tem textura holográfica. As cores mudam com o ângulo de "
+"visão. Desative para mostrar a textura simples."
+
+msgid "Bed texture per plate type"
+msgstr "Textura da mesa por tipo de placa"
+
+msgid ""
+"Optional. Bed texture shown for each plate type, as \"Plate type=file;Plate "
+"type=file\", for example \"Textured PEI Plate=textured_pei.svg;Cool "
+"Plate=smooth_pei.svg\". Files are looked up in the vendor profile folder. "
+"File names containing \"holo\" get the holographic effect. Plate types "
+"without an entry keep the default bed texture."
+msgstr ""
+"Opcional. Textura da mesa mostrada para cada tipo de placa, no formato "
+"\"Tipo de placa=arquivo;Tipo de placa=arquivo\", por exemplo \"Textured PEI "
+"Plate=textured_pei.svg;Cool Plate=smooth_pei.svg\". Os arquivos são "
+"procurados na pasta do perfil do fabricante. Nomes de arquivo com \"holo\" "
+"recebem o efeito holográfico. Tipos de placa sem entrada mantêm a "
+"textura padrão da mesa."
+
+msgid "First layer flow"
+msgstr "Fluxo da 1ª camada"
+
+msgid "One-layer pads, each printed with a different first layer flow ratio."
+msgstr "Amostras de uma camada, cada uma com um fluxo diferente na primeira camada."
+
+msgid "Let the plate cool, look at the TOP of the pads without peeling them. Too little flow leaves gaps between lines; too much makes ridges, a rough surface and a raised edge. Pick the pad that is smooth and closed, with no gaps and no ridges. Set its number as the first layer flow ratio (initial_layer_flow_ratio) in the process settings."
+msgstr "Deixe a mesa esfriar e olhe o TOPO das amostras sem descolar. Pouco fluxo deixa vãos entre as linhas; muito fluxo faz ondas, superfície áspera e borda levantada. Escolha a amostra lisa e fechada, sem vãos nem ondas. Use o número dela como fluxo da primeira camada (initial_layer_flow_ratio) nos ajustes de processo."
+
+msgid "Z offset ladder"
+msgstr "Escada de Z offset"
+
+msgid "Pads printed with the nozzle a little closer or farther from the bed, with the same plastic."
+msgstr "Amostras impressas com o bico um pouco mais perto ou mais longe da mesa, com o mesmo plástico."
+
+msgid "Look at the top of each pad. Too close (negative) squashes the lines into ridges and a rough, glossy-streaked top; too far (positive) leaves round lines with gaps. The best pad is smooth, closed and slightly shiny with no ridges. Add its value to your Z offset: on Bambu printers use the calibration screen or the G29.1 Z line of the machine start G-code; on others the Z offset of your firmware or printer profile."
+msgstr "Olhe o topo de cada amostra. Perto demais (negativo) esmaga as linhas em ondas e deixa o topo áspero e com listras brilhantes; longe demais (positivo) deixa linhas redondas com vãos. A melhor é lisa, fechada e levemente brilhante, sem ondas. Some o valor dela ao seu Z offset: nas Bambu use a tela de calibração ou a linha G29.1 Z do G-code inicial da máquina; nas outras, o Z offset do firmware ou do perfil."
+
+msgid "Bridge flow"
+msgstr "Fluxo de ponte"
+
+msgid "Arches bridging a gap, each with a different bridge flow ratio."
+msgstr "Arcos que atravessam um vão, cada um com um fluxo de ponte diferente."
+
+msgid "Look at the underside of each bridge (lift the print and look from below). Too little flow leaves gaps and broken lines; too much makes thick, drooping lines. Pick the smoothest, tightest underside and set its value as the bridge flow (bridge_flow)."
+msgstr "Olhe a parte de baixo de cada ponte (levante a peça e olhe por baixo). Pouco fluxo deixa vãos e linhas partidas; muito fluxo faz linhas grossas que caem. Escolha a parte de baixo mais lisa e fechada e use o valor como fluxo de ponte (bridge_flow)."
+
+msgid "Overhang angle"
+msgstr "Ângulo de overhang"
+
+msgid "Walls leaning out at growing angles, printed without supports."
+msgstr "Paredes inclinadas para fora em ângulos crescentes, impressas sem suportes."
+
+msgid "Look at the underside (the face leaning over the plate). Find the steepest wall that is still tight and clean; the next one sags or curls. Subtract that angle from 90 and use the result as the support threshold angle (support_threshold_angle): a limit of 60 gives 30."
+msgstr "Olhe a parte de baixo (a face inclinada sobre a mesa). Ache a parede mais inclinada que ainda fica firme e limpa; a seguinte cai ou enrola. Subtraia esse ângulo de 90 e use o resultado como ângulo limite do suporte (support_threshold_angle): limite de 60 dá 30."
+
+msgid "Support Z distance"
+msgstr "Distância Z do suporte"
+
+msgid "Bridges with supports under them, each with a different top Z distance."
+msgstr "Pontes com suporte embaixo, cada uma com uma distância Z de topo diferente."
+
+msgid "Break the supports off each piece. Too small a distance welds the support to the bridge; too large leaves a rough, sagging underside. Pick the smallest distance that lets the support come off cleanly and set it as the support top Z distance (support_top_z_distance). Prefer multiples of your layer height."
+msgstr "Quebre os suportes de cada peça. Distância pequena demais solda o suporte na ponte; grande demais deixa a parte de baixo áspera e caída. Escolha a menor distância em que o suporte sai limpo e use como distância Z de topo do suporte (support_top_z_distance). Prefira múltiplos da altura de camada."
+
+msgid "Ironing matrix"
+msgstr "Matriz de ironing"
+
+msgid "Round patches ironed with every combination of speed and flow."
+msgstr "Círculos passados a ferro com todas as combinações de velocidade e fluxo."
+
+msgid "Look at the patches under a raking light and run a finger over them. Rough ridges mean too much flow; gaps or lines mean too little flow or too much speed. Pick the smoothest patch: its column is the speed, its row the flow. Use them as ironing_speed and ironing_flow."
+msgstr "Olhe os círculos com luz rasante e passe o dedo. Ondas ásperas indicam fluxo demais; vãos ou linhas indicam pouco fluxo ou velocidade demais. Escolha o mais liso: a coluna é a velocidade e a linha é o fluxo. Use como ironing_speed e ironing_flow."
+
+msgid "Infill patterns"
+msgstr "Padrões de preenchimento"
+
+msgid "One block per infill pattern with the top layers removed, so the pattern shows."
+msgstr "Um bloco por padrão de preenchimento, sem as camadas de topo, para o padrão aparecer."
+
+msgid "A reference sheet: compare density, strength-looking geometry and how each pattern prints on your machine, then choose the pattern for the sparse infill setting (sparse_infill_pattern). Nothing to measure."
+msgstr "Folha de referência: compare densidade, geometria e como cada padrão sai na sua máquina, e escolha o padrão do preenchimento esparso (sparse_infill_pattern). Não há nada para medir."
+
+msgid "Infill density"
+msgstr "Densidade do preenchimento"
+
+msgid "The same pattern at several densities, tops removed."
+msgstr "O mesmo padrão em várias densidades, sem o topo."
+
+msgid "A reference sheet: see what each percentage really looks like, and pick the one you need for the sparse infill density (sparse_infill_density)."
+msgstr "Folha de referência: veja como cada porcentagem realmente fica e escolha a que precisa para a densidade do preenchimento esparso (sparse_infill_density)."
+
+msgid "Top surface patterns"
+msgstr "Padrões da superfície superior"
+
+msgid "One block per top surface pattern."
+msgstr "Um bloco por padrão de superfície superior."
+
+msgid "Look at the finished top of each block in angled light and pick the one that looks best on your printer. Set it as the top surface pattern (top_surface_pattern)."
+msgstr "Olhe o topo pronto de cada bloco com luz inclinada e escolha o que fica melhor na sua impressora. Use como padrão da superfície superior (top_surface_pattern)."
+
+msgid "Bands printed at falling temperatures, each with a bridge, an overhang and two thin posts."
+msgstr "Faixas impressas em temperaturas decrescentes, cada uma com ponte, overhang e dois pinos finos."
+
+msgid "Compare the bands: the underside of the bridge, the 45 deg overhang, the strings between the two posts, how well the layers bond (try to snap a band) and the surface. Pick the band with clean bridges and no strings that is still strong, and set its temperature as the filament's nozzle temperature."
+msgstr "Compare as faixas: a parte de baixo da ponte, o overhang de 45°, os fios entre os dois pinos, a adesão entre camadas (tente quebrar uma faixa) e a superfície. Escolha a faixa com pontes limpas e sem fios que ainda esteja forte e use a temperatura dela como temperatura do bico do filamento."
+
+msgid "A tower whose pressure advance rises with height, to find where the corners come out sharp."
+msgstr "Uma torre cujo pressure advance sobe com a altura, para achar onde os cantos saem nítidos."
+
+msgid "Look at the corners all the way up: too little K bulges them, too much rounds and thins them. Find the height where the corner is sharpest and most even. K there = first value + (last value - first value) x height / tower height; the labels on the face already give it. Set it as the pressure advance (Klipper: pressure_advance; Marlin and Bambu: K)."
+msgstr "Olhe os cantos do começo ao topo: K de menos estufa os cantos, K demais arredonda e afina. Ache a altura em que o canto fica mais nítido e uniforme. O K ali = primeiro valor + (último − primeiro) × altura ÷ altura da torre; os números na face já dão isso. Use como pressure advance (Klipper: pressure_advance; Marlin e Bambu: K)."
+
+msgid "Bands printed with different part cooling fan power; thin posts show the minimum layer time."
+msgstr "Faixas impressas com potências diferentes da ventoinha da peça; os pinos finos mostram o tempo mínimo de camada."
+
+msgid "Compare bridges, overhangs, the thin posts (small layers) and layer bonding band by band. Choose the lowest fan power that still keeps bridges and overhangs clean, and use it as the fan speed."
+msgstr "Compare pontes, overhangs, os pinos finos (camadas pequenas) e a adesão entre camadas, faixa por faixa. Escolha a menor potência que ainda mantém pontes e overhangs limpos e use como velocidade da ventoinha."
+
+msgid "VFA (vertical ripples)"
+msgstr "VFA (ondulações verticais)"
+
+msgid "A column whose walls print at a faster speed band by band, to find the speeds that ripple."
+msgstr "Uma coluna cujas paredes imprimem mais rápido a cada faixa, para achar as velocidades que ondulam."
+
+msgid "Look and feel along each band for vertical ripples. Avoid the speeds where they are strongest and use one on a smooth band as the wall speed."
+msgstr "Olhe e passe o dedo em cada faixa procurando ondulações verticais. Evite as velocidades onde elas são mais fortes e use a de uma faixa lisa como velocidade de parede."
+
+msgid "Maximum volumetric speed"
+msgstr "Velocidade volumétrica máxima"
+
+msgid "A tower whose flow rises with height until the nozzle cannot keep up."
+msgstr "Uma torre cujo fluxo sobe com a altura até o bico não acompanhar."
+
+msgid "Find the height where the wall turns thin, rough or skips. The flow just below it (the labels) is the limit; take about 10 % off for safety and set it as the filament's max volumetric speed."
+msgstr "Ache a altura em que a parede fica fina, áspera ou falha. O fluxo logo abaixo (os números na face) é o limite; tire uns 10 % de folga e use como velocidade volumétrica máxima do filamento."
+
+msgid "Pairs of posts printed with a longer retraction each, to find the one that leaves no strings."
+msgstr "Pares de pinos impressos cada um com uma retração maior, para achar a que não deixa fios."
+
+msgid "Look for strings between the two posts of each piece. Pick the shortest retraction that leaves none and set it as the retraction length."
+msgstr "Procure fios entre os dois pinos de cada peça. Escolha a menor retração que não deixa nenhum e use como comprimento de retração."
+
+msgid "Thin pads with a small flow change each: coarse, fine or YOLO pass, with the top pattern that shows flow best."
+msgstr "Amostras finas com uma pequena mudança de fluxo cada: passada grossa, fina ou YOLO, com o padrão de topo que mais mostra o fluxo."
+
+msgid "Look at the top of each pad in raking light, and run a finger over it: gaps between the lines mean too little flow, ridges and roughness too much. Pick the smoothest, closest pad. Its number is the change to apply, and the legend shows the new flow ratio already worked out from your filament's current one (new = current x (1 + number / 100)). Coarse first, then fine around the winner with the new flow; YOLO does a single fine pass when the flow is already close."
+msgstr "Olhe o topo de cada amostra com luz rasante e passe o dedo: vãos entre as linhas indicam pouco fluxo, ondas e aspereza indicam muito. Escolha a mais lisa e fechada. O número dela é a mudança a aplicar, e a legenda já mostra o novo fluxo calculado a partir do fluxo atual do seu filamento (novo = atual × (1 + número ÷ 100)). Grossa primeiro, depois fina em volta da vencedora com o fluxo novo; a YOLO faz uma única passada fina quando o fluxo já está perto."
+
+msgid "Dimensional accuracy"
+msgstr "Precisão dimensional"
+
+msgid "Blocks with a hole and different contour, hole and elephant foot compensations, to measure with calipers."
+msgstr "Blocos com furo e compensações diferentes de contorno, furo e pé de elefante, para medir com paquímetro."
+
+msgid "Measure each block: the outside width (target = cell size), the hole diameter (target = the hole diameter) and, on the EF blocks, the flare at the bottom edge. Pick the contour compensation that gives the exact width and the hole compensation that gives the exact hole; for the elephant foot, the smallest value that removes the flare. Set xy_contour_compensation, xy_hole_compensation and elefant_foot_compensation."
+msgstr "Meça cada bloco: a largura externa (alvo = tamanho da célula), o diâmetro do furo (alvo = diâmetro do furo) e, nos blocos EF, o alargamento na base. Escolha a compensação de contorno que dá a largura exata e a de furo que dá o furo exato; no pé de elefante, o menor valor que tira o alargamento. Use xy_contour_compensation, xy_hole_compensation e elefant_foot_compensation."
+
+msgid "Tolerance and fit"
+msgstr "Tolerância e encaixe"
+
+msgid "Square and round pegs for holes, with a growing clearance."
+msgstr "Pinos quadrados e redondos para furos, com folga crescente."
+
+msgid "Try each peg in its hole. Pick the smallest clearance that goes in by hand with no force and no play, and use it as the gap in parts that fit together. Run the dimensional test first so the sizes are right."
+msgstr "Experimente cada pino no seu furo. Escolha a menor folga em que entra à mão, sem força e sem jogo, e use como folga nas peças que se encaixam. Faça o teste dimensional antes, para os tamanhos estarem certos."
+
+msgid "Seam and line width"
+msgstr "Seam e largura de linha"
+
+msgid "Cylinders with each seam position, and thin walls with different line widths."
+msgstr "Cilindros com cada posição de seam e paredes finas com larguras de linha diferentes."
+
+msgid "Seams: look at how visible the seam is for each position and pick the one you like (aligned and back hide it best). Line width: measure the wall of each tube at its top edge; pick the width that gives a solid wall without gaps and set it as the outer wall line width."
+msgstr "Seams: veja o quanto a emenda aparece em cada posição e escolha a que preferir (aligned e back escondem melhor). Largura de linha: meça a parede de cada tubo na borda de cima; escolha a largura que dá parede sólida sem vãos e use como largura de linha da parede externa."
+
+msgid "Wall speed and ringing"
+msgstr "Velocidade da parede e ringing"
+
+msgid "Walls with sharp corners printed at each speed and acceleration."
+msgstr "Paredes com cantos vivos impressas em cada velocidade e aceleração."
+
+msgid "Look at the corners for ghosting: ripples that echo after a sharp corner. Pick the fastest speed and acceleration whose ghosting you accept and set them as the outer wall speed and acceleration. Do input shaping first."
+msgstr "Olhe os cantos procurando ghosting: ondulações que repetem depois de um canto vivo. Escolha a velocidade e a aceleração mais altas cujo ghosting você aceita e use como velocidade e aceleração da parede externa. Faça o input shaping antes."
+
+msgid "First layer temperature and speed"
+msgstr "Temperatura e velocidade da 1ª camada"
+
+msgid "Pads whose first layer prints at each temperature and speed."
+msgstr "Amostras cuja primeira camada imprime em cada temperatura e velocidade."
+
+msgid "Look at the top and, after peeling, the bottom of each pad. Pick the smooth, fully bonded one that releases easily and set its temperature and speed as the first layer's."
+msgstr "Olhe o topo e, depois de descolar, a base de cada amostra. Escolha a lisa, bem colada e que solta fácil e use a temperatura e a velocidade dela na primeira camada."
+
+msgid "Colour change (purge)"
+msgstr "Troca de cores (purga)"
+
+msgid "One flat strip per colour change, printed one after another, to see how much of the old colour is left in the new one."
+msgstr "Uma tira plana por troca de cor, impressas uma depois da outra, para ver quanto da cor antiga sobra na nova."
+
+msgid "Strips: each strip is the NEW colour of one change (the label says from>to). Look at its beginning: old colour streaks mean the purge is too short, and the ticks every 10 mm (long ones every 50) tell you for how many millimetres it lasts. Raise the flush volume of that pair (or the flush multiplier) until the first millimetres come out clean; if every strip is clean from the start, you can lower it and waste less. Use strongly contrasting filaments, such as white and a dark colour. Tower: the same changes as bands of one tower, printed by layer. Manual: the printer pauses at each band; swap the filament and resume."
+msgstr "Tiras: cada tira é a cor NOVA de uma troca (o rótulo diz de>para). Olhe o começo dela: riscos da cor antiga indicam purga curta, e as marcas a cada 10 mm (as longas a cada 50) mostram por quantos milímetros ela dura. Aumente o volume de flush daquele par (ou o flush multiplier) até os primeiros milímetros saírem limpos; se todas as tiras saem limpas desde o início, dá para diminuir e desperdiçar menos. Use filamentos de forte contraste, como branco e uma cor escura. Torre: as mesmas trocas como faixas de uma torre, impressa por camada. Manual: a impressora pausa a cada faixa, troque o filamento e continue."
+
+msgid "First value"
+msgstr "Primeiro valor"
+
+msgid "Number of pads"
+msgstr "Quantidade de amostras"
+
+msgid "Bridge length"
+msgstr "Comprimento da ponte"
+
+msgid "Wall length"
+msgstr "Comprimento da parede"
+
+msgid "Angles"
+msgstr "Ângulos"
+
+msgid "Speeds (mm/s)"
+msgstr "Velocidades (mm/s)"
+
+msgid "Flows (%)"
+msgstr "Fluxos (%)"
+
+msgid "Densities (%)"
+msgstr "Densidades (%)"
+
+msgid "Infill pattern"
+msgstr "Padrão de preenchimento"
+
+msgid "Cell size"
+msgstr "Tamanho da célula"
+
+msgid "Pad height (0 = first layer)"
+msgstr "Altura da amostra (0 = 1ª camada)"
+
+msgid "Last value"
+msgstr "Último valor"
+
+msgid "Speed (0 = the profile's)"
+msgstr "Velocidade (0 = a do perfil)"
+
+msgid "Pass"
+msgstr "Passada"
+
+msgid "Number of filaments"
+msgstr "Número de filamentos"
+
+msgid "Band height"
+msgstr "Altura de cada faixa"
+
+msgid "Fan power per band (%)"
+msgstr "Ventoinha por faixa (%)"
+
+msgid "Line widths (% of the nozzle)"
+msgstr "Larguras de linha (% do bico)"
+
+msgid "Accelerations (mm/s2)"
+msgstr "Acelerações (mm/s²)"
+
+msgid "Contour compensation (mm)"
+msgstr "Compensação de contorno (mm)"
+
+msgid "Hole compensation (mm)"
+msgstr "Compensação de furo (mm)"
+
+msgid "Elephant foot compensation (mm)"
+msgstr "Compensação de pé de elefante (mm)"
+
+msgid "Hole diameter"
+msgstr "Diâmetro do furo"
+
+msgid "Temperatures (C)"
+msgstr "Temperaturas (°C)"
+
+msgid "Coarse (-12 ... +12 %)"
+msgstr "Grossa (−12 … +12 %)"
+
+msgid "Fine (-3 ... +3 %)"
+msgstr "Fina (−3 … +3 %)"
+
+msgid "Custom (the values below)"
+msgstr "Personalizada (os valores abaixo)"
+
+msgid "One extruder (pause and swap)"
+msgstr "Um extrusor (pausa e troca)"
+
+msgid "Foundation"
+msgstr "Base"
+
+msgid "Finish and references"
+msgstr "Acabamento e referências"
+
+msgid "Pad thickness (0 = 8 layers)"
+msgstr "Espessura da amostra (0 = 8 camadas)"
+
+msgid "YOLO (one fine pass, -2.5 ... +2.5 %)"
+msgstr "YOLO (uma passada fina, −2,5 … +2,5 %)"
+
+msgid "Archimedean chords (shows flow best)"
+msgstr "Cordas arquimedianas (mostra melhor o fluxo)"
+
+msgid "Strip length"
+msgstr "Comprimento da tira"
+
+msgid "Strip width"
+msgstr "Largura da tira"
+
+msgid "Strips, one per colour change (like Creality's test)"
+msgstr "Tiras, uma por troca de cor (como o teste da Creality)"
+
+msgid "Tower of colour bands"
+msgstr "Torre de faixas de cor"
+
+msgid "The plate needs %1% x %2% mm and the bed is %3% x %4% mm: use fewer or smaller pieces."
+msgstr "A placa precisa de %1% x %2% mm e a mesa tem %3% x %4% mm: use menos peças ou peças menores."
+
+msgid "The lowest pad (%1% mm) would put the nozzle closer than %2% mm to the bed on a %3% mm layer."
+msgstr "A amostra mais baixa (%1% mm) deixaria o bico a menos de %2% mm da mesa numa camada de %3% mm."
+
+msgid "The bands are too low: raise the band height."
+msgstr "As faixas estão baixas demais: aumente a altura de cada faixa."
+
+msgid "The filament's max volumetric speed (%1% mm3/s) limits the walls to about %2% mm/s: the faster bands print at that speed."
+msgstr "A velocidade volumétrica máxima do filamento (%1% mm3/s) limita as paredes a cerca de %2% mm/s: as faixas mais rápidas saem nessa velocidade."
+
+msgid "The last value must be greater than the first one."
+msgstr "O último valor precisa ser maior que o primeiro."
+
+msgid "The hole must be at least 2 mm narrower than the block."
+msgstr "O furo precisa ser pelo menos 2 mm mais estreito que o bloco."
+
+msgid "The clearance leaves no peg: lower it or make the pegs bigger."
+msgstr "A folga não deixa pino: diminua a folga ou aumente os pinos."
+
+msgid "This test needs %1% filaments in the project and there are %2%: add filaments first, or use the one-extruder mode."
+msgstr "Este teste precisa de %1% filamentos no projeto e há %2%: adicione filamentos antes, ou use o modo de um extrusor."
+
+msgid "Nothing to print with these values."
+msgstr "Nada para imprimir com esses valores."
+
+msgid "%1% = %2% is out of range (%3% to %4%)."
+msgstr "%1% = %2% está fora do intervalo (%3% a %4%)."
+
+msgid "%1%: \"%2%\" is not a valid value."
+msgstr "%1%: \"%2%\" não é um valor válido."
+
+msgid "Layer Slayer calibrations"
+msgstr "Calibrações Layer Slayer"
+
+msgid "Plate and what each piece changes"
+msgstr "Placa e o que cada peça muda"
+
+msgid "How to read it"
+msgstr "Como ler o resultado"
+
+msgid "Parameters"
+msgstr "Parâmetros"
+
+msgid "Defaults"
+msgstr "Padrões"
+
+msgid "Create plate"
+msgstr "Criar placa"
+
+msgid "separate with commas"
+msgstr "separe por vírgulas"
+
+msgid "Printer: %s - layer %s mm - first layer %s mm"
+msgstr "Impressora: %s - camada %s mm - primeira camada %s mm"
+
+msgid "Layer Slayer: %1% is on the plate. Slice and print it with your profiles, then read it as the dialog explains."
+msgstr "Layer Slayer: %1% está na placa. Fatie e imprima com os seus perfis e depois leia o resultado como o diálogo explica."
+
+msgid "All tests"
+msgstr "Todos os testes"
+
+msgid "Tri-hex"
+msgstr "Tri-hexágono"
+
+msgid "3D honey"
+msgstr "Colmeia 3D"
+
+msgid "Hilbert"
+msgstr "Hilbert"
+
+msgid "Archimed"
+msgstr "Arquimediano"
+
+msgid "Octagram"
+msgstr "Octagrama"
+
+msgid "Crosshatch"
+msgstr "Hachura cruzada"
+
+msgid "Cross zag"
+msgstr "Zigue-zague cruzado"
+
+msgid "Lattice"
+msgstr "Treliça"
+
+msgid "Mono line"
+msgstr "Linha monotônica"

@@ -5,6 +5,7 @@
     "url": "http://www.bambulab.com/Parameters/printer_model/Bambu Lab X1.json",
     "bed_model": "bbl-3dp-X1.stl",
     "bed_texture": "bbl-3dp-logo.svg",
+    "bed_texture_per_type": "Cool Plate=bbl_a1_bed_cool.svg;Engineering Plate=bbl_a1_bed_engineering.svg;High Temp Plate=bbl_a1_bed_smooth_pei.svg;Textured PEI Plate=bbl_a1_bed_textured_pei.svg;Textured Cool Plate=bbl_a1_bed_holographic.svg;Supertack Plate=bbl_a1_bed_cool.svg",
     "default_bed_type": "Textured PEI Plate",
     "support_side_panel_fan": "false",
     "family": "BBL-3DP",

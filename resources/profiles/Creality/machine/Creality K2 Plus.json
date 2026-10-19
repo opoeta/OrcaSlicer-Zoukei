@@ -7,6 +7,7 @@
 	"family": "Creality",
 	"bed_model": "creality_k2plus_buildplate_model.stl",
 	"bed_texture": "creality_k2plus_buildplate_texture.svg",
+	"bed_texture_per_type": "Cool Plate=creality_k2plus_bed_cool.svg;Engineering Plate=creality_k2plus_bed_engineering.svg;High Temp Plate=creality_k2plus_bed_smooth_pei.svg;Textured PEI Plate=creality_k2plus_bed_textured_pei.svg;Textured Cool Plate=creality_k2plus_bed_holographic.svg;Supertack Plate=creality_k2plus_bed_cool.svg",
 	"hotend_model": "",
 	"default_bed_type": "Textured PEI Plate",
 	"default_materials": "Generic ABS @Creality K2-all;Generic ABS @K2 Plus-all;Generic ASA @Creality K2-all;Generic ASA @K2 Plus-all;Generic PETG @Creality K2-all;Generic PETG @K2 Plus-all;Generic PLA @Creality K2-all;Generic PLA @K2 Plus-all;Generic PLA High Speed @Creality K2-all;Generic PLA Matte @Creality K2-all;Generic PLA Silk @Creality K2-all"

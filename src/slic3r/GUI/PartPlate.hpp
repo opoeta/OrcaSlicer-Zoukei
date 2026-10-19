@@ -233,7 +233,7 @@ private:
     // void calc_vertex_for_icons_background(int icon_count, GLModel &buffer);
     void render_background(bool force_default_color = false);
     void render_logo(bool bottom, bool render_cali = true);
-    void render_logo_texture(GLTexture &logo_texture, GLModel &logo_buffer, bool bottom);
+    void render_logo_texture(GLTexture &logo_texture, GLModel &logo_buffer, bool bottom, bool holographic = false);
     void render_exclude_area(bool force_default_color);
     //void render_background_for_picking(const ColorRGBA render_color) const;
     void render_grid(bool bottom);

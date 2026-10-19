@@ -89,8 +89,14 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/GLGizmoSupportZones.hpp
     GUI/Zoukei/GLGizmoColorStitchPainter.cpp
     GUI/Zoukei/GLGizmoColorStitchPainter.hpp
+    GUI/Zoukei/BedTextures.cpp
+    GUI/Zoukei/BedTextures.hpp
     GUI/Zoukei/PrintMarkers.cpp
     GUI/Zoukei/PrintMarkers.hpp
+    GUI/Zoukei/LayerSlayer.cpp
+    GUI/Zoukei/LayerSlayer.hpp
+    GUI/Zoukei/LayerSlayerDialog.cpp
+    GUI/Zoukei/LayerSlayerDialog.hpp
     GUI/Zoukei/PrintMarkerTimeline.cpp
     GUI/Zoukei/PrintMarkerTimeline.hpp
     GUI/CrealityCfsUi.cpp

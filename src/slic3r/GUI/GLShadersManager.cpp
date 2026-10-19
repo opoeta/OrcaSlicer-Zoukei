@@ -74,6 +74,9 @@ std::pair<bool, std::string> GLShadersManager::init()
     valid &= append_shader("thumbnail", { prefix + "thumbnail.vs", prefix + "thumbnail.fs"});
     // used to render printbed
     valid &= append_shader("printbed", { prefix + "printbed.vs", prefix + "printbed.fs" });
+    // Orca Zoukei: iridescent variant of the printbed shader, used for holographic plate textures
+    // (not required: if it fails to build the plain printbed shader is used instead)
+    append_shader("printbed_holo", { prefix + "printbed_holo.vs", prefix + "printbed_holo.fs" });
 #if !SLIC3R_OPENGL_ES
     // used to cast the object shadow map onto the build plate (realistic view)
     valid &= append_shader("printbed_shadow", { prefix + "printbed_shadow.vs", prefix + "printbed_shadow.fs" });

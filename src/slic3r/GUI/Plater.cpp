@@ -20050,6 +20050,11 @@ void Plater::convert_unit(ConversionType conv_type)
     }
 }
 
+std::vector<size_t> Plater::load_generated_objects(const ModelObjectPtrs& objects)
+{
+    return p->load_model_objects(objects, false, false, true);
+}
+
 void Plater::apply_cut_object_to_model(size_t obj_idx, const ModelObjectPtrs& new_objects)
 {
     model().delete_object(obj_idx);

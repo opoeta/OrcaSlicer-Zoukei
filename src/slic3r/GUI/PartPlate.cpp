@@ -53,6 +53,7 @@
 #include "slic3r/GUI/3DScene.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI_ObjectLayers.hpp"
+#include "slic3r/GUI/Zoukei/BedTextures.hpp"
 #include <vector>
 #include <string>
 #include <sstream>
@@ -1734,7 +1735,7 @@ void PartPlate::render_background(bool force_default_color)
 	glsafe(::glDepthMask(GL_TRUE));
 }
 
-void PartPlate::render_logo_texture(GLTexture &logo_texture, GLModel& logo_buffer, bool bottom)
+void PartPlate::render_logo_texture(GLTexture &logo_texture, GLModel& logo_buffer, bool bottom, bool holographic)
 {
 	//check valid
 	if (logo_texture.unsent_compressed_data_available()) {
@@ -1743,14 +1744,27 @@ void PartPlate::render_logo_texture(GLTexture &logo_texture, GLModel& logo_buffe
 	}
 
 	if (logo_buffer.is_initialized()) {
-		GLShaderProgram* shader = wxGetApp().get_shader("printbed");
+		// Orca Zoukei: holographic plate textures use the iridescent shader (falls back to the plain one)
+		GLShaderProgram* shader = nullptr;
+		bool use_holo = false;
+		if (holographic && Zoukei::BedTextures::holographic_effect_enabled()) {
+			shader = wxGetApp().get_shader("printbed_holo");
+			use_holo = shader != nullptr;
+		}
+		if (shader == nullptr)
+			shader = wxGetApp().get_shader("printbed");
 		if (shader != nullptr) {
 			shader->start_using();
             const Camera &camera = wxGetApp().plater()->get_camera();
             shader->set_uniform("view_model_matrix", camera.get_view_matrix());
             shader->set_uniform("projection_matrix", camera.get_projection_matrix());
-			shader->set_uniform("transparent_background", 0);
-			shader->set_uniform("svg_source", 0);
+			if (use_holo) {
+				shader->set_uniform("camera_pos", camera.get_position());
+				shader->set_uniform("effect_strength", 1.0f);
+			} else {
+				shader->set_uniform("transparent_background", 0);
+				shader->set_uniform("svg_source", 0);
+			}
 
 			//glsafe(::glEnable(GL_DEPTH_TEST));
 			glsafe(::glDepthMask(GL_FALSE));
@@ -1782,7 +1796,28 @@ void PartPlate::render_logo_texture(GLTexture &logo_texture, GLModel& logo_buffe
 
 void PartPlate::render_logo(bool bottom, bool render_cali)
 {
+	// Orca Zoukei: texture declared for the selected plate type (printer option / model key bed_texture_per_type).
+	// Nothing declared (or not loadable) keeps the stock rendering below untouched.
+	bool per_type_drawn = false;
+	{
+		BedType type = get_bed_type();
+		if (type == btDefault) {
+			DynamicConfig& proj_cfg = wxGetApp().preset_bundle->project_config;
+			if (proj_cfg.has(std::string("curr_bed_type")))
+				type = proj_cfg.opt_enum<BedType>(std::string("curr_bed_type"));
+		}
+		Zoukei::BedTextures::Entry entry;
+		if (m_logo_triangles.is_initialized() && Zoukei::BedTextures::resolve(type, entry)) {
+			if (GLTexture* tex = Zoukei::BedTextures::get_texture(entry.path)) {
+				render_logo_texture(*tex, m_logo_triangles, bottom, entry.holographic);
+				per_type_drawn = true;
+			}
+		}
+	}
+
 	if (!m_partplate_list->render_bedtype_logo) {
+		if (per_type_drawn)
+			return;
 		// render third-party printer texture logo
 		if (!m_partplate_list->load_logo_texture())
 			return;
@@ -1811,6 +1846,8 @@ void PartPlate::render_logo(bool bottom, bool render_cali)
     }
 	// render bed textures
 	for (auto &part : m_partplate_list->bed_texture_info[bed_type_idx].parts) {
+		if (per_type_drawn)
+			break; // Orca Zoukei: a per plate type texture replaces the bed type strips
 		if (part.texture) {
 			if (part.buffer && part.buffer->is_initialized()
 				//&& part.vbo_id != 0

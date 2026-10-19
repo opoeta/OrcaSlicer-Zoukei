@@ -8,5 +8,6 @@
 	"default_materials": "Snapmaker PLA SnapSpeed @U1 0.2 nozzle;Panchroma PLA @Snapmaker U1;Generic PLA @System;Generic PLA @U1 0.2 nozzle;Generic PLA @U1 0.4 nozzle;Generic PLA @U1 0.6 nozzle;Generic PLA @U1 0.8 nozzle;Snapmaker PLA SnapSpeed @U1 0.6 nozzle;Snapmaker PLA SnapSpeed @U1 0.8 nozzle;Snapmaker PLA SnapSpeed @U1",
 	"bed_model": "Snapmaker U1_bed.stl",
 	"bed_texture": "Snapmaker U1_texture.svg",
+	"bed_texture_per_type": "Cool Plate=snapmaker_u1_bed_cool.svg;Engineering Plate=snapmaker_u1_bed_engineering.svg;High Temp Plate=snapmaker_u1_bed_smooth_pei.svg;Textured PEI Plate=snapmaker_u1_bed_textured_pei.svg;Textured Cool Plate=snapmaker_u1_bed_holographic.svg;Supertack Plate=snapmaker_u1_bed_cool.svg",
 	"nozzle_diameter": "0.2;0.4;0.4+0.6;0.6;0.8"
 }

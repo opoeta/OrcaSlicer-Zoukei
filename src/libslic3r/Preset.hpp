@@ -80,6 +80,7 @@
 #define BBL_JSON_KEY_FAMILY                     "family"
 #define BBL_JSON_KEY_BED_MODEL                  "bed_model"
 #define BBL_JSON_KEY_BED_TEXTURE                "bed_texture"
+#define BBL_JSON_KEY_BED_TEXTURE_PER_TYPE       "bed_texture_per_type"
 #define BBL_JSON_KEY_IMAGE_BED_TYPE             "image_bed_type"
 #define BBL_JSON_KEY_BOTTOM_TEXTURE_END_NAME    "bottom_texture_end_name"
 #define BBL_JSON_KEY_USE_DOUBLE_EXTRUDER_DEFAULT_TEXTURE  "use_double_extruder_default_texture"
@@ -163,6 +164,8 @@ public:
         // Vendor & Printer Model specific print bed model & texture.
         std::string 			 	bed_model;
         std::string 				bed_texture;
+        // Zoukei: "Plate type=file;Plate type=file", textures per plate type (see option bed_texture_per_type)
+        std::string                 bed_texture_per_type;
         std::string                 image_bed_type;
         std::string                 bottom_texture_end_name;
         std::string                 use_double_extruder_default_texture;
@@ -187,7 +190,7 @@ public:
                not_support_bed_types, bed_model, bed_texture, image_bed_type,
                bottom_texture_end_name, use_double_extruder_default_texture,
                bottom_texture_rect, bottom_texture_rect_longer, middle_texture_rect,
-               hotend_model);
+               hotend_model, bed_texture_per_type);
         }
     };
     std::vector<PrinterModel>          models;

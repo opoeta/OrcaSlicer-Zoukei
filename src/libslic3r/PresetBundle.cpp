@@ -7837,6 +7837,9 @@ void PresetBundle::parse_vendor_json(VendorRead& read)
                     //get bed texture
                     model.bed_texture = it.value();
                 }
+                else if (boost::iequals(it.key(), BBL_JSON_KEY_BED_TEXTURE_PER_TYPE)) {
+                    model.bed_texture_per_type = it.value();
+                }
                 else if (boost::iequals(it.key(), BBL_JSON_KEY_HOTEND_MODEL)) {
                     model.hotend_model = it.value();
                 }

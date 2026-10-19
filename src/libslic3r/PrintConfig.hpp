@@ -2258,6 +2258,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionPoints,             head_wrap_detect_zone))
     // BBS
     ((ConfigOptionString,             bed_custom_texture))
+    // Zoukei: per bed type texture, "Bed type=file;Bed type=file"
+    ((ConfigOptionString,             bed_texture_per_type))
     ((ConfigOptionString,             bed_custom_model))
     ((ConfigOptionEnum<BedType>,      curr_bed_type))
     ((ConfigOptionInts,               cool_plate_temp))
