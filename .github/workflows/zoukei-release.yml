@@ -8,7 +8,7 @@ name: Zoukei release
 #
 # NOT verified end to end by the author: the first run needs the dependency cache (about 1 h on a free runner). If the build part
 # gives trouble, build locally and publish with the `gh release create` command that make_release.py prints; see docs/zoukei/updates.md.
-# The job only runs in opoeta/OrcaZoukei and never on pushes of branches.
+# The job only runs in opoeta/OrcaSlicer-Zoukei and never on pushes of branches.
 
 on:
   push:
@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build:
     name: Build Windows x64
-    if: github.repository == 'opoeta/OrcaZoukei'
+    if: github.repository == 'opoeta/OrcaSlicer-Zoukei'
     uses: ./.github/workflows/build_check_cache.yml
     with:
       os: windows-latest
@@ -36,7 +36,7 @@ jobs:
   publish:
     name: Package and publish
     needs: build
-    if: github.repository == 'opoeta/OrcaZoukei'
+    if: github.repository == 'opoeta/OrcaSlicer-Zoukei'
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}

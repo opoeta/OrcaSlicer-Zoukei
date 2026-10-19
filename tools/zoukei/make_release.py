@@ -26,7 +26,7 @@ import zipfile
 
 SCHEMA = 1
 APP = "OrcaZoukei"
-DEFAULT_REPO = "opoeta/OrcaZoukei"
+DEFAULT_REPO = "opoeta/OrcaSlicer-Zoukei"
 # Not part of the release: debug leftovers and files the app/updater writes at run time.
 DEFAULT_EXCLUDES = ["*.pdb", "*.ilk", "*.exp", "zoukei-installed.json", "*/__pycache__/*", "__pycache__/*", "*.pyc"]
 GITHUB_ASSET_LIMIT = 2 * 1024 ** 3 - 1

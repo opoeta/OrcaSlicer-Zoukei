@@ -1,6 +1,6 @@
 # Atualizações do Orca Zoukei (Windows)
 
-O Orca Zoukei se atualiza a partir das *releases* do GitHub `opoeta/OrcaZoukei`, baixando só o que mudou quando possível.
+O Orca Zoukei se atualiza a partir das *releases* do GitHub `opoeta/OrcaSlicer-Zoukei`, baixando só o que mudou quando possível.
 Nunca consulta as releases do OrcaSlicer oficial (o código de verificação do upstream segue desligado desde `3b492d0`).
 
 ## Como funciona (usuário)
@@ -57,7 +57,7 @@ Versão: `AAAA.MM.DD` (ou `AAAA.MM.DD.N` para a 2ª release do dia); a tag é `v
 
 ## Integridade e segurança
 
-- Só HTTPS, e só `https://api.github.com/repos/opoeta/OrcaZoukei/` (API) e `https://github.com/opoeta/OrcaZoukei/releases/download/` (assets). Qualquer outro endereço é recusado antes de qualquer conexão.
+- Só HTTPS, e só `https://api.github.com/repos/opoeta/OrcaSlicer-Zoukei/` (API) e `https://github.com/opoeta/OrcaSlicer-Zoukei/releases/download/` (assets). Qualquer outro endereço é recusado antes de qualquer conexão.
   O GitHub redireciona os assets para o CDN dele (também HTTPS); a verificação do certificado usa o repositório de certificados do Windows.
 - Todo arquivo tem o SHA-256 conferido: o zip baixado, cada arquivo extraído e, de novo, cada arquivo preparado antes de tocar na instalação (o `zoukei-updater.exe` refaz a conta).
 - Nenhum código baixado é executado antes de verificado, e o `zoukei-updater.exe` usado é o **já instalado** (nunca um baixado): a atualização seguinte é que pode trazer um novo.
@@ -77,7 +77,7 @@ Local (recomendado na primeira vez):
 # 2. empacotar (só lê a árvore e, com --fetch-previous, os manifestos das releases anteriores)
 python tools\zoukei\make_release.py --tree build\OrcaSlicer --version 2026.10.17 --fetch-previous 3 --notes-file notas.md
 # 3. o script imprime o comando exato; confira e rode você mesmo:
-gh release create "v2026.10.17" --repo opoeta/OrcaZoukei --title "Orca Zoukei 2026.10.17" --target <commit> --notes-file notas.md <assets...>
+gh release create "v2026.10.17" --repo opoeta/OrcaSlicer-Zoukei --title "Orca Zoukei 2026.10.17" --target <commit> --notes-file notas.md <assets...>
 ```
 
 O commit alvo precisa estar no GitHub (`git push zoukei k2-wave-main:main`). O script não publica nada.

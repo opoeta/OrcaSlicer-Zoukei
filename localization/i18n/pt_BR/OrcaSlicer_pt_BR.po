@@ -36659,8 +36659,8 @@ msgstr "Já existe uma verificação de atualizações em andamento."
 msgid "Check for Orca Zoukei updates at startup"
 msgstr "Verificar atualizações do Orca Zoukei ao abrir"
 
-msgid "Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaZoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."
-msgstr "Procura uma nova versão do Orca Zoukei no GitHub (opoeta/OrcaZoukei) ao abrir o programa, no máximo uma vez por dia. Nada é baixado até você escolher Atualizar."
+msgid "Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaSlicer-Zoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."
+msgstr "Procura uma nova versão do Orca Zoukei no GitHub (opoeta/OrcaSlicer-Zoukei) ao abrir o programa, no máximo uma vez por dia. Nada é baixado até você escolher Atualizar."
 
 msgid "Beta channel (pre-releases)"
 msgstr "Canal beta (pré-lançamentos)"

@@ -3,14 +3,14 @@
 
 // Orca Zoukei self-update, without any GUI code (see docs/zoukei/updates.md).
 //
-//   check()    asks the GitHub Releases API of opoeta/OrcaZoukei for a newer release (blocking, run it on a worker thread).
+//   check()    asks the GitHub Releases API of opoeta/OrcaSlicer-Zoukei for a newer release (blocking, run it on a worker thread).
 //   prepare()  downloads manifest + delta (or full) zip, verifies SHA-256 of every file, stages them in a temp dir
 //              and writes the plan for zoukei-updater.exe. Nothing downloaded is executed or copied into the install.
 //   launch_updater()  starts the updater (a copy of it in the temp dir); the caller then exits Orca.
 //
 // Test hook: ORCA_ZOUKEI_UPDATE_URL=http://127.0.0.1:<port>/releases.json points everything to a local fake release
-// (loopback http only; without it only https://api.github.com/repos/opoeta/OrcaZoukei and
-// https://github.com/opoeta/OrcaZoukei/releases/download/ are ever contacted).
+// (loopback http only; without it only https://api.github.com/repos/opoeta/OrcaSlicer-Zoukei and
+// https://github.com/opoeta/OrcaSlicer-Zoukei/releases/download/ are ever contacted).
 
 #include <atomic>
 #include <cstdint>

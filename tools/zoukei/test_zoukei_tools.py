@@ -107,8 +107,8 @@ class MakeReleaseTests(unittest.TestCase):
             self.assertTrue(mr.safe_relpath(good), good)
 
     def test_gh_command_is_printed_not_run(self):
-        cmd = mr.gh_command("opoeta/OrcaZoukei", "2026.10.12", self.out2, self.assets2, False, None, "abc123")
-        self.assertTrue(cmd.startswith('gh release create "v2026.10.12" --repo opoeta/OrcaZoukei'))
+        cmd = mr.gh_command("opoeta/OrcaSlicer-Zoukei", "2026.10.12", self.out2, self.assets2, False, None, "abc123")
+        self.assertTrue(cmd.startswith('gh release create "v2026.10.12" --repo opoeta/OrcaSlicer-Zoukei'))
         self.assertIn("manifest-windows-x64.json", cmd)
 
 

@@ -8,7 +8,7 @@ Baseado em [Jacob10383/OrcaSlicer](https://github.com/Jacob10383/OrcaSlicer) `ma
 
 ## Download
 
-Última release: https://github.com/opoeta/OrcaZoukei/releases (v2026.10.17, zip Windows x64).
+Última release: https://github.com/opoeta/OrcaSlicer-Zoukei/releases (v2026.10.17, zip Windows x64).
 Descompacte em qualquer pasta e execute `orca-slicer.exe`. Atualize em **Ajuda > Verificar atualizações** (download delta, SHA-256, reversão automática; veja [docs/zoukei/updates.md](docs/zoukei/updates.md)).
 
 ## Recursos

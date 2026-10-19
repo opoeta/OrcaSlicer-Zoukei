@@ -36,8 +36,8 @@ namespace ZoukeiUpdate {
 
 namespace {
 
-const char* const GITHUB_API_BASE      = "https://api.github.com/repos/opoeta/OrcaZoukei/";
-const char* const GITHUB_DOWNLOAD_BASE = "https://github.com/opoeta/OrcaZoukei/releases/download/";
+const char* const GITHUB_API_BASE      = "https://api.github.com/repos/opoeta/OrcaSlicer-Zoukei/";
+const char* const GITHUB_DOWNLOAD_BASE = "https://github.com/opoeta/OrcaSlicer-Zoukei/releases/download/";
 const char* const INSTALLED_MANIFEST   = "zoukei-installed.json";
 const uint64_t    CHUNK                = 8u * 1024 * 1024;
 

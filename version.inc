@@ -7,7 +7,7 @@ set(SLIC3R_APP_KEY "OrcaSlicer")
 # where Moonraker, Fluidd and printer firmware use it to recognise the slicer.
 set(ORCA_BRAND_NAME "Orca Zoukei")
 # Orca Zoukei build version (calendar version, also the release tag without the "v": v2026.10.17).
-# The updater compares it with the GitHub releases of opoeta/OrcaZoukei. -DORCA_ZOUKEI_VERSION=<x> overrides it, and a build of a
+# The updater compares it with the GitHub releases of opoeta/OrcaSlicer-Zoukei. -DORCA_ZOUKEI_VERSION=<x> overrides it, and a build of a
 # commit that carries a tag vYYYY.MM.DD[.N][-suffix] (the release CI) takes the version from that tag, so binary and release always agree.
 if(NOT DEFINED ORCA_ZOUKEI_VERSION)
     set(ORCA_ZOUKEI_VERSION "2026.10.17")

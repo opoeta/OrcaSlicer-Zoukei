@@ -6370,7 +6370,7 @@ void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
     // Orca Zoukei: a custom build (Jacob10383 + WaveOverhangs + Remote API). The official releases
     // would replace it with a stock OrcaSlicer, so the upstream check below is never reached; the update
-    // check goes only to github.com/opoeta/OrcaZoukei (Utils/ZoukeiUpdate, docs/zoukei/updates.md).
+    // check goes only to github.com/opoeta/OrcaSlicer-Zoukei (Utils/ZoukeiUpdate, docs/zoukei/updates.md).
     (void) show_tips;
     if (by_user != 0)
         ZoukeiUpdateUi::check_from_menu();

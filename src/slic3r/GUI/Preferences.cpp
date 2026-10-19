@@ -2395,9 +2395,9 @@ void PreferencesDialog::create_items()
     //// ONLINE > Update & sync
     g_sizer->Add(create_item_title(_L("Update & sync")), 1, wxEXPAND);
 
-    // Orca Zoukei: updates come from github.com/opoeta/OrcaZoukei (the upstream "stable only" option does not apply).
+    // Orca Zoukei: updates come from github.com/opoeta/OrcaSlicer-Zoukei (the upstream "stable only" option does not apply).
     auto item_zoukei_update    = create_item_checkbox(_L("Check for Orca Zoukei updates at startup"),
-        _L("Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaZoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."),
+        _L("Looks for a new Orca Zoukei release on GitHub (opoeta/OrcaSlicer-Zoukei) when the program starts, at most once a day. Nothing is downloaded until you choose Update."),
         "zoukei_update_check");
     g_sizer->Add(item_zoukei_update);
 
