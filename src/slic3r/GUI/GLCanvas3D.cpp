@@ -9711,6 +9711,8 @@ void GLCanvas3D::_render_objects(GLVolumeCollection::ERenderType type, bool with
         m_volumes.set_show_sinking_contours(false);
     else
         m_volumes.set_show_sinking_contours(!m_gizmos.is_hiding_instances());
+    // Orca Zoukei: multi-colour filaments are shown in the Prepare view only
+    m_volumes.set_prepare_multicolor(m_canvas_type == CanvasView3D);
 
     // Orca: X-Ray replaces both shaded passes with a single one, driven from the opaque call, and
     // reuses the volume state (print volume, z range, clipping plane) set up above.

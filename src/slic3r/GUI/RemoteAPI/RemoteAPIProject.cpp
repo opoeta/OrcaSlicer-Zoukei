@@ -11,6 +11,8 @@
 //   POST   /api/v1/project/save                  {path?: x.3mf, overwrite?}  (no path = the project's own file)
 //   POST   /api/v1/project/import                {paths: [stl|obj|3mf|step...]}  add models to the plate
 //   POST   /api/v1/project/export                {format: 3mf|stl|obj, path, overwrite?, objects?: [ids], plate?}
+//   POST   /api/v1/export/glb                    {path: x.glb, embed_html?, html?: none|linked|embedded, travel?, detail?: preview|standard|full, overwrite?}
+//                                                the sliced toolpaths shown in the Preview as GLB (+ a self-contained three.js viewer .html next to it)
 //   POST   /api/v1/project/undo | redo           {steps?}
 //   PUT    /api/v1/selection                     {objects: [ids], volume?}  (empty list = deselect)
 //   PUT    /api/v1/objects/{id}                  {name}  rename
@@ -39,6 +41,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/PartPlate.hpp"
+#include "slic3r/GUI/Zoukei/ToolpathGlbExport.hpp"
 #include "slic3r/GUI/Plater.hpp"
 
 #include <algorithm>
@@ -304,6 +307,34 @@ json op_export(const json &body)
     if (!ok)
         zk::fail("export_failed", "could not write the file");
     return {{"exported", true}, {"format", format}, {"file", path}, {"objects", used}, {"triangles", mesh.its.indices.size()}};
+}
+
+// Sliced toolpaths -> GLB (+ viewer html). Writes only `path` and its .html twin; no overwrite unless overwrite:true.
+json op_export_glb(const json &body)
+{
+    Plater *p = wxGetApp().plater();
+    const std::string path = zk::need_str(body, "path");
+    Zoukei::GlbExportOptions opt;
+    opt.overwrite = zk::opt_bool(body, "overwrite", false);
+    opt.travel    = zk::opt_bool(body, "travel", false);
+    if (!Zoukei::glb_detail_from_string(zk::opt_str(body, "detail", "standard"), opt.detail))
+        zk::fail("bad_value", "detail: preview | standard | full");
+    if (zk::opt_bool(body, "embed_html", false))
+        opt.html = Zoukei::GlbHtml::Embedded;
+    if (body.contains("html") && body["html"].is_string() && !Zoukei::glb_html_from_string(body["html"].get<std::string>(), opt.html))
+        zk::fail("bad_value", "html: none | linked | embedded");
+    if (p->is_background_process_slicing())
+        zk::fail("slicing", "wait for or cancel the running slice first");
+    const Zoukei::GlbExportResult r = Zoukei::export_toolpaths_glb(path, opt);
+    if (!r.ok)
+        zk::fail(r.error_code.c_str(), r.error);
+    json out = {{"exported", true}, {"format", "glb"}, {"file", r.glb_path}, {"bytes", r.glb_bytes}, {"triangles", r.triangles},
+                {"roles", r.roles}, {"materials", r.materials}, {"detail", Zoukei::glb_detail_name(opt.detail)}};
+    if (!r.html_path.empty()) {
+        out["html"]       = r.html_path;
+        out["html_bytes"] = r.html_bytes;
+    }
+    return out;
 }
 
 json op_undo_redo(const json &body, bool undo)
@@ -666,6 +697,17 @@ bool Controller::dispatch_project(const Request &req, Response &out)
     if (parts.empty())
         return false;
     const std::string &m = req.method;
+
+    // ---- toolpath export (GLB) ---------------------------------------------------------------
+    if (parts[0] == "export" && parts.size() == 2 && parts[1] == "glb" && m == "POST") {
+        json body = json::object();
+        if (!zk::parse_body(req, body)) {
+            out = {400, {{"error", "invalid_json"}}};
+            return true;
+        }
+        out = zk::reply(run_on_ui([body]() -> json { return zk::guard([&]() -> json { return op_export_glb(body); }); }, 600));
+        return true;
+    }
 
     // ---- project / selection ----------------------------------------------------------------
     if (parts[0] == "project" || parts[0] == "selection") {

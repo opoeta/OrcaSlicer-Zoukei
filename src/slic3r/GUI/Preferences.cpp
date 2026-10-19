@@ -1140,7 +1140,7 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
                 plater->update_menus();
             }
         }
-        else if (param == "realistic_prepare_view") {
+        else if (param == "realistic_prepare_view" || param == "zoukei_prepare_multicolor") {
             if (Plater* plater = wxGetApp().plater()) {
                 if (GLCanvas3D* canvas = plater->get_view3D_canvas3D()) {
                     canvas->set_as_dirty();
@@ -2327,6 +2327,14 @@ void PreferencesDialog::create_items()
         "realistic_prepare_view"
     );
     g_sizer->Add(item_realistic_prepare);
+
+    auto item_prepare_multicolor = create_item_checkbox(
+        _L("Show multi-colour filaments in Prepare"),
+        _L("Colour the models of coaxial (dual/tri/quad) and gradient filaments in the Prepare view: coaxial ones by the side each surface faces, "
+           "gradient ones by height. It is an approximation of the printed result. Disable to show only the main colour of the filament."),
+        "zoukei_prepare_multicolor"
+    );
+    g_sizer->Add(item_prepare_multicolor);
 
     auto item_dim_previous_layers = create_item_checkbox(
         _L("Dim lower layers"),

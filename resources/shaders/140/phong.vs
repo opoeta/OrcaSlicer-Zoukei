@@ -34,6 +34,10 @@ out float color_clip_plane_dot;
 out vec4 world_pos;
 out float world_normal_z;
 out vec3 eye_normal;
+
+// Orca Zoukei: multi-colour filaments in Prepare (world-space normal, only computed when mc_mode > 0)
+uniform int mc_mode;
+out vec3 mc_normal;
 out vec3 eye_position;
 
 void main()
@@ -49,6 +53,7 @@ void main()
 
     // dot product of world normal with up direction, used for slope shading
     world_normal_z = slope.actived ? dot(normalize(slope.volume_world_normal_matrix * v_normal), slope.up_direction) : 0.0;
+    mc_normal = mc_mode > 0 ? normalize(slope.volume_world_normal_matrix * v_normal) : vec3(0.0);
 
     gl_Position = projection_matrix * position;
     if (is_outline) {

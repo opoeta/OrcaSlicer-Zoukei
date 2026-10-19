@@ -74,6 +74,7 @@ project's own file).
 | `project_save` / `project_save_as` | `POST /project/save` | save to the project's file / to a new .3mf path |
 | `project_import` | `POST /project/import` | add stl / obj / 3mf / step files to the plate |
 | `project_export` | `POST /project/export` | 3mf copy, or stl / obj of the chosen objects or plate |
+| `export_glb` | `POST /export/glb` | sliced toolpaths as GLB (+ optional one-file web viewer .html) |
 | `project_undo` / `project_redo` | `POST /project/undo`, `/project/redo` | Ctrl+Z / Ctrl+Y, several steps |
 | `select_objects` | `PUT /selection` | select objects (or one part); empty list deselects |
 | `object_rename` | `PUT /objects/{id}` | rename |

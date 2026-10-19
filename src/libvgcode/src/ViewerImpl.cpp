@@ -798,6 +798,13 @@ void ViewerImpl::init(const std::string& opengl_context_version)
     m_uni_segments_exposure_id               = glGetUniformLocation(m_segments_shader_id, "exposure");
     m_uni_segments_saturation_id             = glGetUniformLocation(m_segments_shader_id, "saturation");
     m_uni_segments_light_top_dir_id          = glGetUniformLocation(m_segments_shader_id, "light_top_dir");
+    // Orca Zoukei: Photo Studio (absent from the ES shaders: -1, and the uploads are no-ops)
+    {
+        const char* studio_names[8] = { "studio", "studio_key", "studio_fill_dir", "studio_fill", "studio_rim_dir", "studio_rim",
+                                        "studio_ambient", "studio_material" };
+        for (size_t i = 0; i < m_uni_segments_studio_ids.size(); ++i)
+            m_uni_segments_studio_ids[i] = glGetUniformLocation(m_segments_shader_id, studio_names[i]);
+    }
     m_uni_segments_layer_colors.init(m_segments_shader_id);
     glcheck();
     assert(m_uni_segments.view_matrix != -1 &&
@@ -2300,6 +2307,20 @@ void ViewerImpl::render_segments(const Mat4x4& view_matrix, const Mat4x4& projec
         glsafe(glUniform1f(m_uni_segments_exposure_id, m_exposure));
         glsafe(glUniform1f(m_uni_segments_saturation_id, m_saturation));
         glsafe(glUniform3fv(m_uni_segments_light_top_dir_id, 1, m_light_top_dir.data()));
+        // Orca Zoukei: Photo Studio
+        if (m_uni_segments_studio_ids[0] != -1) {
+            glsafe(glUniform1i(m_uni_segments_studio_ids[0], m_studio.enabled ? 1 : 0));
+            if (m_studio.enabled) {
+                const float material[4] = { m_studio.roughness, m_studio.f0, m_studio.specular, m_studio.sheen };
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[1], 1, m_studio.key_color.data()));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[2], 1, m_studio.fill_dir.data()));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[3], 1, m_studio.fill_color.data()));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[4], 1, m_studio.rim_dir.data()));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[5], 1, m_studio.rim_color.data()));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[6], 1, m_studio.ambient.data()));
+                glsafe(glUniform4fv(m_uni_segments_studio_ids[7], 1, material));
+            }
+        }
         set_layer_colors(m_uni_segments_layer_colors);
         // Orca Zoukei: coaxial stripes colours
         if (!m_stripe_palette.empty() && uni.stripe_palette != -1)

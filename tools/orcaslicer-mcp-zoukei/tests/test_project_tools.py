@@ -10,7 +10,7 @@ class ProjectToolsTest(ToolTestCase):
     def test_tool_list(self):
         self.assertEqual(sorted(self.mcp.tools), sorted([
             "project_info", "project_new", "project_open", "project_save", "project_save_as", "project_import",
-            "project_export", "project_undo", "project_redo", "select_objects", "object_rename", "object_volumes",
+            "project_export", "export_glb", "project_undo", "project_redo", "select_objects", "object_rename", "object_volumes",
             "volume_add", "volume_set", "volume_remove", "object_split", "object_copy", "object_mirror",
             "object_scale_to_fit", "object_drop_to_bed", "object_cut"]))
 
@@ -46,6 +46,15 @@ class ProjectToolsTest(ToolTestCase):
                                           "objects": [4, 5], "plate": 0})
         self.run_tool("project_export", format="3mf", path="C:/out.3mf", overwrite=True)
         self.assertEqual(self.last()[2], {"format": "3mf", "path": "C:/out.3mf", "overwrite": True})
+
+    def test_export_glb_never_overwrites_by_default(self):
+        self.run_tool("export_glb", path="C:/out/p.glb")
+        self.assertEqual(self.last()[:2], ("POST", "/api/v1/export/glb"))
+        self.assertEqual(self.last()[2], {"path": "C:/out/p.glb", "embed_html": False, "travel": False,
+                                          "detail": "standard", "overwrite": False})
+        self.run_tool("export_glb", path="C:/out/p.glb", embed_html=True, travel=True, detail="preview", overwrite=True)
+        self.assertEqual(self.last()[2], {"path": "C:/out/p.glb", "embed_html": True, "travel": True,
+                                          "detail": "preview", "overwrite": True})
 
     def test_undo_redo(self):
         self.run_tool("project_undo", steps=3)

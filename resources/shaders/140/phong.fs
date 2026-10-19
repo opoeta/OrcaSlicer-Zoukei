@@ -293,6 +293,79 @@ vec3 studio_shade(vec3 base, vec3 n, vec3 v)
     return base * diffuse * (1.0 - 0.30 * rim) + vec3(spec + 0.08 * rim);
 }
 
+in vec3 mc_normal;
+
+// Orca Zoukei: multi-colour filaments in the Prepare view (see GUI/Zoukei/PrepareMultiColor.cpp).
+// mc_mode: 0 = off (the volume keeps uniform_color), 1 = coaxial (colour by the side the surface faces,
+// thin stripes on the top and bottom faces), 2 = gradient (colours cycle with world Z, mc_cycle mm per cycle).
+// An approximation of the print, not a simulation of it.
+uniform int mc_mode;
+uniform int mc_count;
+uniform float mc_cycle;
+uniform vec4 mc_c0;
+uniform vec4 mc_c1;
+uniform vec4 mc_c2;
+uniform vec4 mc_c3;
+
+vec3 zk_mc_get(int i)
+{
+    int n = mc_count < 1 ? 1 : mc_count;
+    if (i < 0)
+        i += n;
+    if (i >= n)
+        i -= n;
+    if (i == 1)
+        return mc_c1.rgb;
+    if (i == 2)
+        return mc_c2.rgb;
+    if (i == 3)
+        return mc_c3.rgb;
+    return mc_c0.rgb;
+}
+
+vec3 zk_multicolor(vec3 normal, vec3 wp)
+{
+    float n = float(mc_count < 1 ? 1 : mc_count);
+
+    if (mc_mode == 2) {
+        float t = fract(wp.z / max(mc_cycle, 1.0)) * n;
+        float fi = floor(t);
+        return mix(zk_mc_get(int(fi)), zk_mc_get(int(fi) + 1), smoothstep(0.0, 1.0, t - fi));
+    }
+
+    vec3 nn = normalize(normal);
+
+    // Side walls: the azimuth of the normal is split into mc_count equal sectors, with a soft edge.
+    float s = 0.0;
+    if (length(nn.xy) > 0.0001)
+        s = (atan(nn.y, nn.x) / 6.2831853 + 0.5) * n;
+    float k = floor(s);
+    float f = s - k;
+    int ki = int(k);
+    vec3 side = zk_mc_get(ki);
+    const float W = 0.06;
+    if (f < W)
+        side = mix(zk_mc_get(ki - 1), side, 0.5 + 0.5 * f / W);
+    else if (f > 1.0 - W)
+        side = mix(side, zk_mc_get(ki + 1), 0.5 * (f - (1.0 - W)) / W);
+
+    // Top and bottom faces: thin parallel stripes (2 mm each), fading to the average colour when they
+    // get smaller than a pixel. The derivatives are taken outside any branch.
+    float q = (wp.x + wp.y) * 0.35355339;
+    float fw = max(abs(dFdx(q)) + abs(dFdy(q)), 0.0001);
+    float qi = floor(q);
+    int si = int(mod(qi, n));
+    vec3 stripe = mix(zk_mc_get(si - 1), zk_mc_get(si), clamp((q - qi) / fw, 0.0, 1.0));
+    vec3 avg = vec3(0.0);
+    for (int i = 0; i < 4; ++i)
+        if (i < mc_count)
+            avg += zk_mc_get(i);
+    avg /= n;
+    stripe = mix(stripe, avg, smoothstep(0.3, 0.7, fw));
+
+    return mix(side, stripe, smoothstep(0.55, 0.8, abs(nn.z)));
+}
+
 void main()
 {
     if (any(lessThan(clipping_planes_dots, ZERO)))
@@ -305,6 +378,10 @@ void main()
     }
     else
         color = uniform_color;
+
+    // Orca Zoukei: multi-colour filament (approximation, see zk_multicolor)
+    if (mc_mode > 0 && !use_color_clip_plane && !is_outline)
+        color.rgb = zk_multicolor(mc_normal, world_pos.xyz);
 
     if (slope.actived) {
          if(world_pos.z<0.1&&world_pos.z>-0.1)

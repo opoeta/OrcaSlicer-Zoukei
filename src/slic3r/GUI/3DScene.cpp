@@ -50,6 +50,7 @@
 #include <iterator>
 #include "libslic3r/Color.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/Zoukei/PrepareMultiColor.hpp"
 #include "libslic3r/Line.hpp"
 #include "libslic3r/Polyline.hpp"
 #include "libslic3r/Exception.hpp"
@@ -706,6 +707,17 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
         glFrontFace(GL_CW);
     glsafe(::glCullFace(GL_BACK));
 
+    // Orca Zoukei: multi-colour filaments in Prepare. Only while GLVolumeCollection::render() holds a scope;
+    // modifiers, the wipe tower and disabled, hidden or unprintable volumes keep their single colour.
+    const bool zk_mc = shader != nullptr && !ban_light && !picking && GUI::Zoukei::prepare_multicolor_active();
+    const bool zk_mc_allowed = zk_mc && !is_modifier && !is_wipe_tower && volume_idx() >= 0 && printable && visible && !disabled &&
+                               !force_neutral_color;
+    const bool zk_mc_selected = selected && !force_native_color;
+    auto zk_mc_apply = [&](int filament_id) {
+        if (zk_mc)
+            GUI::Zoukei::prepare_multicolor_apply(*shader, filament_id, zk_mc_allowed, zk_mc_selected);
+    };
+
     bool color_volume = false;
     ModelObject* model_object = nullptr;
     ModelVolume* model_volume = nullptr;
@@ -792,12 +804,15 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
                     }
                 }
             }
+            // painted triangles keep the colour of their own filament (idx 0 = the unpainted rest of the volume)
+            zk_mc_apply(idx == 0 ? model_volume->extruder_id() : idx);
             if (tverts_range == std::make_pair<size_t, size_t>(0, -1))
                 m.render(shader);
             else
                 m.render(this->tverts_range, shader);
         }
     } else {
+        zk_mc_apply(extruder_id);
         if (tverts_range == std::make_pair<size_t, size_t>(0, -1))
             model.render(shader);
         else
@@ -1244,6 +1259,9 @@ void GLVolumeCollection::render(GLVolumeCollection::ERenderType       type,
     // Compute up direction accounting for build plate tilt. This is frame-invariant
     // (config cannot change mid-render), so compute it once before the volume loop.
     const Vec3f up_direction = GUI::build_plate_tilt_up_direction().cast<float>();
+
+    // Orca Zoukei: multi-colour filaments in Prepare (inactive unless a filament is multi-colour and the canvas asked for it)
+    const GUI::Zoukei::PrepareMultiColorScope zk_multicolor_scope(shader, m_prepare_multicolor);
 
     for (GLVolumeWithIdAndZ& volume : to_render) {
 #if ENABLE_MODIFIERS_ALWAYS_TRANSPARENT

@@ -1,5 +1,6 @@
 // Orca Zoukei: Photo Mode for the G-code preview, ported from OrcaFS-NeotkoCM (Neotko), AGPL-3.0.
 #include "PhotoMode.hpp"
+#include "PhotoStudio.hpp"
 
 #include <glad/gl.h>
 
@@ -448,6 +449,10 @@ void render_photo_panel(ImGuiWrapper& imgui, GLCanvas3D& canvas, int canvas_widt
             const PhotoOptions copy = o;
             wxGetApp().CallAfter([cv, copy]() { do_photo(cv, copy, true); });
         }
+        // Orca Zoukei: the full studio (lights, backgrounds, 8K, batch views, videos) in its own window
+        ImGui::SameLine();
+        if (ImGui::Button((_u8L("Photo Studio...") + "##zk_photo_studio").c_str()))
+            wxGetApp().CallAfter([]() { open_photo_studio(); });
 
         if (!s_status.empty()) {
             ImGui::PushTextWrapPos(width - 12.f * scale);

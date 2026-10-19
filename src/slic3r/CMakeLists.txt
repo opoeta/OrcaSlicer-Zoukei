@@ -79,10 +79,20 @@ set(SLIC3R_GUI_SOURCES
     GUI/SpoolmanUi.hpp
     GUI/ZoukeiUpdateUi.cpp
     GUI/ZoukeiUpdateUi.hpp
+    GUI/Zoukei/PrepareMultiColor.cpp
+    GUI/Zoukei/PrepareMultiColor.hpp
+    GUI/Zoukei/ToolpathGlbExport.cpp
+    GUI/Zoukei/ToolpathGlbExport.hpp
     GUI/Zoukei/RealColorView.cpp
     GUI/Zoukei/RealColorView.hpp
     GUI/Zoukei/PhotoMode.cpp
     GUI/Zoukei/PhotoMode.hpp
+    GUI/Zoukei/PhotoStudio.cpp
+    GUI/Zoukei/PhotoStudio.hpp
+    GUI/Zoukei/StudioMedia.cpp
+    GUI/Zoukei/StudioMedia.hpp
+    GUI/Zoukei/StudioRender.cpp
+    GUI/Zoukei/StudioRender.hpp
     GUI/Zoukei/LibreMode.cpp
     GUI/Zoukei/LibreMode.hpp
     GUI/Zoukei/GravitySnap.cpp
@@ -1074,6 +1084,10 @@ add_dependencies(libslic3r_gui_zoukei git_commit_hash_header)
 # Same dependencies as libslic3r_gui (minus libslic3r_gui itself: the linker resolves the two archives together).
 target_link_libraries(libslic3r_gui_zoukei libslic3r libslic3r_creality_net cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
 set_property(TARGET libslic3r_gui_zoukei PROPERTY FOLDER "slic3r")
+if (WIN32)
+    # Photo Studio: MP4 (H.264) through the Windows Media Foundation sink writer
+    target_link_libraries(libslic3r_gui_zoukei mfplat mfreadwrite mfuuid)
+endif ()
 
 target_link_libraries(libslic3r_gui libslic3r libslic3r_creality_net libslic3r_gui_zoukei cereal::cereal imgui imguizmo minilzo libvgcode md4c-html glad ${_opengl_link_lib} hidapi mdns ${wxWidgets_LIBRARIES} glfw libcurl OpenSSL::SSL OpenSSL::Crypto LibDataChannel::LibDataChannel noise::noise pybind11::embed)
 

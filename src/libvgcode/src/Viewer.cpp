@@ -64,6 +64,11 @@ void Viewer::set_light_top_dir(const Vec3& direction)
     m_impl->set_light_top_dir(direction);
 }
 
+void Viewer::set_studio_shading(const StudioShading& shading)
+{
+    m_impl->set_studio_shading(shading);
+}
+
 void Viewer::set_tone(float exposure, float saturation)
 {
     m_impl->set_tone(exposure, saturation);

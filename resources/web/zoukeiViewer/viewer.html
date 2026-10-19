@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__ZK_TITLE__ - Orca Zoukei 3D</title>
+<style>
+:root{--bg:#f3f4f6;--panel:#ffffffee;--ink:#14171c;--mute:#5b6472;--line:#d6dae1;--accent:#1f7a5a;--grid:#c3c8d0;--shadow:0 6px 24px #0002}
+:root[data-theme="dark"]{--bg:#14171c;--panel:#1d2128ee;--ink:#eceff4;--mute:#97a1b0;--line:#323946;--accent:#4cc79a;--grid:#2c323d;--shadow:0 6px 24px #0008}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+#view{position:fixed;inset:0;touch-action:none}
+#view canvas{display:block;width:100%;height:100%}
+#panel{position:fixed;top:12px;left:12px;bottom:12px;width:320px;max-width:calc(100vw - 24px);background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;transition:transform .2s}
+#panel header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+#panel header h1{font-size:15px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#body{overflow:auto;padding:4px 12px 12px;-webkit-overflow-scrolling:touch}
+h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:14px 0 6px}
+button,select{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;min-height:32px}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.row label{flex:1;display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0}
+.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sw{width:14px;height:14px;border-radius:4px;border:1px solid #0004;flex:none}
+.mute{color:var(--mute);font-size:12px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.stats{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0}
+.stats dt{color:var(--mute)}.stats dd{margin:0;text-align:right;overflow-wrap:anywhere}
+#brand{padding:8px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--mute);display:flex;justify-content:space-between;gap:8px}
+#toggle{position:fixed;top:12px;left:12px;z-index:3;display:none;box-shadow:var(--shadow);background:var(--panel)}
+#toggle.show{display:block}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;pointer-events:none;color:var(--mute)}
+#msg.drop{pointer-events:auto}
+#msg b{color:var(--ink)}
+#file{display:none}
+@media (max-width:700px){
+  #panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-width:none;max-height:58vh;padding-bottom:env(safe-area-inset-bottom)}
+  #panel.closed{transform:translateY(calc(100% + 16px))}
+  #toggle{top:auto;bottom:12px}
+}
+@media (min-width:701px){#panel.closed{transform:translateX(calc(-100% - 16px))}}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<button id="toggle" aria-label="Show panel">Panel</button>
+<div id="msg"><div>Loading <b>3D model</b>...</div></div>
+<aside id="panel" aria-label="Viewer controls">
+  <header>
+    <h1 id="title">__ZK_TITLE__</h1>
+    <button id="theme" aria-label="Toggle dark or light theme" title="Dark / light">Theme</button>
+    <button id="hide" aria-label="Hide panel" title="Hide">&times;</button>
+  </header>
+  <div id="body">
+    <h2>Layers</h2>
+    <div class="row"><span class="mute" id="layerTxt">-</span></div>
+    <div class="row"><span class="mute" style="width:56px">Top</span><input id="top" type="range" min="1" max="1" value="1" aria-label="Top layer"></div>
+    <div class="row"><span class="mute" style="width:56px">Bottom</span><input id="bot" type="range" min="1" max="1" value="1" aria-label="Bottom layer"></div>
+    <h2>Colour</h2>
+    <div class="row"><select id="mode" aria-label="Colour mode"><option value="filament">By filament</option><option value="role">By feature</option></select></div>
+    <h2>Features</h2>
+    <div id="roles"></div>
+    <div class="row"><button id="allOn">All</button><button id="allOff">None</button></div>
+    <h2>Filaments</h2>
+    <div id="fils"></div>
+    <h2>Print</h2>
+    <dl class="stats" id="stats"></dl>
+    <div class="row" style="margin-top:10px"><button id="open">Open another .glb</button><input id="file" type="file" accept=".glb,model/gltf-binary"></div>
+  </div>
+  <div id="brand"><span>Orca Zoukei</span><span id="det"></span></div>
+</aside>
+
+<!-- Orca Zoukei fills these two in when it exports: the model as base64 (single-file export) or its file name -->
+<script type="application/octet-stream" id="zk-glb-b64">__ZK_GLB_BASE64__</script>
+<script type="text/plain" id="zk-glb-file">__ZK_GLB_FILE__</script>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+function store(k, v){
+  try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){}
+  return null;
+}
+
+let grid = null, model = null, meta = null, bounds = null;
+let theme = store('zk-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+const host = $('view');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const clipTop = new THREE.Plane(new THREE.Vector3(0,-1,0), 1e6);
+const clipBot = new THREE.Plane(new THREE.Vector3(0,1,0), 1e6);
+renderer.clippingPlanes = [clipTop, clipBot];
+host.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 5000);
+camera.position.set(200, 180, 260);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x667080, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+scene.add(sun, sun.target);
+
+function makeGrid(){
+  if(grid){ scene.remove(grid); grid.geometry.dispose(); grid = null; }
+  const size = bounds ? Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) * 1.6 : 300;
+  const div = Math.max(4, Math.round(size / 20));
+  const c = getComputedStyle(root).getPropertyValue('--grid').trim();
+  grid = new THREE.GridHelper(size, div, c, c);
+  if(bounds) grid.position.set((bounds.min.x + bounds.max.x) / 2, 0, (bounds.min.z + bounds.max.z) / 2);
+  scene.add(grid);
+}
+function applyTheme(){
+  root.dataset.theme = theme;
+  scene.background = new THREE.Color(getComputedStyle(root).getPropertyValue('--bg').trim());
+  makeGrid();
+}
+$('theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store('zk-theme', theme); applyTheme(); };
+
+function resize(){
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+applyTheme(); resize();
+const tmpv = new THREE.Vector3();
+renderer.setAnimationLoop(() => {
+  controls.update();
+  sun.position.copy(camera.position).add(tmpv.set(60, 120, 40));
+  sun.target.position.copy(controls.target);
+  renderer.render(scene, camera);
+});
+
+// ---- panel ----
+const panel = $('panel'), toggle = $('toggle');
+function setPanel(open){
+  panel.classList.toggle('closed', !open);
+  toggle.classList.toggle('show', !open);
+  store('zk-panel', open ? '1' : '0');
+}
+$('hide').onclick = () => setPanel(false);
+toggle.onclick = () => setPanel(true);
+{ const saved = store('zk-panel'); if(saved === '0' || (innerWidth <= 700 && saved === null)) setPanel(false); }
+
+// ---- loading ----
+function message(html, drop){
+  const m = $('msg');
+  m.innerHTML = html ? '<div>' + html + '</div>' : '';
+  m.classList.toggle('drop', !!drop);
+  m.style.display = html ? 'flex' : 'none';
+}
+function b64ToBuf(s){
+  s = s.trim(); if(!s) return null;
+  const bin = atob(s), n = bin.length, out = new Uint8Array(n);
+  for(let i = 0; i < n; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+}
+function pickPrompt(text){
+  message(text + '<br>Drop a .glb here or <button id="pick">choose it</button>.', true);
+  $('pick').onclick = () => $('file').click();
+}
+const loader = new GLTFLoader();
+function loadBuffer(buf, name){
+  message('Reading <b>3D model</b>...');
+  loader.parse(buf, '', gltf => show(gltf, name), err => pickPrompt('Could not read the file: ' + ((err && err.message) || err)));
+}
+async function boot(){
+  try{
+    const embedded = b64ToBuf($('zk-glb-b64').textContent);
+    if(embedded) return loadBuffer(embedded);
+    const file = $('zk-glb-file').textContent.trim();
+    if(file){
+      try{
+        const r = await fetch(file);
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return loadBuffer(await r.arrayBuffer());
+      }catch(e){
+        return pickPrompt('The browser does not let a page read <b>' + file.replace(/[<>&]/g, '') + '</b> straight from disk.');
+      }
+    }
+    pickPrompt('');
+  }catch(e){ pickPrompt('Error: ' + e.message); }
+}
+$('open').onclick = () => $('file').click();
+$('file').onchange = e => { const f = e.target.files[0]; if(f) f.arrayBuffer().then(b => loadBuffer(b, f.name)); };
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) f.arrayBuffer().then(b => loadBuffer(b, f.name)); });
+
+// ---- the model ----
+const roleNodes = {};
+let layerZ = [];
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmt(n, d){ return Number(n).toFixed(d === undefined ? 1 : d); }
+
+function show(gltf, name){
+  if(model) scene.remove(model);
+  for(const k in roleNodes) delete roleNodes[k];
+  const j = gltf.parser.json;
+  meta = (j.asset && j.asset.extras && j.asset.extras.zoukei) || {};
+  model = gltf.scene;
+  scene.add(model);
+  model.updateMatrixWorld(true);
+  bounds = new THREE.Box3().setFromObject(model);
+  if(name) $('title').textContent = name.replace(/\.glb$/i, '');
+  model.traverse(o => {
+    if(o.userData && o.userData.role){
+      roleNodes[o.userData.role] = o;
+      o.traverse(m => {
+        if(!(m.isMesh || m.isLine)) return;
+        m.userData.orig = m.material;
+        if(m.isMesh){
+          const rm = m.material.clone();
+          rm.color = new THREE.Color(o.userData.roleColour || '#888888');
+          m.userData.byRole = rm;
+        } else m.userData.byRole = m.material;
+        m.frustumCulled = false;
+      });
+    }
+  });
+  layerZ = meta.layerZ || [];
+  const n = Math.max(1, layerZ.length);
+  $('top').max = n; $('bot').max = n; $('top').min = 1; $('bot').min = 1;
+  $('top').value = n; $('bot').value = 1;
+  updateClip();
+  buildPanel();
+  makeGrid();
+  frame();
+  setMode($('mode').value);
+  message('');
+}
+function frame(){
+  const c = bounds.getCenter(new THREE.Vector3()), s = bounds.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z) || 100;
+  controls.target.copy(c);
+  camera.near = r / 200; camera.far = r * 40; camera.updateProjectionMatrix();
+  camera.position.set(c.x + r * 0.9, c.y + r * 0.8, c.z + r * 1.1);
+  controls.update();
+}
+function updateClip(){
+  const n = layerZ.length;
+  let t = +$('top').value, b = +$('bot').value;
+  if(b > t){ b = t; $('bot').value = b; }
+  const zt = n ? layerZ[Math.min(n, t) - 1] : 1e6;
+  const zb = n && b > 1 ? layerZ[b - 2] : -1e6;
+  clipTop.constant = zt + 0.001;    // keeps y <= zt
+  clipBot.constant = -zb - 0.001;   // keeps y >= zb
+  $('layerTxt').textContent = n ? ('Layers ' + b + ' - ' + t + ' of ' + n + '   (z ' + fmt(zt, 2) + ' mm)') : 'No layer data';
+}
+$('top').oninput = updateClip;
+$('bot').oninput = updateClip;
+
+function swatch(f){
+  if(f.colours && f.colours.length > 1){
+    if(f.gradient) return 'background:linear-gradient(90deg,' + f.colours.join(',') + ')';
+    const k = f.colours.length;
+    return 'background:linear-gradient(90deg,' + f.colours.map((c, i) => c + ' ' + (i * 100 / k) + '% ' + ((i + 1) * 100 / k) + '%').join(',') + ')';
+  }
+  return 'background:' + f.colour;
+}
+function buildPanel(){
+  const roles = $('roles'); roles.innerHTML = '';
+  for(const r of (meta.roles || [])){
+    const node = roleNodes[r.role]; if(!node) continue;
+    const hide = r.role === 'travel';
+    node.visible = !hide;
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<label><input type="checkbox"' + (hide ? '' : ' checked') + '><span class="sw" style="background:' + esc(r.roleColour) + '"></span><span class="t">' + esc(r.label) + '</span></label><span class="mute">' + (r.timeSeconds ? Math.round(r.timeSeconds / 60) + ' min' : '') + '</span>';
+    row.querySelector('input').onchange = e => { node.visible = e.target.checked; };
+    roles.appendChild(row);
+  }
+  const fils = $('fils'); fils.innerHTML = '';
+  for(const f of (meta.filaments || [])){
+    if(f.used === false) continue;
+    const kind = f.gradient ? ' (gradient)' : (f.coaxial ? ' (coaxial)' : '');
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span class="sw" style="' + esc(swatch(f)) + '"></span><span class="t" style="flex:1">' + esc(f.name + kind) + '</span><span class="mute">' + fmt(f.weightG) + ' g</span>';
+    fils.appendChild(row);
+  }
+  const dim = bounds.getSize(new THREE.Vector3());
+  const rows = [
+    ['Print time', meta.printTime || '-'],
+    ['Layers', meta.layerCount != null ? meta.layerCount : '-'],
+    ['Filament', meta.totalWeightG != null ? fmt(meta.totalWeightG) + ' g' : '-'],
+    ['Size', fmt(dim.x, 0) + ' x ' + fmt(dim.z, 0) + ' x ' + fmt(dim.y, 0) + ' mm'],
+    ['Objects', (meta.objects || []).length ? esc((meta.objects || []).join(', ')) : '-']
+  ];
+  $('stats').innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+  $('det').textContent = meta.detail ? 'detail: ' + meta.detail : '';
+}
+function setMode(mode){
+  model.traverse(m => { if(m.userData && m.userData.orig) m.material = mode === 'role' ? m.userData.byRole : m.userData.orig; });
+}
+$('mode').onchange = e => { if(model) setMode(e.target.value); };
+function allRoles(on){
+  document.querySelectorAll('#roles input').forEach(cb => { cb.checked = on; cb.onchange({target: cb}); });
+}
+$('allOn').onclick = () => allRoles(true);
+$('allOff').onclick = () => allRoles(false);
+
+boot();
+</script>
+</body>
+</html>

@@ -88,6 +88,10 @@ public:
     // ORCA: direction to the top light in eye space, shading the toolpaths and biasing their shadow lookup.
     //
     void set_light_top_dir(const Vec3& direction);
+    //
+    // Orca Zoukei: Photo Studio light rig and material, see StudioShading. Off by default.
+    //
+    void set_studio_shading(const StudioShading& shading);
 
     //
     // ************************************************************************

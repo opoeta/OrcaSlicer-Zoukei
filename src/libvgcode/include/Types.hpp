@@ -96,6 +96,28 @@ struct RealColorParams
 };
 
 //
+// Orca Zoukei: Photo Studio. A key, fill and rim light and a material for the segments shader, set only
+// around the studio's own renders; enabled == false, the default, keeps the preview's shading untouched.
+// The key light direction is the one of set_light_top_dir(). Directions point to the light, in eye space;
+// colours are radiance (intensity x tint), on the scale of the realistic preview (key 9.6, fill 3.6).
+//
+struct StudioShading
+{
+    bool  enabled{ false };
+    Vec3  key_color{ 9.6f, 9.6f, 9.6f };
+    Vec3  fill_dir{ 0.6985074f, 0.1397015f, 0.6985074f };
+    Vec3  fill_color{ 3.6f, 3.6f, 3.6f };
+    Vec3  rim_dir{ 0.0f, 0.5f, -0.8660254f };
+    Vec3  rim_color{ 0.0f, 0.0f, 0.0f };
+    Vec3  ambient{ 0.5f, 0.5f, 0.5f };
+    // GGX roughness, Fresnel at normal incidence, specular gain, anisotropic sheen along the bead (silk).
+    float roughness{ 0.5f };
+    float f0{ 0.04f };
+    float specular{ 1.0f };
+    float sheen{ 0.0f };
+};
+
+//
 // Axis aligned box in 3 dimensions
 // [0] -> { min_x, min_y, min_z }
 // [1] -> { max_x, max_y, max_z }

@@ -1,6 +1,7 @@
 // Orca Zoukei: RealColor view of the G-code preview, ported from OrcaFS-NeotkoCM (Neotko), AGPL-3.0.
 #include "RealColorView.hpp"
 #include "PhotoMode.hpp"
+#include "PhotoStudio.hpp"
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"
@@ -151,6 +152,10 @@ bool render_legend_extras(ImGuiWrapper& imgui, float scale, bool realcolor_appli
 
     if (imgui.button(photo_panel_open() ? _L("Hide photo mode") : _L("Photo mode...")))
         set_photo_panel_open(!photo_panel_open());
+    // Orca Zoukei: Photo Studio, its own window (see PhotoStudio.hpp)
+    ImGui::SameLine();
+    if (imgui.button(_L("Photo Studio...")))
+        wxGetApp().CallAfter([]() { open_photo_studio(); });
 
     if (realcolor_applicable && realcolor_enabled()) {
         static float s_blur = -1.f;

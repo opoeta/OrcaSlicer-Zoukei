@@ -42076,3 +42076,353 @@ msgstr "Centrar em (1 = fluxo do filamento; 1 + % do vencedor grosso / 100)"
 
 msgid "Look at the top of each pad in raking light, and run a finger over it: gaps between the lines mean too little flow, ridges and roughness too much. Pick the smoothest, closest pad. Its number is the change to apply, and the legend shows the new flow ratio already worked out from your filament's current one (new = current x (1 + number / 100)). Coarse first; then choose Fine and click the coarse winner in the picture list that opens: the fine pass is made around it (or type the same in \"Centre on\"). Afterwards use Calibration > Save flow ratio result to write the final ratio to the filament. YOLO does a single fine pass when the flow is already close."
 msgstr "Olhe o topo de cada pastilha com luz rasante e passe o dedo: vãos entre as linhas indicam pouco fluxo, cristas e aspereza indicam fluxo demais. Escolha a pastilha mais lisa e fechada. O número dela é a mudança a aplicar, e a legenda mostra a nova proporção de fluxo já calculada a partir da atual do filamento (nova = atual x (1 + número / 100)). Primeiro o grosso; depois escolha Fino e clique no vencedor do grosso na lista de imagens que abre: a passada fina é feita em torno dele (ou digite o mesmo em \"Centrar em\"). Depois use Calibração > Salvar resultado do fluxo para gravar a proporção final no filamento. O YOLO faz uma única passada fina quando o fluxo já está próximo."
+
+msgid "Export toolpaths as GLB / 3D web viewer"
+msgstr "Exportar trajetórias como GLB / visualizador 3D web"
+
+msgid "Export Toolpaths as &GLB / 3D web viewer"
+msgstr "Exportar trajetórias como &GLB / visualizador 3D web"
+
+msgid "Export the toolpaths as a GLB 3D model and, optionally, a web viewer page to share"
+msgstr "Exporta as trajetórias como modelo 3D GLB e, opcionalmente, uma página de visualização web para compartilhar"
+
+msgid "Slice the plate and open the Preview first."
+msgstr "Fatie a mesa e abra a Pré-visualização antes."
+
+msgid "Export toolpaths as GLB"
+msgstr "Exportar trajetórias como GLB"
+
+msgid "Preview (smallest file)"
+msgstr "Prévia (menor arquivo)"
+
+msgid "Full (rounded beads, largest file)"
+msgstr "Completo (filetes arredondados, maior arquivo)"
+
+msgid "3D web viewer"
+msgstr "Visualizador 3D web"
+
+msgid "GLB only"
+msgstr "Somente GLB"
+
+msgid "GLB + viewer .html next to it"
+msgstr "GLB + .html do visualizador ao lado"
+
+msgid "One .html file with the model embedded (to share)"
+msgstr "Um único .html com o modelo embutido (para compartilhar)"
+
+msgid "Include travel moves"
+msgstr "Incluir movimentos de deslocamento"
+
+msgid "Save toolpaths as GLB"
+msgstr "Salvar trajetórias como GLB"
+
+msgid "The viewer .html already exists. Replace it?"
+msgstr "O .html do visualizador já existe. Substituir?"
+
+msgid "Saved %s (%.1f MB)."
+msgstr "Salvo %s (%.1f MB)."
+
+msgid "Viewer: %s"
+msgstr "Visualizador: %s"
+
+msgid "Show multi-colour filaments in Prepare"
+msgstr "Mostrar filamentos multicolor no Preparar"
+
+msgid ""
+"Colour the models of coaxial (dual/tri/quad) and gradient filaments in the "
+"Prepare view: coaxial ones by the side each surface faces, gradient ones by "
+"height. It is an approximation of the printed result. Disable to show only "
+"the main colour of the filament."
+msgstr ""
+"Colore os modelos de filamentos coaxiais (duplo/triplo/quádruplo) e em "
+"gradiente na vista Preparar: os coaxiais pelo lado para o qual cada "
+"superfície aponta, os de gradiente pela altura. É uma aproximação do "
+"resultado impresso. Desative para mostrar só a cor principal do filamento."
+
+msgid "Photo Studio..."
+msgstr "Estúdio de fotos..."
+
+msgid "Photo Studio"
+msgstr "Estúdio de fotos"
+
+msgid "objects"
+msgstr "objetos"
+
+msgid "Slice the plate: the studio shows the sliced print of the preview."
+msgstr "Fatie a placa: o estúdio mostra a impressão fatiada da pré-visualização."
+
+msgid "View and framing"
+msgstr "Vista e enquadramento"
+
+msgid "Iso"
+msgstr "Iso"
+
+msgid "Fit"
+msgstr "Enquadrar"
+
+msgid "Window"
+msgstr "Janela"
+
+msgid "Frame"
+msgstr "Quadro"
+
+msgid "Orthographic"
+msgstr "Ortográfica"
+
+msgid "Projection"
+msgstr "Projeção"
+
+msgid "Lens (field of view)"
+msgstr "Lente (campo de visão)"
+
+msgid "Rule of thirds"
+msgstr "Regra dos terços"
+
+msgid "Whole print"
+msgstr "Impressão inteira"
+
+msgid ""
+"Drag: orbit. Right or middle drag: pan. Wheel: zoom. Double click: fit. Ctrl "
+"+ drag: move the key light."
+msgstr ""
+"Arrastar: orbitar. Arrastar com o botão direito ou do meio: deslocar. Roda: "
+"zoom. Clique duplo: enquadrar. Ctrl + arrastar: mover a luz principal."
+
+msgid "Lights"
+msgstr "Luzes"
+
+msgid "Soft studio"
+msgstr "Estúdio suave"
+
+msgid "Dramatic"
+msgstr "Dramática"
+
+msgid "High key"
+msgstr "Clara (high key)"
+
+msgid "Like the preview"
+msgstr "Como na pré-visualização"
+
+msgid "Ambient"
+msgstr "Ambiente"
+
+msgid "Lights follow the camera"
+msgstr "Luzes acompanham a câmera"
+
+msgid "Intensity"
+msgstr "Intensidade"
+
+msgid "Azimuth"
+msgstr "Azimute"
+
+msgid "Elevation"
+msgstr "Elevação"
+
+msgid "Key light"
+msgstr "Luz principal"
+
+msgid "Fill light"
+msgstr "Luz de preenchimento"
+
+msgid "Rim light"
+msgstr "Luz de recorte"
+
+msgid "Background and floor"
+msgstr "Fundo e piso"
+
+msgid "White cyclorama"
+msgstr "Ciclorama branco"
+
+msgid "Dark cyclorama"
+msgstr "Ciclorama escuro"
+
+msgid "Solid colour"
+msgstr "Cor sólida"
+
+msgid "Cyclorama colour"
+msgstr "Cor do ciclorama"
+
+msgid "Gradient top"
+msgstr "Gradiente: topo"
+
+msgid "Gradient bottom"
+msgstr "Gradiente: base"
+
+msgid "Floor shadow"
+msgstr "Sombra no piso"
+
+msgid "Contact shadow"
+msgstr "Sombra de contato"
+
+msgid "Self shadows"
+msgstr "Sombras próprias"
+
+msgid "Reflection"
+msgstr "Reflexo"
+
+msgid "Shadow strength"
+msgstr "Força da sombra"
+
+msgid "Shadow softness"
+msgstr "Suavidade da sombra"
+
+msgid "Contact strength"
+msgstr "Força do contato"
+
+msgid "Reflection strength"
+msgstr "Força do reflexo"
+
+msgid "Preview shading"
+msgstr "Sombreamento da pré-visualização"
+
+msgid "Matte PLA"
+msgstr "PLA fosco"
+
+msgid "Silk sheen"
+msgstr "Brilho seda"
+
+msgid "PETG gloss"
+msgstr "PETG brilhante"
+
+msgid "Exposure"
+msgstr "Exposição"
+
+msgid "The colours are the preview's: view type, RealColor, multi-colour stripes."
+msgstr "As cores são as da pré-visualização: tipo de vista, RealColor, listras multicor."
+
+msgid "Photo"
+msgstr "Foto"
+
+msgid "Size (long edge)"
+msgstr "Tamanho (lado maior)"
+
+msgid "Caption footer"
+msgstr "Rodapé com legenda"
+
+msgid "Watermark"
+msgstr "Marca d'água"
+
+msgid "Footer"
+msgstr "Rodapé"
+
+msgid "Watermark text"
+msgstr "Texto da marca d'água"
+
+msgid "Logo"
+msgstr "Logotipo"
+
+msgid "(none, the text is used)"
+msgstr "(nenhum, usa o texto)"
+
+msgid "Choose..."
+msgstr "Escolher..."
+
+msgid "Choose a logo"
+msgstr "Escolha um logotipo"
+
+msgid "Bottom right"
+msgstr "Inferior direito"
+
+msgid "Bottom left"
+msgstr "Inferior esquerdo"
+
+msgid "Top right"
+msgstr "Superior direito"
+
+msgid "Top left"
+msgstr "Superior esquerdo"
+
+msgid "Batch views..."
+msgstr "Lote de vistas..."
+
+msgid "Front, side, top, iso and the current view, each as a PNG, into a folder."
+msgstr "Frente, lado, topo, iso e a vista atual, cada uma em PNG, numa pasta."
+
+msgid "MP4 (H.264)"
+msgstr "MP4 (H.264)"
+
+msgid "Animated GIF"
+msgstr "GIF animado"
+
+msgid "PNG sequence"
+msgstr "Sequência de PNG"
+
+msgid "Format"
+msgstr "Formato"
+
+msgid "Turntable 360"
+msgstr "Giro 360"
+
+msgid "Virtual timelapse"
+msgstr "Timelapse virtual"
+
+msgid "Animation"
+msgstr "Animação"
+
+msgid "Duration (s)"
+msgstr "Duração (s)"
+
+msgid "Frame rate"
+msgstr "Quadros por segundo"
+
+msgid "Orbit during the timelapse"
+msgstr "Orbitar durante o timelapse"
+
+msgid ""
+"MP4 export needs Windows; on this system the video is saved as an animated "
+"GIF or a PNG sequence."
+msgstr ""
+"Exportar MP4 exige Windows; neste sistema o vídeo é salvo como GIF animado "
+"ou sequência de PNG."
+
+msgid "Export video..."
+msgstr "Exportar vídeo..."
+
+msgid "Presentation only: the G-code and the preview are not changed."
+msgstr "Só apresentação: o G-code e a pré-visualização não mudam."
+
+msgid "Slice the plate first."
+msgstr "Fatie a placa primeiro."
+
+msgid "Rendering the photo..."
+msgstr "Renderizando a foto..."
+
+msgid "Cancelled."
+msgstr "Cancelado."
+
+msgid "Photo Studio could not render the print."
+msgstr "O Estúdio de fotos não conseguiu renderizar a impressão."
+
+#, c-format
+msgid "Copied %d x %d to the clipboard."
+msgstr "Copiado %d x %d para a área de transferência."
+
+#, c-format
+msgid "Saved %d x %d: %s"
+msgstr "Salvo %d x %d: %s"
+
+msgid "Folder for the views"
+msgstr "Pasta para as vistas"
+
+msgid "Rendering the views..."
+msgstr "Renderizando as vistas..."
+
+#, c-format
+msgid "%d views saved in %s"
+msgstr "%d vistas salvas em %s"
+
+msgid "Folder for the frames"
+msgstr "Pasta para os quadros"
+
+msgid "Save video"
+msgstr "Salvar vídeo"
+
+msgid "Rendering the video..."
+msgstr "Renderizando o vídeo..."
+
+msgid "Choosing the colours..."
+msgstr "Escolhendo as cores..."
+
+#, c-format
+msgid "Saved %d frames, %d x %d at %d fps: %s"
+msgstr "Salvos %d quadros, %d x %d a %d fps: %s"

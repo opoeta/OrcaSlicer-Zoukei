@@ -417,11 +417,15 @@ public:
     // ORCA: section view
     void set_clipping_plane(const ClippingPlane& plane);
     void set_light_top_dir(const Vec3d& direction);
+    // Orca Zoukei: Photo Studio light rig and material, set only around the studio's own renders
+    void set_studio_shading(const libvgcode::StudioShading& shading) { m_viewer.set_studio_shading(shading); }
     //BBS
     // void _render_calibration_thumbnail_internal(ThumbnailData& thumbnail_data, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, OpenGLManager& opengl_manager);
     // void _render_calibration_thumbnail_framebuffer(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, OpenGLManager& opengl_manager);
     // void render_calibration_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, OpenGLManager& opengl_manager);
     bool has_data() const { return !m_viewer.get_extrusion_roles().empty(); }
+    // Orca Zoukei: read-only access to the vgcode viewer (GLB export of the toolpaths)
+    const libvgcode::Viewer& get_libvgcode_viewer() const { return m_viewer; }
 
     bool can_export_toolpaths() const;
     std::vector<int> get_plater_extruder();
@@ -520,6 +524,8 @@ public:
     // Offscreen plate render (Remote API): draw only the toolpaths using an
     // explicit camera - no legend, sliders, ImGui, markers or shells.
     void render_toolpaths_with_camera(const Camera& camera);
+    // Orca Zoukei: Photo Studio, the same with the matrices given (column major), e.g. a mirrored view for a reflection
+    void render_toolpaths_with_matrices(const libvgcode::Mat4x4& view, const libvgcode::Mat4x4& projection) { m_viewer.render(view, projection); }
     float get_legend_height() { return m_legend_height; }
 
     void export_toolpaths_to_obj(const char* filename) const;

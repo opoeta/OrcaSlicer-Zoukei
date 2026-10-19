@@ -163,6 +163,7 @@
 #include "slic3r/GUI/Zoukei/LayerSlayer.hpp"
 #include "slic3r/GUI/Zoukei/LayerSlayerDialog.hpp"
 #include "slic3r/GUI/Zoukei/FlowCalibChain.hpp"
+#include "slic3r/GUI/Zoukei/ToolpathGlbExport.hpp"
 #include <wx/defs.h>
 #include <cassert>
 #include <wx/display.h>
@@ -3212,6 +3213,11 @@ void MainFrame::init_menubar_as_editor()
             [this](wxCommandEvent&) { if (m_plater != nullptr) m_plater->export_toolpaths_to_obj(); }, "menu_export_toolpaths", nullptr,
             [this]() {return can_export_toolpaths(); }, this);
 
+        // Orca Zoukei: sliced toolpaths as GLB + optional self-contained three.js web viewer
+        append_menu_item(export_menu, wxID_ANY, _L("Export toolpaths as GLB / 3D web viewer") + dots, _L("Export the toolpaths as a GLB 3D model and, optionally, a web viewer page to share"),
+            [this](wxCommandEvent&) { Zoukei::export_toolpaths_glb_dialog(this); }, "menu_export_toolpaths", nullptr,
+            [this]() {return can_export_toolpaths(); }, this);
+
         // Expert G-code Reprocessor (ported from OrcaFS-NeotkoCM, Neotko): layer-ranged / per-tool G-code rewrite rules.
         append_menu_item(export_menu, wxID_ANY, _L("Expert G-code Reprocessor") + dots, _L("Edit layer-ranged and per-tool G-code rewrite rules applied on export"),
             [this](wxCommandEvent&) { GCodeReprocessorDialog dlg(this); dlg.ShowModal(); }, "menu_export_gcode", nullptr,
@@ -3975,6 +3981,9 @@ void MainFrame::init_menubar_as_gcodeviewer()
         fileMenu->AppendSeparator();
         append_menu_item(fileMenu, wxID_ANY, _L("Export &Toolpaths as OBJ") + dots, _L("Export toolpaths as OBJ"),
             [this](wxCommandEvent&) { if (m_plater != nullptr) m_plater->export_toolpaths_to_obj(); }, "export_plater", nullptr,
+            [this]() {return can_export_toolpaths(); }, this);
+        append_menu_item(fileMenu, wxID_ANY, _L("Export Toolpaths as &GLB / 3D web viewer") + dots, _L("Export the toolpaths as a GLB 3D model and, optionally, a web viewer page to share"),
+            [this](wxCommandEvent&) { Zoukei::export_toolpaths_glb_dialog(this); }, "export_plater", nullptr,
             [this]() {return can_export_toolpaths(); }, this);
         append_menu_item(fileMenu, wxID_ANY, _L("Open &Slicer") + dots, _L("Open Slicer"),
             [](wxCommandEvent&) { start_new_slicer(); }, "", nullptr,

@@ -226,6 +226,9 @@ void AppConfig::set_defaults()
     // ORCA: darken the layers the preview layer slider is not scrubbed to
     if (get("realistic_prepare_view").empty())
         set_bool("realistic_prepare_view", true);
+    // Orca Zoukei: coaxial / gradient filaments shown by side / height in the Prepare view
+    if (get("zoukei_prepare_multicolor").empty())
+        set_bool("zoukei_prepare_multicolor", true);
     if (get("realistic_gcode_preview").empty())
         set_bool("realistic_gcode_preview", true);
     if (get("preview_dim_previous_layers").empty())

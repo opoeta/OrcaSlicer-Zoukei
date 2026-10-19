@@ -82,6 +82,21 @@ def register(mcp) -> None:
         return await call("POST", "project/export", body, timeout=360.0)
 
     @mcp.tool()
+    async def export_glb(
+        path: Annotated[str, Field(description="Target .glb path (its folder must exist).")],
+        embed_html: Annotated[bool, Field(description="Also write a self-contained web viewer: a single .html (same name) with the GLB embedded, to share by e-mail or chat. False writes no HTML.")] = False,
+        travel: Annotated[bool, Field(description="Include travel moves (thin lines, hidden by default in the viewer).")] = False,
+        detail: Annotated[Literal["preview", "standard", "full"], Field(description="preview = smallest file, standard = default, full = every segment with rounded (octagon) beads.")] = "standard",
+        overwrite: Annotated[bool, Field(description="Allow replacing existing files.")] = False,
+    ) -> dict:
+        """Export the sliced G-code preview toolpaths of the current plate as a GLB (glTF 2.0 binary): beads as
+        tube meshes in the real filament colours, one node per feature role, print stats in extras. Needs a
+        sliced plate shown in the Preview. Writes only to path (and the .html next to it); never replaces
+        an existing file unless overwrite=True."""
+        body = clean(path=path, embed_html=embed_html, travel=travel, detail=detail, overwrite=overwrite)
+        return await call("POST", "export/glb", body, timeout=600.0)
+
+    @mcp.tool()
     async def project_undo(
         steps: Annotated[int, Field(description="How many undo steps (1..50).")] = 1,
     ) -> dict:
