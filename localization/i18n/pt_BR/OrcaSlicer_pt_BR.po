@@ -37305,9 +37305,6 @@ msgstr ""
 #~ msgid "Already did a synchronization, do you want to sync only changes or resync all?"
 #~ msgstr "Já foi feita uma sincronização, deseja sincronizar apenas as alterações ou ressincronizar tudo?"
 
-#~ msgid "Sync"
-#~ msgstr "Sincronizar"
-
 #~ msgid "Resync"
 #~ msgstr "Ressincronizar"
 
