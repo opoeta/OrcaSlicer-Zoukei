@@ -11,10 +11,13 @@
 #include "slic3r/GUI/Plater.hpp"
 
 #include <boost/functional/hash.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <cstring>
+#include <initializer_list>
 
 namespace Slic3r {
 namespace GUI {
@@ -146,19 +149,58 @@ Vec3d light_dir(const StudioLight& l, const StudioCamera& sc, bool follow)
     return (std::cos(el) * (std::cos(az) * h + std::sin(az) * r) + std::sin(el) * Vec3d::UnitZ()).normalized();
 }
 
-struct MaterialParams
+// Material presets by family. id: what the app config keeps (stable); family and name: shown, translated.
+// roughness, f0, specular, sheen, metallic, transmission, emission, grain, grain_mm, speckle, tint
+struct MaterialPreset
 {
-    float roughness, f0, specular, sheen;
+    StudioMaterialInfo     info;
+    libvgcode::StudioShading p;
 };
 
-MaterialParams material_params(StudioMaterial m)
+libvgcode::StudioShading mat(float roughness, float f0, float specular, float sheen, float metallic = 0.f, float transmission = 0.f,
+                             float emission = 0.f, float grain = 0.f, float grain_mm = 0.2f, float speckle = 0.f,
+                             libvgcode::Vec3 tint = { 1.f, 1.f, 1.f })
 {
-    switch (m) {
-    case StudioMaterial::MattePLA: return { 0.72f, 0.04f, 0.55f, 0.0f };
-    case StudioMaterial::SilkSheen: return { 0.30f, 0.06f, 0.90f, 1.0f };
-    case StudioMaterial::PETGGloss: return { 0.15f, 0.05f, 1.50f, 0.0f };
-    default: return { 0.5f, 0.04f, 1.0f, 0.0f }; // the realistic preview's own
-    }
+    libvgcode::StudioShading s;
+    s.roughness    = roughness;
+    s.f0           = f0;
+    s.specular     = specular;
+    s.sheen        = sheen;
+    s.metallic     = metallic;
+    s.transmission = transmission;
+    s.emission     = emission;
+    s.grain        = grain;
+    s.grain_mm     = grain_mm;
+    s.speckle      = speckle;
+    s.tint         = tint;
+    return s;
+}
+
+// The order is the one of the list in the studio; append only where it fits, ids never change.
+const std::vector<MaterialPreset>& material_presets()
+{
+    static const std::vector<MaterialPreset> presets = {
+        { { "preview", "Preview", "Preview shading" }, mat(0.50f, 0.04f, 1.00f, 0.0f) },
+        { { "pla_matte", "PLA", "Matte" }, mat(0.72f, 0.04f, 0.55f, 0.0f) },
+        { { "pla_glossy", "PLA", "Glossy" }, mat(0.34f, 0.045f, 1.10f, 0.0f) },
+        { { "pla_silk", "PLA", "Silk" }, mat(0.30f, 0.06f, 0.90f, 1.0f) },
+        { { "pla_silk_metal", "PLA", "Silk metal" }, mat(0.26f, 0.08f, 1.00f, 0.7f, 0.65f) },
+        { { "pla_marble", "PLA", "Marble / granite" }, mat(0.62f, 0.04f, 0.60f, 0.0f, 0.f, 0.f, 0.f, 0.06f, 0.6f, 1.0f) },
+        { { "pla_wood", "PLA", "Wood" }, mat(0.80f, 0.04f, 0.35f, 0.0f, 0.f, 0.f, 0.f, 0.18f, 0.45f, 0.f, { 1.05f, 0.95f, 0.84f }) },
+        { { "petg_gloss", "PETG", "Glossy" }, mat(0.15f, 0.05f, 1.50f, 0.0f) },
+        { { "petg_matte", "PETG", "Matte" }, mat(0.60f, 0.045f, 0.70f, 0.0f) },
+        { { "petg_translucent", "PETG", "Translucent" }, mat(0.12f, 0.05f, 1.50f, 0.0f, 0.f, 0.6f) },
+        { { "abs", "ABS / ASA", "ABS" }, mat(0.48f, 0.04f, 0.80f, 0.0f) },
+        { { "asa", "ABS / ASA", "ASA" }, mat(0.68f, 0.04f, 0.55f, 0.0f) },
+        { { "pc", "Engineering", "PC" }, mat(0.12f, 0.05f, 1.60f, 0.0f) },
+        { { "pa", "Engineering", "PA (nylon)" }, mat(0.62f, 0.04f, 0.60f, 0.0f, 0.f, 0.1f) },
+        { { "cf", "Engineering", "Carbon fibre (PLA-CF, PETG-CF, PA-CF)" },
+          mat(0.86f, 0.035f, 0.22f, 0.0f, 0.f, 0.f, 0.f, 0.35f, 0.12f, 0.f, { 0.90f, 0.90f, 0.92f }) },
+        { { "tpu", "Engineering", "TPU" }, mat(0.66f, 0.04f, 0.35f, 0.0f, 0.f, 0.f, 0.f, 0.f, 0.2f, 0.f, { 0.96f, 0.96f, 0.96f }) },
+        { { "glow", "Specials", "Glow in the dark" }, mat(0.60f, 0.04f, 0.60f, 0.0f, 0.f, 0.15f, 0.35f) },
+        { { "clear", "Specials", "Clear / resin" }, mat(0.06f, 0.05f, 1.80f, 0.0f, 0.f, 1.0f) },
+    };
+    return presets;
 }
 
 // ---- shaders --------------------------------------------------------------------------------------
@@ -261,7 +303,9 @@ const char* kStageFS =
     "    float r2 = dot(o, o);\n"
     "    vec4 lp = contact_vp * vec4(p.xy + o * contact_radius, 0.0, 1.0);\n"
     "    vec2 uv = lp.xy / lp.w * 0.5 + 0.5;\n"
-    "    float h = contact_depth.x + texture(contact_map, uv).r * contact_depth.y;\n"
+    // nothing above this point (the cleared far plane, or outside the map): no contact at all, however flat the print
+    "    float d = texture(contact_map, uv).r;\n"
+    "    float h = d >= 0.99999 ? 1.0e6 : contact_depth.x + d * contact_depth.y;\n"
     "    float w = 1.0 - 0.6 * r2;\n"
     "    occ += w * (1.0 - smoothstep(0.0, contact_height, h));\n"
     "    n += w;\n"
@@ -492,6 +536,72 @@ void apply_light_preset(StudioSettings& s, StudioLightPreset preset)
     }
 }
 
+size_t studio_material_count() { return material_presets().size(); }
+
+const StudioMaterialInfo& studio_material(size_t index)
+{
+    return material_presets()[std::min(index, material_presets().size() - 1)].info;
+}
+
+int studio_material_index(const std::string& id)
+{
+    for (size_t i = 0; i < material_presets().size(); ++i)
+        if (id == material_presets()[i].info.id)
+            return int(i);
+    return -1;
+}
+
+int studio_material_for_filament(const std::string& type_in, const std::string& name_in)
+{
+    std::string type = type_in, name = name_in;
+    for (char& c : type) c = char(std::tolower((unsigned char) c));
+    for (char& c : name) c = char(std::tolower((unsigned char) c));
+    auto has = [&name](std::initializer_list<const char*> words) {
+        for (const char* w : words)
+            if (name.find(w) != std::string::npos)
+                return true;
+        return false;
+    };
+    auto is = [&type](std::initializer_list<const char*> types) {
+        for (const char* t : types)
+            if (type == t)
+                return true;
+        return false;
+    };
+    // the look named in the preset first: it says more than the base polymer
+    if (has({ "glow", "luminous", "fosfor", "phosph" }))
+        return studio_material_index("glow");
+    const bool metal = has({ "metal" });
+    if (has({ "silk", "seda" }))
+        return studio_material_index(metal ? "pla_silk_metal" : "pla_silk");
+    if (metal)
+        return studio_material_index("pla_silk_metal");
+    if (has({ "marble", "rmore", "granite", "granito", "stone", "pedra" }))
+        return studio_material_index("pla_marble");
+    if (has({ "wood", "madeira" }))
+        return studio_material_index("pla_wood");
+    if (type.find("cf") != std::string::npos || type.find("gf") != std::string::npos || has({ "carbon", "-cf", " cf" }))
+        return studio_material_index("cf");
+    if (has({ "translucent", "transparent", "transl", "transp", "clear", "cristal", "crystal" }))
+        return studio_material_index(is({ "resin" }) ? "clear" : "petg_translucent");
+    const bool matte = has({ "matte", "matt", "fosco" });
+    if (is({ "tpu", "tpe", "tpu-ams" }) || type.find("tpu") != std::string::npos)
+        return studio_material_index("tpu");
+    if (is({ "pc", "pc-abs", "pcabs" }))
+        return studio_material_index("pc");
+    if (is({ "pa", "pa6", "pa12", "paht", "ppa", "nylon" }) || type.find("pa") == 0)
+        return studio_material_index("pa");
+    if (is({ "asa" }))
+        return studio_material_index("asa");
+    if (is({ "abs", "hips" }))
+        return studio_material_index("abs");
+    if (is({ "petg", "pet", "pctg", "hdpe", "pp" }))
+        return studio_material_index(matte ? "petg_matte" : "petg_gloss");
+    if (type.find("pla") != std::string::npos)
+        return studio_material_index(matte ? "pla_matte" : "pla_glossy");
+    return -1;
+}
+
 Vec3d StudioCamera::eye() const
 {
     const double y = yaw_deg * kDeg;
@@ -622,6 +732,7 @@ bool StudioRenderer::init_programs()
         m_guides_program = compile_program(kFullscreenVS, kGuidesFS, m_error);
     if (m_stage_program == 0 || m_guides_program == 0) {
         m_programs_failed = true;
+        BOOST_LOG_TRIVIAL(error) << "[studio] " << m_error;
         return false;
     }
     glsafe(::glGenVertexArrays(1, &m_vao));
@@ -764,8 +875,10 @@ bool StudioRenderer::build_key_shadow(GCodeViewer& gv, const Vec3d& L, const Bou
         m_key_fbo = 0;
     }
     m_key_size = size;
-    if (!ensure_depth_target(m_key_tex, m_key_fbo, size))
+    if (!ensure_depth_target(m_key_tex, m_key_fbo, size)) {
+        BOOST_LOG_TRIVIAL(error) << "[studio] key shadow framebuffer incomplete, size " << size;
         return false;
+    }
     render_casters(gv, size, view, proj, eye);
     return true;
 }
@@ -791,8 +904,10 @@ bool StudioRenderer::build_contact_map(GCodeViewer& gv, const BoundingBoxf3& box
         m_contact_fbo = 0;
     }
     m_contact_size = size;
-    if (!ensure_depth_target(m_contact_tex, m_contact_fbo, size))
+    if (!ensure_depth_target(m_contact_tex, m_contact_fbo, size)) {
+        BOOST_LOG_TRIVIAL(error) << "[studio] contact map framebuffer incomplete, size " << size;
         return false;
+    }
     render_casters(gv, size, view, proj, eye);
     return true;
 }
@@ -815,8 +930,23 @@ bool StudioRenderer::render(const StudioSettings& st, const StudioCamera& sc, do
     const GLboolean prev_blend = ::glIsEnabled(GL_BLEND);
     const GLboolean prev_depth = ::glIsEnabled(GL_DEPTH_TEST);
     const GLboolean prev_cull  = ::glIsEnabled(GL_CULL_FACE);
+    // The context is shared with the scene canvases, which can leave a scissor rectangle, the stencil test or a
+    // masked colour behind (see UVEditorCanvas::render): any of them would clip the clear and every draw here.
+    const GLboolean prev_scissor = ::glIsEnabled(GL_SCISSOR_TEST);
+    const GLboolean prev_stencil = ::glIsEnabled(GL_STENCIL_TEST);
+    GLboolean prev_mask[4] = { GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE };
+    glsafe(::glGetBooleanv(GL_COLOR_WRITEMASK, prev_mask));
+    glsafe(::glDisable(GL_SCISSOR_TEST));
+    glsafe(::glDisable(GL_STENCIL_TEST));
+    glsafe(::glDisable(GL_POLYGON_OFFSET_FILL));
+    glsafe(::glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+    glsafe(::glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+    glsafe(::glClearDepth(1.0));
 
     auto restore_gl = [&]() {
+        if (prev_scissor) glsafe(::glEnable(GL_SCISSOR_TEST));
+        if (prev_stencil) glsafe(::glEnable(GL_STENCIL_TEST));
+        glsafe(::glColorMask(prev_mask[0], prev_mask[1], prev_mask[2], prev_mask[3]));
         glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, (GLuint) target_fbo));
         glsafe(::glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]));
         glsafe(::glClearColor(prev_clear[0], prev_clear[1], prev_clear[2], prev_clear[3]));
@@ -839,6 +969,11 @@ bool StudioRenderer::render(const StudioSettings& st, const StudioCamera& sc, do
         glsafe(::glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
         restore_gl();
         m_error = "no print";
+        if (m_log_key != "no print") {
+            m_log_key = "no print";
+            BOOST_LOG_TRIVIAL(info) << "[studio] nothing to render: viewer " << (gv != nullptr ? "present" : "missing") << ", data "
+                                    << (gv != nullptr && gv->has_data() ? "yes" : "no") << ", box " << (box.defined ? "defined" : "empty");
+        }
         return false;
     }
 
@@ -897,7 +1032,7 @@ bool StudioRenderer::render(const StudioSettings& st, const StudioCamera& sc, do
         const float k = 9.6f * std::max(0.0f, l.intensity);
         return { t[0] * k, t[1] * k, t[2] * k };
     };
-    const MaterialParams mat = material_params(st.material);
+    const libvgcode::StudioShading& mat = material_presets()[size_t(std::clamp(st.material, 0, int(material_presets().size()) - 1))].p;
     auto shading_for = [&](const Matrix4d& view) {
         const Matrix3d rot = view.block<3, 3>(0, 0);
         libvgcode::StudioShading sh;
@@ -909,10 +1044,17 @@ bool StudioRenderer::render(const StudioSettings& st, const StudioCamera& sc, do
         sh.rim_color  = radiance(st.rim);
         const float amb = std::clamp(st.ambient, 0.0f, 2.0f);
         sh.ambient   = { amb, amb, amb };
-        sh.roughness = mat.roughness;
-        sh.f0        = mat.f0;
-        sh.specular  = mat.specular;
-        sh.sheen     = mat.sheen;
+        sh.roughness    = mat.roughness;
+        sh.f0           = mat.f0;
+        sh.specular     = mat.specular;
+        sh.sheen        = mat.sheen;
+        sh.metallic     = mat.metallic;
+        sh.transmission = mat.transmission;
+        sh.emission     = mat.emission;
+        sh.grain        = mat.grain;
+        sh.grain_mm     = mat.grain_mm;
+        sh.speckle      = mat.speckle;
+        sh.tint         = mat.tint;
         gv->set_studio_shading(sh);
         gv->set_light_top_dir((rot * key_w).normalized());
     };
@@ -1067,6 +1209,29 @@ bool StudioRenderer::render(const StudioSettings& st, const StudioCamera& sc, do
     set_self_shadows();
     gv->render_toolpaths_with_matrices(to_vgcode_mat(vp.view), to_vgcode_mat(vp.proj));
 
+    {
+        // one line per change of what is drawn, for the debug log
+        GLint bound = 0;
+        ::glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+        const GLenum status = ::glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        const GLenum gl_err = ::glGetError();
+        char line[512];
+        std::snprintf(line, sizeof(line),
+                      "[studio] render %dx%d fbo=%d status=0x%04X gl_error=0x%04X box=(%.1f %.1f %.1f)-(%.1f %.1f %.1f) eye=(%.1f %.1f %.1f) "
+                      "layers=%zu range=%zu-%zu key=%d contact=%d refl=%d bg=%d",
+                      width, height, (int) bound, (unsigned) status, (unsigned) gl_err, box.min.x(), box.min.y(), box.min.z(), box.max.x(),
+                      box.max.y(), box.max.z(), vp.eye.x(), vp.eye.y(), vp.eye.z(), layers, gv->get_layers_z_range()[0],
+                      gv->get_layers_z_range()[1], key_ok ? 1 : 0, contact_ok ? 1 : 0, refl_ok ? 1 : 0, int(st.background));
+        // the camera moves all the time: keep it out of the key
+        const std::string key = std::to_string(width) + "x" + std::to_string(height) + "/" + std::to_string(bound) + "/" +
+                                std::to_string(status) + "/" + std::to_string(gl_err) + "/" + std::to_string(layers) + "/" +
+                                std::to_string(key_ok) + std::to_string(contact_ok) + std::to_string(refl_ok) + "/" +
+                                std::to_string(int(st.background));
+        if (key != m_log_key) {
+            m_log_key = key;
+            BOOST_LOG_TRIVIAL(info) << line;
+        }
+    }
     restore_gl();
     return true;
 }
@@ -1092,6 +1257,47 @@ void StudioRenderer::render_guides(int width, int height, const std::array<float
     glsafe(::glUseProgram(0));
     glsafe(::glDisable(GL_BLEND));
     glsafe(::glEnable(GL_DEPTH_TEST));
+}
+
+bool StudioRenderer::render_live_pixels(const StudioSettings& st, const StudioCamera& sc, double aspect, const FrameWindow& window, int width,
+                                        int height, const std::array<float, 4>& frame_px, bool thirds, bool dark_theme, std::vector<uint8_t>& rgba)
+{
+    if (width <= 0 || height <= 0)
+        return false;
+    GLint prev_fbo = 0;
+    glsafe(::glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo));
+    GLuint fbo = 0, color_rb = 0, depth_rb = 0;
+    glsafe(::glGenFramebuffers(1, &fbo));
+    glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+    glsafe(::glGenRenderbuffers(1, &color_rb));
+    glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, color_rb));
+    glsafe(::glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height));
+    glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color_rb));
+    glsafe(::glGenRenderbuffers(1, &depth_rb));
+    glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, depth_rb));
+    glsafe(::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height));
+    glsafe(::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_rb));
+    const GLenum bufs[] = { GL_COLOR_ATTACHMENT0 };
+    glsafe(::glDrawBuffers(1, bufs));
+    glsafe(::glBindRenderbuffer(GL_RENDERBUFFER, 0));
+    bool ok = ::glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    if (ok) {
+        const bool drawn = render(st, sc, aspect, window, width, height, true);
+        glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+        if (drawn || has_print())
+            render_guides(width, height, frame_px, thirds, dark_theme);
+        rgba.assign(size_t(width) * size_t(height) * 4, 0);
+        glsafe(::glReadBuffer(GL_COLOR_ATTACHMENT0));
+        glsafe(::glPixelStorei(GL_PACK_ALIGNMENT, 1));
+        glsafe(::glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void*) rgba.data()));
+    }
+    else
+        BOOST_LOG_TRIVIAL(error) << "[studio] live fallback framebuffer incomplete " << width << "x" << height;
+    glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, (GLuint) prev_fbo));
+    glsafe(::glDeleteRenderbuffers(1, &depth_rb));
+    glsafe(::glDeleteRenderbuffers(1, &color_rb));
+    glsafe(::glDeleteFramebuffers(1, &fbo));
+    return ok;
 }
 
 bool StudioRenderer::render_image(const StudioSettings& st, const StudioCamera& sc, int out_w, int out_h, int ss,

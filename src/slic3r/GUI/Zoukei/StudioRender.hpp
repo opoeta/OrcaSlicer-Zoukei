@@ -25,7 +25,20 @@ class GCodeViewer;
 namespace Zoukei {
 
 enum class StudioBackground : int { CycloramaWhite = 0, CycloramaDark, Gradient, Solid, Transparent, Count };
-enum class StudioMaterial : int { Preview = 0, MattePLA, SilkSheen, PETGGloss, Count };
+// Material presets: parameters of the studio shading (roughness, specular, silk sheen, metal, transmission,
+// emission, grain, flecks, tint), in families. The id is what the app config keeps.
+struct StudioMaterialInfo
+{
+    const char* id;
+    const char* family;
+    const char* name;
+};
+size_t                    studio_material_count();
+const StudioMaterialInfo& studio_material(size_t index);
+// -1 when unknown
+int studio_material_index(const std::string& id);
+// The preset that suits a filament (filament_type, preset name: silk, matte, wood...), -1 when none does.
+int studio_material_for_filament(const std::string& type, const std::string& name);
 enum class StudioLightPreset : int { Soft = 0, Dramatic, HighKey, PreviewLike, Count };
 
 struct StudioLight
@@ -65,7 +78,8 @@ struct StudioSettings
     float reflection_strength{ 0.25f };
     bool  self_shadows{ true };
 
-    StudioMaterial material{ StudioMaterial::MattePLA };
+    // index in the material presets (1 = PLA matte)
+    int   material{ 1 };
     float exposure{ 1.0f };
     float saturation{ 1.1f };
 
@@ -135,6 +149,11 @@ public:
     bool render_image(const StudioSettings& settings, const StudioCamera& camera, int out_w, int out_h, int ss,
                       std::vector<uint8_t>& rgba, int layer_top = -1, const std::function<bool(int, int)>& progress = nullptr);
 
+    // The live view (stage, print and guides) rendered off-screen and read back, bottom row first, RGBA: the
+    // fallback of a window whose surface cannot take the GL context.
+    bool render_live_pixels(const StudioSettings& settings, const StudioCamera& camera, double aspect, const FrameWindow& window, int width,
+                            int height, const std::array<float, 4>& frame_px, bool thirds, bool dark_theme, std::vector<uint8_t>& rgba);
+
     // Overlay of the live view: darkens what is outside the frame rectangle (pixels, bottom-left origin) and
     // draws its border and, optionally, the rule of thirds.
     void render_guides(int width, int height, const std::array<float, 4>& frame_px, bool thirds, bool dark_theme);
@@ -175,6 +194,7 @@ private:
     int          m_refl_w{ 0 }, m_refl_h{ 0 };
 
     std::string m_error;
+    std::string m_log_key;
 };
 
 } // namespace Zoukei

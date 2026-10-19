@@ -115,6 +115,19 @@ struct StudioShading
     float f0{ 0.04f };
     float specular{ 1.0f };
     float sheen{ 0.0f };
+    // Specular tinted by the filament colour (metal-filled silk), 0..1.
+    float metallic{ 0.0f };
+    // Light let through and scattered (translucent PETG, clear resin), 0..1.
+    float transmission{ 0.0f };
+    // Light of its own (glow in the dark), 0..1.
+    float emission{ 0.0f };
+    // Darker micro grain (carbon fibre, wood) and its size in mm.
+    float grain{ 0.0f };
+    float grain_mm{ 0.2f };
+    // Sparse dark and light flecks (marble, granite), 0..1.
+    float speckle{ 0.0f };
+    // Multiplies the filament colour (warm wood, dull composites).
+    Vec3  tint{ 1.0f, 1.0f, 1.0f };
 };
 
 //

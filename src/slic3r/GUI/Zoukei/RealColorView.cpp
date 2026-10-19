@@ -156,6 +156,7 @@ bool render_legend_extras(ImGuiWrapper& imgui, float scale, bool realcolor_appli
     ImGui::SameLine();
     if (imgui.button(_L("Photo Studio...")))
         wxGetApp().CallAfter([]() { open_photo_studio(); });
+    studio_selftest_tick();
 
     if (realcolor_applicable && realcolor_enabled()) {
         static float s_blur = -1.f;

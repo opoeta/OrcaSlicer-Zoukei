@@ -416,8 +416,9 @@ private:
     int m_uni_segments_exposure_id{ -1 };
     int m_uni_segments_saturation_id{ -1 };
     int m_uni_segments_light_top_dir_id{ -1 };
-    // Orca Zoukei: Photo Studio, in the order: studio, key, fill dir, fill, rim dir, rim, ambient, material
-    std::array<int, 8> m_uni_segments_studio_ids{ { -1, -1, -1, -1, -1, -1, -1, -1 } };
+    // Orca Zoukei: Photo Studio, in the order: studio, key, fill dir, fill, rim dir, rim, ambient, material,
+    // material2, material3, tint
+    std::array<int, 11> m_uni_segments_studio_ids{ { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 } };
     // ORCA: the layers greyed or dimmed around the one the sliders show, in the segments and options shaders.
     struct LayerColorsUniforms
     {

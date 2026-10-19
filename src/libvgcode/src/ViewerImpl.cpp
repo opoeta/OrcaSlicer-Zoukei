@@ -800,8 +800,8 @@ void ViewerImpl::init(const std::string& opengl_context_version)
     m_uni_segments_light_top_dir_id          = glGetUniformLocation(m_segments_shader_id, "light_top_dir");
     // Orca Zoukei: Photo Studio (absent from the ES shaders: -1, and the uploads are no-ops)
     {
-        const char* studio_names[8] = { "studio", "studio_key", "studio_fill_dir", "studio_fill", "studio_rim_dir", "studio_rim",
-                                        "studio_ambient", "studio_material" };
+        const char* studio_names[11] = { "studio", "studio_key", "studio_fill_dir", "studio_fill", "studio_rim_dir", "studio_rim",
+                                         "studio_ambient", "studio_material", "studio_material2", "studio_material3", "studio_tint" };
         for (size_t i = 0; i < m_uni_segments_studio_ids.size(); ++i)
             m_uni_segments_studio_ids[i] = glGetUniformLocation(m_segments_shader_id, studio_names[i]);
     }
@@ -2319,6 +2319,11 @@ void ViewerImpl::render_segments(const Mat4x4& view_matrix, const Mat4x4& projec
                 glsafe(glUniform3fv(m_uni_segments_studio_ids[5], 1, m_studio.rim_color.data()));
                 glsafe(glUniform3fv(m_uni_segments_studio_ids[6], 1, m_studio.ambient.data()));
                 glsafe(glUniform4fv(m_uni_segments_studio_ids[7], 1, material));
+                const float material2[4] = { m_studio.metallic, m_studio.transmission, m_studio.emission, m_studio.grain };
+                const float material3[4] = { m_studio.grain_mm, m_studio.speckle, 0.0f, 0.0f };
+                glsafe(glUniform4fv(m_uni_segments_studio_ids[8], 1, material2));
+                glsafe(glUniform4fv(m_uni_segments_studio_ids[9], 1, material3));
+                glsafe(glUniform3fv(m_uni_segments_studio_ids[10], 1, m_studio.tint.data()));
             }
         }
         set_layer_colors(m_uni_segments_layer_colors);

@@ -20,6 +20,7 @@
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/GCodeViewer.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_Utils.hpp"
 #include "slic3r/GUI/I18N.hpp"
@@ -30,7 +31,6 @@
 #include "slic3r/GUI/Widgets/Button.hpp"
 #include "slic3r/GUI/Widgets/Label.hpp"
 
-#include <boost/algorithm/string/case_conv.hpp>
 
 #include <wx/checkbox.h>
 #include <wx/choice.h>
@@ -53,6 +53,7 @@
 #include <wx/timer.h>
 
 #include <boost/functional/hash.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -61,6 +62,9 @@
 #include <iterator>
 #include <memory>
 #include <set>
+#include <thread>
+#include <chrono>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -237,6 +241,94 @@ std::vector<uint8_t> from_wx(const wxImage& img)
 
 // ---- the dialog -----------------------------------------------------------------------------------
 
+// The name of a material preset in the list: family - name.
+wxString material_label(const std::string& id)
+{
+    const wxString eng = _L("Engineering"), spe = _L("Specials");
+    if (id == "preview") return _L("Preview shading");
+    if (id == "pla_matte") return "PLA - " + _L("Matte");
+    if (id == "pla_glossy") return "PLA - " + _L("Glossy");
+    if (id == "pla_silk") return "PLA - " + _L("Silk");
+    if (id == "pla_silk_metal") return "PLA - " + _L("Silk metal");
+    if (id == "pla_marble") return "PLA - " + _L("Marble / granite");
+    if (id == "pla_wood") return "PLA - " + _L("Wood");
+    if (id == "petg_gloss") return "PETG - " + _L("Glossy");
+    if (id == "petg_matte") return "PETG - " + _L("Matte");
+    if (id == "petg_translucent") return "PETG - " + _L("Translucent");
+    if (id == "abs") return "ABS / ASA - ABS";
+    if (id == "asa") return "ABS / ASA - ASA";
+    if (id == "pc") return eng + " - PC";
+    if (id == "pa") return eng + " - " + _L("PA (nylon)");
+    if (id == "cf") return eng + " - " + _L("Carbon fibre (PLA-CF, PETG-CF, PA-CF)");
+    if (id == "tpu") return eng + " - TPU";
+    if (id == "glow") return spe + " - " + _L("Glow in the dark");
+    if (id == "clear") return spe + " - " + _L("Clear / resin");
+    return wxString::FromUTF8(id);
+}
+
+// A scene canvas on screen whose surface the shared context can be made current on (the one the user looks at).
+wxGLCanvas* current_scene_canvas()
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return nullptr;
+    for (GLCanvas3D* c : { plater->get_current_canvas3D(), plater->get_preview_canvas3D(), plater->get_view3D_canvas3D() }) {
+        if (c == nullptr)
+            continue;
+        wxGLCanvas* wc = c->get_wxglcanvas();
+        if (wc != nullptr && wc->IsShownOnScreen())
+            return wc;
+    }
+    return nullptr;
+}
+
+// The studio's canvas. wglMakeCurrent only accepts a surface with the pixel format the application's one context
+// was made for, so the canvas takes the attributes of OpenGLManager::create_wxglcanvas() with the sample count the
+// scene canvases really have - the MSAA preference can differ from it until the application restarts ("Requires
+// application restart"), and a canvas made from the preference alone then never becomes current: a blank view.
+wxGLCanvas* create_studio_canvas(wxWindow& parent)
+{
+    int samples = -1;
+    if (!GLCanvas3D::is_frame_in_progress()) {
+        if (wxGLCanvas* wc = current_scene_canvas()) {
+            wxGLContext* ctx = wxGetApp().init_glcontext(*wc);
+            if (ctx != nullptr && wc->SetCurrent(*ctx)) {
+                GLint prev = 0;
+                ::glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev);
+                ::glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                GLint s = 0;
+                ::glGetIntegerv(GL_SAMPLES, &s);
+                ::glBindFramebuffer(GL_FRAMEBUFFER, (GLuint) prev);
+                ::glGetError();
+                samples = std::max(0, (int) s);
+            }
+        }
+    }
+    // automated check of the fallback below: a canvas the context refuses
+    if (std::getenv("ZOUKEI_STUDIO_SELFTEST") != nullptr)
+        if (const char* forced = std::getenv("ZOUKEI_STUDIO_FORCE_SAMPLES"))
+            samples = std::atoi(forced);
+    if (samples < 0) {
+        samples = 4;
+        if (const AppConfig* cfg = wxGetApp().app_config; cfg != nullptr) {
+            const std::string v = cfg->get(SETTING_OPENGL_AA_SAMPLES);
+            if (v == "0" || v == "2" || v == "4" || v == "8" || v == "16")
+                samples = std::atoi(v.c_str());
+        }
+        if (!OpenGLManager::can_multisample())
+            samples = 0;
+    }
+    int attribs[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_MIN_RED, 8, WX_GL_MIN_GREEN, 8, WX_GL_MIN_BLUE, 8, WX_GL_MIN_ALPHA, 8,
+                      WX_GL_DEPTH_SIZE, 24, WX_GL_STENCIL_SIZE, 8, WX_GL_SAMPLE_BUFFERS, samples > 0 ? GL_TRUE : GL_FALSE,
+                      WX_GL_SAMPLES, samples, 0 };
+    // not the scene canvas name: no ImGui, no plater shortcuts
+    auto* canvas = new wxGLCanvas(&parent, wxID_ANY, attribs, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS, "ZoukeiPhotoStudioCanvas");
+    canvas->SetBackgroundStyle(wxBG_STYLE_PAINT);
+    BOOST_LOG_TRIVIAL(info) << "[studio] canvas created, " << samples << " MSAA samples";
+    return canvas;
+}
+
+
 class StudioDialog;
 StudioDialog* s_dialog = nullptr;
 
@@ -256,6 +348,12 @@ private:
     // view
     bool   make_current();
     void   on_paint();
+    void   log_once(const char* key, const std::string& line);
+public:
+    bool   draw_live(bool swap, std::vector<uint8_t>* readback, int* rw = nullptr, int* rh = nullptr);
+    bool   snapshot(int w, int h, std::vector<uint8_t>& rgba, std::string& error);
+    bool   draw_fallback(std::vector<uint8_t>& rgba, int& w, int& h);
+private:
     void   on_mouse(wxMouseEvent& evt);
     wxSize canvas_px() const;
     double frame_aspect() const;
@@ -311,6 +409,8 @@ private:
     int              m_bg_idx{ 0 };
     int              m_mat_idx{ 1 };
     float            m_fov{ 24.0f };
+    std::string      m_last_log_key;
+    std::set<std::string> m_logged;
 };
 
 StudioDialog::StudioDialog(wxWindow* parent)
@@ -326,8 +426,7 @@ StudioDialog::StudioDialog(wxWindow* parent)
     auto* top = new wxBoxSizer(wxHORIZONTAL);
 
     // the live view, on the application's GL context
-    m_canvas = OpenGLManager::create_wxglcanvas(*this);
-    m_canvas->SetName("ZoukeiPhotoStudioCanvas"); // not a scene canvas: no ImGui, no plater shortcuts
+    m_canvas = create_studio_canvas(*this);
     m_canvas->SetMinSize(FromDIP(wxSize(640, 480)));
     top->Add(m_canvas, 1, wxEXPAND);
 
@@ -400,6 +499,15 @@ StudioDialog::StudioDialog(wxWindow* parent)
     SetMinSize(FromDIP(wxSize(900, 560)));
     CenterOnParent();
     init_camera();
+    // automated check only (see studio_selftest_tick): a given material and camera height
+    if (std::getenv("ZOUKEI_STUDIO_SELFTEST") != nullptr) {
+        if (const char* m = std::getenv("ZOUKEI_STUDIO_MATERIAL"); m != nullptr && studio_material_index(m) >= 0)
+            m_s.material = studio_material_index(m);
+        if (const char* pitch = std::getenv("ZOUKEI_STUDIO_PITCH"); pitch != nullptr && m_camera_ready) {
+            m_cam.pitch_deg = std::atof(pitch);
+            fit_camera(m_cam, StudioRenderer::print_box(), frame_aspect());
+        }
+    }
     sync_controls();
 }
 
@@ -414,7 +522,14 @@ bool StudioDialog::make_current()
     if (m_canvas == nullptr)
         return false;
     wxGLContext* ctx = wxGetApp().init_glcontext(*m_canvas);
-    return ctx != nullptr && m_canvas->SetCurrent(*ctx);
+    if (ctx != nullptr && m_canvas->SetCurrent(*ctx))
+        return true;
+    // Off-screen work (exports) only needs the context, on any surface that takes it.
+    if (GLCanvas3D::is_frame_in_progress())
+        return false;
+    wxGLCanvas* wc = current_scene_canvas();
+    ctx = wc != nullptr ? wxGetApp().init_glcontext(*wc) : nullptr;
+    return ctx != nullptr && wc->SetCurrent(*ctx);
 }
 
 wxSize StudioDialog::canvas_px() const
@@ -480,8 +595,90 @@ void StudioDialog::set_view(double yaw, double pitch)
 void StudioDialog::on_paint()
 {
     wxPaintDC dc(m_canvas);
-    if (m_busy || !make_current())
+    if (draw_live(true, nullptr) || m_busy)
         return;
+    // This surface could not take the GL context: render through a scene canvas off-screen and blit the
+    // picture with wx instead, slower but never blank.
+    std::vector<uint8_t> rgba;
+    int w = 0, h = 0;
+    if (draw_fallback(rgba, w, h)) {
+        wxImage img(w, h, false);
+        unsigned char* rgb = img.GetData();
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x) {
+                const uint8_t* p = &rgba[(size_t(h - 1 - y) * size_t(w) + size_t(x)) * 4];
+                unsigned char* q = &rgb[(size_t(y) * size_t(w) + size_t(x)) * 3];
+                q[0] = p[0];
+                q[1] = p[1];
+                q[2] = p[2];
+            }
+        wxBitmap bmp(img);
+#ifdef __APPLE__
+        bmp = wxBitmap(img, -1, m_canvas->GetContentScaleFactor());
+#endif
+        dc.DrawBitmap(bmp, 0, 0, false);
+    }
+    else {
+        dc.SetBackground(wxBrush(palette().bg));
+        dc.Clear();
+    }
+}
+
+// The live view rendered off-screen through a scene canvas' surface (bottom row first).
+bool StudioDialog::draw_fallback(std::vector<uint8_t>& rgba, int& w, int& h)
+{
+    if (GLCanvas3D::is_frame_in_progress())
+        return false;
+    wxGLCanvas* wc = current_scene_canvas();
+    wxGLContext* ctx = wc != nullptr ? wxGetApp().init_glcontext(*wc) : nullptr;
+    if (ctx == nullptr || !wc->SetCurrent(*ctx)) {
+        log_once("fallback", "[studio] fallback paint impossible: no scene canvas can take the context");
+        return false;
+    }
+    log_once("fallback_on", "[studio] painting through the off-screen fallback (this surface refused the context)");
+    const wxSize sz = canvas_px();
+    w = sz.x;
+    h = sz.y;
+    m_cam.fov_deg = m_fov;
+    if (!m_camera_ready && StudioRenderer::has_print())
+        init_camera();
+    const std::array<float, 4> fr = frame_rect(w, h);
+    const double fw = std::max(1.0f, fr[2] - fr[0]), fh = std::max(1.0f, fr[3] - fr[1]);
+    FrameWindow  win;
+    win.x0 = -1.0 - 2.0 * fr[0] / fw;
+    win.x1 = -1.0 + 2.0 * (w - fr[0]) / fw;
+    win.y0 = -1.0 - 2.0 * fr[1] / fh;
+    win.y1 = -1.0 + 2.0 * (h - fr[1]) / fh;
+    m_renderer.set_shadow_resolution(2048);
+    const bool ok = m_renderer.render_live_pixels(m_s, m_cam, frame_aspect(), win, w, h, fr, m_x.thirds, wxGetApp().dark_mode(), rgba);
+    // the scene canvas repaints itself over whatever this left in its back buffer
+    if (Plater* plater = wxGetApp().plater())
+        if (GLCanvas3D* c = plater->get_current_canvas3D())
+            c->set_as_dirty();
+    return ok;
+}
+
+// The live view into the canvas' back buffer; read back (bottom row first, RGBA) and/or shown.
+bool StudioDialog::draw_live(bool swap, std::vector<uint8_t>* readback, int* rw, int* rh)
+{
+    if (m_busy)
+        return false;
+    if (!m_canvas->IsShownOnScreen()) {
+        log_once("hidden", "[studio] paint skipped: canvas not shown on screen");
+        return false;
+    }
+    // Painted from inside a preview frame (a nested event loop): taking the shared context now would
+    // break that frame. Paint again once it is over.
+    if (GLCanvas3D::is_frame_in_progress()) {
+        log_once("frame", "[studio] paint deferred: a 3D canvas frame is in progress");
+        m_canvas->Refresh(false);
+        return false;
+    }
+    wxGLContext* ctx = wxGetApp().init_glcontext(*m_canvas);
+    if (ctx == nullptr || !m_canvas->SetCurrent(*ctx)) {
+        log_once("current", std::string("[studio] SetCurrent failed on the studio canvas, context ") + (ctx != nullptr ? "present" : "missing"));
+        return false;
+    }
     const wxSize sz = canvas_px();
     m_cam.fov_deg = m_fov;
     if (!m_camera_ready && StudioRenderer::has_print())
@@ -494,11 +691,34 @@ void StudioDialog::on_paint()
     win.y0 = -1.0 - 2.0 * fr[1] / fh;
     win.y1 = -1.0 + 2.0 * (sz.y - fr[1]) / fh;
     glsafe(::glBindFramebuffer(GL_FRAMEBUFFER, 0));
+    glsafe(::glDrawBuffer(GL_BACK));
     m_renderer.set_shadow_resolution(2048);
     const bool ok = m_renderer.render(m_s, m_cam, frame_aspect(), win, sz.x, sz.y, true);
     if (ok || StudioRenderer::has_print())
         m_renderer.render_guides(sz.x, sz.y, fr, m_x.thirds, wxGetApp().dark_mode());
-    m_canvas->SwapBuffers();
+    if (readback != nullptr) {
+        readback->assign(size_t(sz.x) * size_t(sz.y) * 4, 0);
+        glsafe(::glReadBuffer(GL_BACK));
+        glsafe(::glPixelStorei(GL_PACK_ALIGNMENT, 1));
+        glsafe(::glReadPixels(0, 0, sz.x, sz.y, GL_RGBA, GL_UNSIGNED_BYTE, readback->data()));
+        if (rw != nullptr) *rw = sz.x;
+        if (rh != nullptr) *rh = sz.y;
+    }
+    const GLenum gl_err = ::glGetError();
+    if (swap)
+        m_canvas->SwapBuffers();
+
+    // one line whenever what the view shows changes, for the debug log
+    char state[256];
+    std::snprintf(state, sizeof(state), "[studio] live %dx%d ok=%d err='%s' gl_error=0x%04X cam dist=%.1f yaw=%.1f pitch=%.1f", sz.x, sz.y,
+                  ok ? 1 : 0, m_renderer.last_error().c_str(), (unsigned) gl_err, m_cam.distance, m_cam.yaw_deg, m_cam.pitch_deg);
+    const std::string key = std::to_string(sz.x) + "x" + std::to_string(sz.y) + (ok ? "1" : "0") + m_renderer.last_error() +
+                            std::to_string(gl_err);
+    if (key != m_last_log_key) {
+        m_last_log_key = key;
+        BOOST_LOG_TRIVIAL(info) << state;
+    }
+
     if (!ok && m_info != nullptr) {
         const std::string& err = m_renderer.last_error();
         m_info->SetLabel(err == "no print" ? _L("Slice the plate: the studio shows the sliced print of the preview.") :
@@ -506,6 +726,33 @@ void StudioDialog::on_paint()
     }
     else if (m_info != nullptr && !m_info->GetLabel().empty())
         m_info->SetLabel("");
+    return ok;
+}
+
+void StudioDialog::log_once(const char* key, const std::string& line)
+{
+    if (m_logged.insert(key).second)
+        BOOST_LOG_TRIVIAL(info) << line;
+}
+
+bool StudioDialog::snapshot(int w, int h, std::vector<uint8_t>& rgba, std::string& error)
+{
+    if (!StudioRenderer::has_print()) {
+        error = "no print";
+        return false;
+    }
+    if (!m_camera_ready)
+        init_camera();
+    StudioCamera cam = m_cam;
+    cam.fov_deg      = m_fov;
+    fit_camera(cam, StudioRenderer::print_box(), double(w) / double(h));
+    m_busy = true;
+    const bool ok = render_picture(cam, w, h, 2, -1, rgba, nullptr, 0, 1);
+    m_busy = false;
+    if (!ok)
+        error = m_renderer.last_error().empty() ? std::string("render failed") : m_renderer.last_error();
+    m_canvas->Refresh(false);
+    return ok;
 }
 
 void StudioDialog::on_mouse(wxMouseEvent& evt)
@@ -805,12 +1052,11 @@ void StudioDialog::build_panel(wxWindow* panel)
     {
         auto* grid = add_section(panel, top, _L("Material"));
         wxArrayString mats;
-        mats.Add(_L("Preview shading"));
-        mats.Add(_L("Matte PLA"));
-        mats.Add(_L("Silk sheen"));
-        mats.Add(_L("PETG gloss"));
-        m_mat_idx = int(m_s.material);
-        add_choice(panel, grid, _L("Preset"), mats, &m_mat_idx, [this]() { m_s.material = StudioMaterial(m_mat_idx); });
+        for (size_t i = 0; i < studio_material_count(); ++i)
+            mats.Add(material_label(studio_material(i).id));
+        m_mat_idx = m_s.material;
+        add_choice(panel, grid, _L("Preset"), mats, &m_mat_idx, [this]() { m_s.material = m_mat_idx; });
+        m_syncers.push_back([this]() { m_mat_idx = m_s.material; });
         add_slider(panel, grid, _L("Exposure"), &m_s.exposure, 0.4f, 2.0f, 0.01f, "%.2f");
         add_slider(panel, grid, _L("Saturation"), &m_s.saturation, 0.0f, 2.0f, 0.01f, "%.2f");
         auto* note = new wxStaticText(panel, wxID_ANY, _L("The colours are the preview's: view type, RealColor, multi-colour stripes."));
@@ -1035,24 +1281,43 @@ void StudioDialog::load_settings()
     get_b("reflection", m_s.reflection);
     get_f("reflection_strength", m_s.reflection_strength, 0.0f, 1.0f);
     get_b("self_shadows", m_s.self_shadows);
-    int mat = int(m_s.material);
-    get_i("material", mat, 0, int(StudioMaterial::Count) - 1);
-    m_s.material = StudioMaterial(mat);
-    // Start from the filament on the plate: a silk filament opens with the silk sheen, PETG with the gloss.
+    // the material by its id; older settings kept its index in the first list of four
+    const std::string material_id = cfg->get(kSection, "material_id");
+    if (const int i = studio_material_index(material_id); i >= 0)
+        m_s.material = i;
+    else if (cfg->has(kSection, "material")) {
+        static const char* legacy[] = { "preview", "pla_matte", "pla_silk", "petg_gloss" };
+        int old_index = 1;
+        get_i("material", old_index, 0, 3);
+        m_s.material = std::max(0, studio_material_index(legacy[old_index]));
+    }
+    // A new set of filaments starts from the material that suits them (silk, matte, wood, PETG, TPU, CF...); the
+    // choice made afterwards in the studio stays for as long as the filaments do.
     if (const PresetBundle* bundle = wxGetApp().preset_bundle) {
-        bool silk = false, petg = false;
         const DynamicPrintConfig   full  = bundle->full_config();
         const ConfigOptionStrings* types = full.option<ConfigOptionStrings>("filament_type");
+        std::string signature;
+        int         pick = -1;
         for (size_t i = 0; i < bundle->filament_presets.size(); ++i) {
-            std::string name = boost::algorithm::to_lower_copy(bundle->filament_presets[i]);
-            std::string type = (types != nullptr && i < types->values.size()) ? boost::algorithm::to_lower_copy(types->values[i]) : std::string();
-            silk = silk || name.find("silk") != std::string::npos || name.find("seda") != std::string::npos || type.find("silk") != std::string::npos;
-            petg = petg || type.find("petg") != std::string::npos;
+            const std::string& name = bundle->filament_presets[i];
+            const std::string  type = (types != nullptr && i < types->values.size()) ? types->values[i] : std::string();
+            signature += name + "|";
+            const int m = studio_material_for_filament(type, name);
+            // a look named in the preset (silk, metal, marble, wood, glow, CF, translucent) wins over a plain polymer
+            static const char* looks[] = { "pla_silk", "pla_silk_metal", "pla_marble", "pla_wood", "glow", "cf", "petg_translucent", "clear" };
+            bool look = false;
+            for (const char* l : looks)
+                look = look || m == studio_material_index(l);
+            if (m >= 0 && (pick < 0 || look))
+                pick = m;
+            if (look)
+                break;
         }
-        if (silk)
-            m_s.material = StudioMaterial::SilkSheen;
-        else if (petg)
-            m_s.material = StudioMaterial::PETGGloss;
+        if (pick >= 0 && signature != cfg->get(kSection, "material_filaments")) {
+            m_s.material = pick;
+            cfg->set(kSection, "material_filaments", signature);
+            BOOST_LOG_TRIVIAL(info) << "[studio] material from the filaments: " << studio_material(size_t(pick)).id;
+        }
     }
     get_f("exposure", m_s.exposure, 0.4f, 2.0f);
     get_f("saturation", m_s.saturation, 0.0f, 2.0f);
@@ -1122,7 +1387,7 @@ void StudioDialog::save_settings()
     set_b("reflection", m_s.reflection);
     set_f("reflection_strength", m_s.reflection_strength);
     set_b("self_shadows", m_s.self_shadows);
-    set_i("material", int(m_s.material));
+    cfg->set(kSection, "material_id", std::string(studio_material(size_t(std::max(0, m_s.material))).id));
     set_f("exposure", m_s.exposure);
     set_f("saturation", m_s.saturation);
     set_b("whole_print", m_s.whole_print);
@@ -1630,6 +1895,73 @@ void open_photo_studio()
     }
     s_dialog->Show();
     s_dialog->Raise();
+}
+
+bool studio_api_render(int width, int height, bool live, std::vector<uint8_t>& rgba, int& out_w, int& out_h, std::string& error)
+{
+    open_photo_studio();
+    if (s_dialog == nullptr) {
+        error = "studio window unavailable";
+        return false;
+    }
+    s_dialog->Update();
+    if (live) {
+        std::vector<uint8_t> px;
+        if (!s_dialog->draw_live(true, &px, &out_w, &out_h)) {
+            px.clear();
+            if (!s_dialog->draw_fallback(px, out_w, out_h) || px.empty()) {
+                error = "live view not drawn (see the [studio] lines of the log)";
+                return false;
+            }
+            error = "drawn through the fallback";
+        }
+        // bottom row first -> top row first
+        rgba.resize(px.size());
+        const size_t row = size_t(out_w) * 4;
+        for (int y = 0; y < out_h; ++y)
+            std::memcpy(&rgba[size_t(y) * row], &px[size_t(out_h - 1 - y) * row], row);
+        return true;
+    }
+    out_w = std::clamp(width, 64, 4096);
+    out_h = std::clamp(height, 64, 4096);
+    return s_dialog->snapshot(out_w, out_h, rgba, error);
+}
+
+void studio_selftest_tick()
+{
+    // Automated check, ZOUKEI_STUDIO_SELFTEST=<folder>: once the preview has a print, opens the studio and,
+    // after a few seconds of normal painting, saves live.png (the window as drawn) and offscreen.png.
+    static bool done = false;
+    if (done)
+        return;
+    const char* dir = std::getenv("ZOUKEI_STUDIO_SELFTEST");
+    if (dir == nullptr || *dir == 0) {
+        done = true;
+        return;
+    }
+    if (!StudioRenderer::has_print())
+        return;
+    done = true;
+    const std::string out(dir);
+    BOOST_LOG_TRIVIAL(info) << "[studio] selftest: opening the studio";
+    wxGetApp().CallAfter([]() { open_photo_studio(); });
+    std::thread([out]() {
+        std::this_thread::sleep_for(std::chrono::seconds(4));
+        wxGetApp().CallAfter([out]() {
+            for (int live = 1; live >= 0; --live) {
+                std::vector<uint8_t> rgba;
+                int w = 0, h = 0;
+                std::string error;
+                const bool ok = studio_api_render(1280, 720, live == 1, rgba, w, h, error);
+                const std::string name = out + (live ? "/live.png" : "/offscreen.png");
+                bool saved = false;
+                if (!rgba.empty() && w > 0 && h > 0)
+                    saved = to_wx(rgba, w, h).SaveFile(wxString::FromUTF8(name), wxBITMAP_TYPE_PNG);
+                BOOST_LOG_TRIVIAL(info) << "[studio] selftest " << (live ? "live" : "offscreen") << " ok=" << ok << " " << w << "x" << h
+                                        << " saved=" << saved << " error='" << error << "'";
+            }
+        });
+    }).detach();
 }
 
 bool photo_studio_open()

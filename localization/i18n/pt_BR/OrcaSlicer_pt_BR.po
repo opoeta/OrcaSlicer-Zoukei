@@ -42429,3 +42429,42 @@ msgstr "Salvos %d quadros, %d x %d a %d fps: %s"
 
 msgid "Materials (PLA Silk, matte PLA, PETG), studio lights, 8K and video: Photo Studio."
 msgstr "Materiais (PLA Silk, PLA fosco, PETG), luzes de estúdio, 8K e vídeo: Estúdio de fotos."
+
+msgid "Engineering"
+msgstr "Engenharia"
+
+msgid "Specials"
+msgstr "Especiais"
+
+msgid "Matte"
+msgstr "Fosco"
+
+msgid "Glossy"
+msgstr "Brilhante"
+
+msgid "Silk"
+msgstr "Seda"
+
+msgid "Silk metal"
+msgstr "Seda metálico"
+
+msgid "Marble / granite"
+msgstr "Mármore / granito"
+
+msgid "Wood"
+msgstr "Madeira"
+
+msgid "Translucent"
+msgstr "Translúcido"
+
+msgid "PA (nylon)"
+msgstr "PA (náilon)"
+
+msgid "Carbon fibre (PLA-CF, PETG-CF, PA-CF)"
+msgstr "Fibra de carbono (PLA-CF, PETG-CF, PA-CF)"
+
+msgid "Glow in the dark"
+msgstr "Brilha no escuro"
+
+msgid "Clear / resin"
+msgstr "Transparente / resina"
