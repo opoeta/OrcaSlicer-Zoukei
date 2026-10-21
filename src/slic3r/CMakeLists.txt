@@ -109,6 +109,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/LayerSlayer.hpp
     GUI/Zoukei/LayerSlayerDialog.cpp
     GUI/Zoukei/LayerSlayerDialog.hpp
+    GUI/Zoukei/BmcuFlasherDialog.cpp
+    GUI/Zoukei/BmcuFlasherDialog.hpp
     GUI/Zoukei/FlowCalibChain.cpp
     GUI/Zoukei/FlowCalibChain.hpp
     GUI/Zoukei/PrintMarkerTimeline.cpp
@@ -929,6 +931,10 @@ set(SLIC3R_GUI_SOURCES
     Utils/Repetier.hpp
     Utils/Serial.cpp
     Utils/Serial.hpp
+    Utils/BmcuFlasher.cpp
+    Utils/BmcuFlasher.hpp
+    Utils/BmcuSerialPort.cpp
+    Utils/BmcuSerialPort.hpp
     Utils/SerialMessage.hpp
     Utils/SerialMessageType.hpp
     Utils/SimplyPrint.cpp

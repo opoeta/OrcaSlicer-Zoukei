@@ -1,0 +1,156 @@
+[
+ {
+  "tag_name": "draft-x",
+  "name": "draft",
+  "draft": true,
+  "prerelease": false,
+  "published_at": null,
+  "assets": []
+ },
+ {
+  "tag_name": "v12-beta",
+  "name": "v12 beta",
+  "draft": false,
+  "prerelease": true,
+  "published_at": "2026-10-20T00:00:00Z",
+  "assets": []
+ },
+ {
+  "tag_name": "v11",
+  "name": "v11",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-10-04T18:10:41Z",
+  "assets": [
+   {
+    "name": "firmwares_v11.tar.gz",
+    "size": 39316319
+   }
+  ]
+ },
+ {
+  "tag_name": "V10.5",
+  "name": "",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-04-22T15:57:01Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.5.zip",
+    "size": 28206366
+   }
+  ]
+ },
+ {
+  "tag_name": "V10.4",
+  "name": "V10.4",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-03-31T11:05:52Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.4.zip",
+    "size": 27608804
+   }
+  ]
+ },
+ {
+  "tag_name": "V10.3",
+  "name": "V10.3",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-03-12T17:07:31Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.3.zip",
+    "size": 26682177
+   }
+  ]
+ },
+ {
+  "tag_name": "V10.2",
+  "name": "V10.2",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-03-08T23:08:15Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.2.zip",
+    "size": 17407356
+   }
+  ]
+ },
+ {
+  "tag_name": "V10.1",
+  "name": "V10.1",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-03-03T22:08:56Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.1.zip",
+    "size": 17054924
+   }
+  ]
+ },
+ {
+  "tag_name": "V10",
+  "name": "V10",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-03-03T12:35:35Z",
+  "assets": [
+   {
+    "name": "firmwares_v10.zip",
+    "size": 17566146
+   }
+  ]
+ },
+ {
+  "tag_name": "V9",
+  "name": "V9",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-02-23T23:06:24Z",
+  "assets": [
+   {
+    "name": "firmwares_v9.zip",
+    "size": 16761016
+   }
+  ]
+ },
+ {
+  "tag_name": "V8",
+  "name": "V8",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-02-13T09:23:04Z",
+  "assets": [
+   {
+    "name": "firmwares.zip",
+    "size": 16334904
+   }
+  ]
+ },
+ {
+  "tag_name": "V7",
+  "name": "V7",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-02-05T20:05:54Z",
+  "assets": [
+   {
+    "name": "firmwares.zip",
+    "size": 8127730
+   }
+  ]
+ },
+ {
+  "tag_name": "../evil",
+  "name": "bad",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2020-01-01T00:00:00Z",
+  "assets": []
+ }
+]

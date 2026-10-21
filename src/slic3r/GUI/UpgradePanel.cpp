@@ -38,6 +38,8 @@
 
 #include "DeviceCore/DevFilaSystem.h"
 #include "DeviceCore/DevManager.h"
+#include "Zoukei/BmcuFlasherDialog.hpp"
+#include "slic3r/Utils/BmcuFlasher.hpp"
 
 namespace Slic3r {
 namespace GUI {
@@ -1255,6 +1257,19 @@ void MachineInfoPanel::update_ams_ext(MachineObject *obj)
 
                     wxString installed = bmcu_norm_ver_strict_x4(it->second.sw_ver);
                     wxString remote, err;
+                    amspanel->m_bmcu_installed_ver = installed.ToStdString();
+                    amspanel->m_bmcu_dev_id        = obj->get_dev_id();
+                    {
+                        wxString remote_now, err_now;
+                        const bool newer = bmcu_get_remote_version(remote_now, err_now) && bmcu_is_ver_strict_x4(installed) &&
+                                           Slic3r::Bmcu::compare_versions(remote_now.ToStdString(), installed.ToStdString()) > 0;
+                        const wxString lbl = newer ? _L("Update firmware...") : _L("Reflash firmware...");
+                        if (amspanel->m_fw_flash_btn->GetLabel() != lbl) {
+                            amspanel->m_fw_flash_btn->SetLabel(lbl);
+                            amspanel->m_fw_flash_btn->SetStyle(newer ? ButtonStyle::Confirm : ButtonStyle::Regular, ButtonType::Window);
+                        }
+                        amspanel->m_fw_flash_btn->Show();
+                    }
                     if (bmcu_get_remote_version(remote, err)) {
                         if (!bmcu_is_ver_strict_x4(installed)) {
                             amspanel->m_fw_status->SetForegroundColour(gray_clr);
@@ -1282,6 +1297,9 @@ void MachineInfoPanel::update_ams_ext(MachineObject *obj)
                     amspanel->m_fw_status_lbl->Hide();
                     amspanel->m_fw_status->Hide();
                     amspanel->m_fw_url.clear();
+                    amspanel->m_fw_flash_btn->Hide();
+                    amspanel->m_bmcu_installed_ver.clear();
+                    amspanel->m_bmcu_dev_id.clear();
                 }
                 amspanel->Layout();
 
@@ -2098,6 +2116,30 @@ bool UpgradePanel::Show(bool show)
      ams_sizer->Add(m_fw_status_lbl, 0, wxALIGN_RIGHT | wxALL, FromDIP(5));
      ams_sizer->Add(m_fw_status, 0, wxALL | wxEXPAND, FromDIP(5));
      ams_sizer->Add(0, 0, 1, wxEXPAND, 0);
+
+     // BMCU: built-in flasher (protocol from BMCU-Flasher, MIT); the button sits in the value column
+     m_fw_flash_btn = new Button(this, _L("Reflash firmware..."));
+     m_fw_flash_btn->SetStyle(ButtonStyle::Regular, ButtonType::Window);
+     m_fw_flash_btn->Hide();
+     m_fw_flash_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+         const std::string dev_id = m_bmcu_dev_id;
+         open_bmcu_flasher_dialog(wxGetTopLevelParent(this), m_bmcu_installed_ver, [dev_id]() -> std::string {
+             DeviceManager* dm = wxGetApp().getDeviceManager();
+             if (!dm || dev_id.empty())
+                 return {};
+             MachineObject* o = dm->get_my_machine(dev_id);
+             if (!o)
+                 o = dm->get_local_machine(dev_id);
+             if (!o)
+                 return {};
+             if (o->is_in_printing())
+                 return _u8L("The printer is printing.");
+             if (o->is_in_upgrading())
+                 return _u8L("The printer is updating its firmware.");
+             return {};
+         });
+     });
+     ams_sizer->Add(m_fw_flash_btn, 0, wxALL, FromDIP(5));
 
      SetSizer(ams_sizer);
      Layout();

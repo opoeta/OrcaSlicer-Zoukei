@@ -62,6 +62,10 @@ public:
     wxStaticText *m_fw_status_lbl{nullptr};
     wxStaticText *m_fw_status{nullptr};
     wxString      m_fw_url;
+    // BMCU: opens the built-in flasher (Zoukei/BmcuFlasherDialog); hidden for genuine AMS units
+    Button       *m_fw_flash_btn{nullptr};
+    std::string   m_bmcu_installed_ver;
+    std::string   m_bmcu_dev_id;
     wxStaticBitmap *m_ams_new_version_img;
     ScalableBitmap upgrade_green_icon;
 

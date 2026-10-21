@@ -42687,3 +42687,267 @@ msgstr "A porta %1% deste computador já está em uso, provavelmente pelo Creali
 
 msgid "The login listener could not start: %1%"
 msgstr "O receptor de login não pôde iniciar: %1%"
+
+msgid "Standard (recommended)"
+msgstr "Padrão (recomendado)"
+
+msgid "Soft load"
+msgstr "Carga suave"
+
+msgid "High force (P1S)"
+msgstr "Força alta (P1S)"
+
+msgid "Normal load pressure. The right choice for most A1 / A1 mini setups."
+msgstr "Pressão de carga normal. A escolha certa para a maioria das A1 / A1 mini."
+
+msgid "Weaker pressure while loading. Only if you hear grinding while loading (weak lever spring); it may reject filament more often."
+msgstr "Pressão menor ao carregar. Só se ouvir o filamento raspando ao carregar (mola da alavanca fraca); pode recusar filamento com mais frequência."
+
+msgid "Stronger load and print pressure (long paths such as P1S). Use only if you really need more force."
+msgstr "Pressão maior ao carregar e imprimir (caminhos longos, como na P1S). Use só se precisar mesmo de mais força."
+
+msgid "AMS_AUTO (recommended)"
+msgstr "AMS_AUTO (recomendado)"
+
+msgid "BMCU firmware update"
+msgstr "Atualização do firmware do BMCU"
+
+msgid "Update the BMCU firmware"
+msgstr "Atualizar o firmware do BMCU"
+
+msgid "Turn the printer off and unplug the BMCU from the printer before connecting it to this computer. Never flash while the BMCU is connected to the printer."
+msgstr "Desligue a impressora e desconecte o BMCU dela antes de ligá-lo a este computador. Nunca grave com o BMCU conectado à impressora."
+
+msgid "Automatic filament load (AUTOLOAD)"
+msgstr "Carga automática de filamento (AUTOLOAD)"
+
+msgid "Filament color on the BMCU LEDs (RGB)"
+msgstr "Cor do filamento nos LEDs do BMCU (RGB)"
+
+msgid "Load force"
+msgstr "Força de carga"
+
+msgid "BMCU slot"
+msgstr "Slot do BMCU"
+
+msgid "A1 / A1 mini: 9.5 cm. Long PTFE paths (P1S and similar): usually 60-90 cm."
+msgstr "A1 / A1 mini: 9,5 cm. Tubos PTFE longos (P1S e similares): em geral 60-90 cm."
+
+msgid "Choose .bin file..."
+msgstr "Escolher arquivo .bin..."
+
+msgid "No file chosen. A local file is not checked against the GitHub manifest."
+msgstr "Nenhum arquivo escolhido. Um arquivo local não é conferido com o manifesto do GitHub."
+
+msgid "USB: BMCU with CH340 on the board (automatic boot mode)"
+msgstr "USB: BMCU com CH340 na placa (modo boot automático)"
+
+msgid "TTL: external USB-serial adapter (BOOT button by hand)"
+msgstr "TTL: adaptador USB-serial externo (botão BOOT à mão)"
+
+msgid "Port"
+msgstr "Porta"
+
+msgid "Ready."
+msgstr "Pronto."
+
+msgid "Copy log"
+msgstr "Copiar log"
+
+msgid "Flashing protocol from BMCU-Flasher by Pawel Jarczak (MIT)."
+msgstr "Protocolo de gravação do BMCU-Flasher, de Pawel Jarczak (MIT)."
+
+msgid "Flash firmware"
+msgstr "Gravar firmware"
+
+msgid "Choose a BMCU firmware file"
+msgstr "Escolha um arquivo de firmware do BMCU"
+
+msgid "Stopping before the erase..."
+msgstr "Parando antes de apagar..."
+
+msgid "Installed version: unknown"
+msgstr "Versão instalada: desconhecida"
+
+msgid "Installed version: %s"
+msgstr "Versão instalada: %s"
+
+msgid "Latest release %s (recommended)"
+msgstr "Última versão %s (recomendada)"
+
+msgid "main branch (what BMCU-Flasher downloads)"
+msgstr "branch main (o que o BMCU-Flasher baixa)"
+
+msgid "pre-release"
+msgstr "pré-lançamento"
+
+msgid "Local .bin file"
+msgstr "Arquivo .bin local"
+
+msgid "Could not list the GitHub releases (%s); only the main branch is offered."
+msgstr "Não foi possível listar as versões do GitHub (%s); só a branch main é oferecida."
+
+msgid "Could not list the serial ports: %s"
+msgstr "Não foi possível listar as portas seriais: %s"
+
+msgid "1. Turn the printer off and unplug the BMCU cable from the printer.\n2. Connect the USB port of the BMCU board (CH340) to this computer.\n3. Windows may ask for the WCH CH340/CH341 driver.\n4. Orca switches the BMCU to boot mode by itself; no button is needed."
+msgstr "1. Desligue a impressora e desconecte o cabo do BMCU da impressora.\n2. Ligue a porta USB da placa do BMCU (CH340) a este computador.\n3. O Windows pode pedir o driver WCH CH340/CH341.\n4. O Orca coloca o BMCU em modo boot sozinho; não precisa apertar botão."
+
+msgid "1. Turn the printer off and unplug the BMCU from the printer. Do not connect 24 V.\n2. Wire the adapter: RX to TX, TX to RX, 3V3 to 3V3, GND to GND.\n3. When asked: unplug the adapter USB, hold BOOT, plug it back and release BOOT when the board LED lights up.\n4. Halfway through Orca asks again: keep USB connected, hold BOOT, tap RESET, release BOOT."
+msgstr "1. Desligue a impressora e desconecte o BMCU dela. Não ligue os 24 V.\n2. Ligue o adaptador: RX no TX, TX no RX, 3V3 no 3V3, GND no GND.\n3. Quando pedido: tire o USB do adaptador, segure BOOT, ligue o USB de novo e solte BOOT quando o LED da placa acender.\n4. No meio do processo o Orca pede de novo: mantenha o USB ligado, segure BOOT, toque RESET, solte BOOT."
+
+msgid "Advanced: flashes a file from disk, for recovery or test builds."
+msgstr "Avançado: grava um arquivo do disco, para recuperação ou builds de teste."
+
+msgid "not checked against the GitHub manifest"
+msgstr "não conferido com o manifesto do GitHub"
+
+msgid "Firmware %s (%s)"
+msgstr "Firmware %s (%s)"
+
+msgid "newer than the installed one"
+msgstr "mais nova que a instalada"
+
+msgid "same as the installed one"
+msgstr "igual à instalada"
+
+msgid "older than the installed one"
+msgstr "mais antiga que a instalada"
+
+msgid "%d bytes"
+msgstr "%d bytes"
+
+msgid "This combination does not exist in this version."
+msgstr "Esta combinação não existe nesta versão."
+
+msgid "Not available: %s"
+msgstr "Indisponível: %s"
+
+msgid "Reading the firmware list from GitHub..."
+msgstr "Lendo a lista de firmwares do GitHub..."
+
+msgid "No serial port found. Connect the BMCU USB cable and click Refresh."
+msgstr "Nenhuma porta serial encontrada. Ligue o cabo USB do BMCU e clique em Atualizar."
+
+msgid "No serial port found. Connect the USB-serial adapter and click Refresh."
+msgstr "Nenhuma porta serial encontrada. Ligue o adaptador USB-serial e clique em Atualizar."
+
+msgid "This port is not a CH340 (1A86:7523). The BMCU board uses a CH340; use TTL mode for other adapters."
+msgstr "Esta porta não é um CH340 (1A86:7523). A placa do BMCU usa CH340; para outros adaptadores use o modo TTL."
+
+msgid "CH340 found: this is most likely the BMCU."
+msgstr "CH340 encontrado: provavelmente é o BMCU."
+
+msgid "Reflash firmware"
+msgstr "Regravar firmware"
+
+msgid "Flashing the BMCU is blocked until the printer is idle."
+msgstr "A gravação do BMCU fica bloqueada até a impressora ficar ociosa."
+
+msgid "The file cannot be read or is larger than the 64 KiB flash of the BMCU."
+msgstr "Não foi possível ler o arquivo ou ele é maior que a flash de 64 KiB do BMCU."
+
+msgid "SHA-256 %s (local file, not checked against GitHub)"
+msgstr "SHA-256 %s (arquivo local, não conferido com o GitHub)"
+
+msgid "Downloading the firmware from GitHub..."
+msgstr "Baixando o firmware do GitHub..."
+
+msgid "Download failed: %s"
+msgstr "Falha no download: %s"
+
+msgid "Firmware downloaded and checked (size, CRC32, SHA-256)."
+msgstr "Firmware baixado e conferido (tamanho, CRC32, SHA-256)."
+
+msgid "Checked against the GitHub manifest: SHA-256 %s"
+msgstr "Conferido com o manifesto do GitHub: SHA-256 %s"
+
+msgid "Write this firmware to the BMCU?\n\n%s\n%s\nPort: %s, mode: %s\n\n- The BMCU must be unplugged from the printer and the printer turned off.\n- Do not unplug the cable while it writes (about 10-60 s).\n- The old firmware is erased first. If writing fails the BMCU stays without firmware until it is flashed again; its bootloader cannot be erased, so it can always be recovered.\n\nFlash the firmware now?"
+msgstr "Gravar este firmware no BMCU?\n\n%s\n%s\nPorta: %s, modo: %s\n\n- O BMCU precisa estar desconectado da impressora e a impressora desligada.\n- Não desconecte o cabo durante a gravação (cerca de 10-60 s).\n- O firmware antigo é apagado primeiro. Se a gravação falhar, o BMCU fica sem firmware até ser gravado de novo; o bootloader dele não pode ser apagado, então sempre dá para recuperar.\n\nGravar o firmware agora?"
+
+msgid "Confirm BMCU firmware update"
+msgstr "Confirmar atualização do firmware do BMCU"
+
+msgid "Not flashed."
+msgstr "Não gravado."
+
+msgid "Connecting to the BMCU bootloader..."
+msgstr "Conectando ao bootloader do BMCU..."
+
+msgid "Enter the bootloader now: unplug the adapter USB, hold BOOT, plug it back in and release BOOT when the board LED lights up."
+msgstr "Entre no bootloader agora: tire o USB do adaptador, segure BOOT, ligue o USB de novo e solte BOOT quando o LED da placa acender."
+
+msgid "Enter the bootloader again now: keep USB connected, hold BOOT, tap RESET, release BOOT."
+msgstr "Entre no bootloader de novo agora: mantenha o USB ligado, segure BOOT, toque RESET, solte BOOT."
+
+msgid "The fast transfer failed; Orca restarts at normal speed. Keep or put the BMCU in bootloader mode when asked."
+msgstr "A transferência rápida falhou; o Orca recomeça na velocidade normal. Mantenha ou coloque o BMCU em modo bootloader quando pedido."
+
+msgid "Bootloader found (CH32V203). Preparing..."
+msgstr "Bootloader encontrado (CH32V203). Preparando..."
+
+msgid "Erasing the old firmware... do not unplug the BMCU."
+msgstr "Apagando o firmware antigo... não desconecte o BMCU."
+
+msgid "Writing the new firmware... do not unplug the BMCU."
+msgstr "Gravando o firmware novo... não desconecte o BMCU."
+
+msgid "Verifying what was written..."
+msgstr "Verificando o que foi gravado..."
+
+msgid "Restarting the BMCU..."
+msgstr "Reiniciando o BMCU..."
+
+msgid "Done: firmware written and verified."
+msgstr "Pronto: firmware gravado e verificado."
+
+msgid "Flash again"
+msgstr "Gravar de novo"
+
+msgid "The BMCU firmware was written and verified.\n\nUnplug the USB cable, connect the BMCU to the printer again and turn the printer on. The new version shows up on this page once the printer reports it."
+msgstr "O firmware do BMCU foi gravado e verificado.\n\nDesconecte o cabo USB, ligue o BMCU de novo à impressora e ligue a impressora. A versão nova aparece nesta página quando a impressora informar."
+
+msgid "Stopped before the erase: the old firmware is still on the BMCU."
+msgstr "Parado antes de apagar: o firmware antigo continua no BMCU."
+
+msgid "The BMCU did not answer on the USB port. Check that the cable goes to the BMCU board, that the printer is off and the BMCU is unplugged from it, close other programs using this port, then try again. If it keeps failing, use TTL mode."
+msgstr "O BMCU não respondeu na porta USB. Confira se o cabo está na placa do BMCU, se a impressora está desligada e o BMCU desconectado dela, feche outros programas que usam esta porta e tente de novo. Se continuar falhando, use o modo TTL."
+
+msgid "The bootloader did not answer in time. Check the wiring (RX/TX crossed, 3V3, GND) and enter the bootloader when asked."
+msgstr "O bootloader não respondeu a tempo. Confira a ligação (RX/TX cruzados, 3V3, GND) e entre no bootloader quando pedido."
+
+msgid "The serial port could not be opened. Close other programs that use it (another slicer, serial monitor, BMCU-Flasher) and try again."
+msgstr "Não foi possível abrir a porta serial. Feche outros programas que a usam (outro fatiador, monitor serial, BMCU-Flasher) e tente de novo."
+
+msgid "The device on this port is not a BMCU (CH32V203). Nothing was written."
+msgstr "O dispositivo nesta porta não é um BMCU (CH32V203). Nada foi gravado."
+
+msgid "Check the cable and try again."
+msgstr "Confira o cabo e tente de novo."
+
+msgid "The old firmware was already erased: the BMCU needs a successful flash before it works again. This is recoverable: flash again (TTL mode with the BOOT button if USB does not answer)."
+msgstr "O firmware antigo já foi apagado: o BMCU precisa de uma gravação completa para voltar a funcionar. Dá para recuperar: grave de novo (modo TTL com o botão BOOT se o USB não responder)."
+
+msgid "Nothing was erased: the old firmware is still on the BMCU."
+msgstr "Nada foi apagado: o firmware antigo continua no BMCU."
+
+msgid "Flashing failed."
+msgstr "A gravação falhou."
+
+msgid "Flashing failed: %s"
+msgstr "A gravação falhou: %s"
+
+msgid "The BMCU is being flashed. Wait until it finishes; interrupting now can leave it without firmware."
+msgstr "O BMCU está sendo gravado. Espere terminar; interromper agora pode deixá-lo sem firmware."
+
+msgid "Update firmware..."
+msgstr "Atualizar firmware..."
+
+msgid "Reflash firmware..."
+msgstr "Regravar firmware..."
+
+msgid "The printer is printing."
+msgstr "A impressora está imprimindo."
+
+msgid "The printer is updating its firmware."
+msgstr "A impressora está atualizando o firmware."

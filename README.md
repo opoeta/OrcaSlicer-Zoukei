@@ -55,6 +55,7 @@ Licensed under **AGPL-3.0** (see `LICENSE.txt`). OrcaSlicer is copyright its aut
 - Creality Print: panel and send dialog features; its code was used as reference only, the Zoukei panel is original code
 - heydemoura/creality-orca-integration: CFS plugin (AGPL-3.0)
 - OrcaStudio (jarczakpawel): BMCU support
+- [BMCU-Flasher](https://github.com/jarczakpawel/BMCU-Flasher) (Paweł Jarczak, MIT): BMCU firmware flashing protocol, see [docs/zoukei/bmcu-flasher.md](docs/zoukei/bmcu-flasher.md)
 - HelixScreen: protocol reference only (GPL-3.0, no code copied)
 - ff-5mp-api: Flashforge protocol reference (ISC)
 - [MaxEllis/OrcaSlicer](https://github.com/MaxEllis/OrcaSlicer): MCP Remote API
