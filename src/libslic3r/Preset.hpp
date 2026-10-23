@@ -978,6 +978,9 @@ private:
         bool        save_compatible_printers { false };
         // Unreadable, so commit removes it and its .info file.
         bool        discard_file { false };
+        // The "inherits" parent was not found (yet): it may be another user preset of the same folder, so
+        // load_presets() resolves it again once the folder's other presets are in the collection.
+        bool        missing_parent { false };
         // The .info file read beside the preset, which commit logs.
         std::string info_file;
         // Both files as they were before the preset was read from them. Resolve runs

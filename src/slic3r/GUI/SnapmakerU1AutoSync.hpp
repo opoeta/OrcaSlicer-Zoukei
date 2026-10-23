@@ -41,6 +41,7 @@ private:
     std::vector<std::string>   m_last;    // per filament signature of the last state written / recorded
     std::vector<std::string>   m_pending;
     std::vector<int>           m_heads;   // head (0-3) per filament while nothing was being edited, -1 = none
+    long long                  m_hold_until_ms{0}; // keep m_heads (just written) until the printer reports them
     bool                       m_has_pending{false};
     long long                  m_pending_since_ms{0};
     bool                       m_blocked_notified{false};

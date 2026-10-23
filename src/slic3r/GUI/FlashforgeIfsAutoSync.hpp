@@ -44,7 +44,8 @@ private:
     bool                     m_have_baseline{false};
     std::vector<std::string> m_last;     // per filament signature of the last state written / recorded
     std::vector<std::string> m_pending;
-    std::vector<int>         m_ports;    // IFS port (1-4) per filament while nothing was being edited, 0 = none / external
+    std::vector<int>         m_ports;    // IFS port (1-4) per filament while nothing was being edited, -1 = none / external
+    long long                m_hold_until_ms{0}; // keep m_ports (just written) until the printer reports them
     bool                     m_has_pending{false};
     long long                m_pending_since_ms{0};
     bool                     m_blocked_notified{false};

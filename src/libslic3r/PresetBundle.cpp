@@ -1544,6 +1544,7 @@ PresetsConfigSubstitutions PresetBundle::load_user_presets(std::string user, For
 
     this->update_multi_material_filament_presets();
     this->update_compatible(PresetSelectCompatibleType::Never);
+    this->restore_pending_filament_selections();
     set_calibrate_printer("");
 
     return PresetsConfigSubstitutions();
@@ -1949,6 +1950,7 @@ PresetsConfigSubstitutions PresetBundle::load_user_presets(AppConfig &          
 
     this->update_multi_material_filament_presets();
     this->update_compatible(PresetSelectCompatibleType::Never);
+    this->restore_pending_filament_selections();
     //this->load_selections(config, PresetPreferences());
 
     set_calibrate_printer("");
@@ -4108,6 +4110,10 @@ void PresetBundle::load_selections(AppConfig &config, const PresetPreferences& p
             break;
         this->filament_presets.emplace_back(remove_ini_suffix(f_name));
     }
+    // Orca Zoukei: the names as saved (slot 0 is empty above when its preset was not found), see restore_pending_filament_selections().
+    std::vector<std::string> saved_filament_presets = this->filament_presets;
+    if (!saved_filament_presets.empty())
+        saved_filament_presets.front() = remove_ini_suffix(initial_filament_profile_name);
 
     update_filament_count();
 
@@ -4203,6 +4209,20 @@ void PresetBundle::load_selections(AppConfig &config, const PresetPreferences& p
         }
     }
 
+    // Orca Zoukei: saved filaments whose preset does not exist yet (it may come with the cloud sync) wait to be put back.
+    m_pending_filament_selections.clear();
+    for (size_t idx = 0; idx < filament_presets.size() && idx < saved_filament_presets.size(); ++idx) {
+        const std::string &saved = saved_filament_presets[idx];
+        if (!saved.empty() && saved != ORCA_DEFAULT_FILAMENT_PLACEHOLDER && filament_presets[idx] != saved &&
+            filaments.find_preset(saved, false) == nullptr) {
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": filament " << idx + 1 << " \"" << saved << "\" not found, using \""
+                                       << filament_presets[idx] << "\" until it is loaded";
+            m_pending_filament_selections.push_back({idx, saved, filament_presets[idx]});
+        }
+    }
+    m_pending_filament_printer = printers.get_selected_preset().name;
+    m_pending_filament_count   = filament_presets.size();
+
     const Preset& current_printer = printers.get_selected_preset();
     const Preset* base_printer = printers.get_preset_base(current_printer);
     bool use_default_nozzle_volume_type = true;
@@ -4240,6 +4260,40 @@ void PresetBundle::load_selections(AppConfig &config, const PresetPreferences& p
 
 // Export selections (current print, current filaments, current printer) into config.ini
 // BBS: change directories by design
+bool PresetBundle::restore_pending_filament_selections()
+{
+    if (m_pending_filament_selections.empty())
+        return false;
+    if (printers.get_selected_preset().name != m_pending_filament_printer || filament_presets.size() != m_pending_filament_count) {
+        m_pending_filament_selections.clear(); // another printer or filament list since startup: the saved names no longer apply
+        return false;
+    }
+    bool restored = false;
+    for (auto it = m_pending_filament_selections.begin(); it != m_pending_filament_selections.end();) {
+        if (it->idx >= filament_presets.size() || filament_presets[it->idx] != it->fallback) {
+            it = m_pending_filament_selections.erase(it); // the user picked another filament meanwhile
+            continue;
+        }
+        const Preset *preset = filaments.find_preset(it->saved, false);
+        if (preset == nullptr) {
+            ++it; // not there yet
+            continue;
+        }
+        // Same rule as load_selections(): only a visible, compatible preset; otherwise the fallback stays.
+        const bool editing_slot0 = it->idx == 0 && filaments.get_edited_preset().is_dirty;
+        if (preset->is_visible && preset->is_compatible && !editing_slot0) {
+            const std::string name = preset->name;
+            filament_presets[it->idx] = name;
+            if (it->idx == 0)
+                filaments.select_preset_by_name(name, true);
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": filament " << it->idx + 1 << " restored to \"" << name << "\"";
+            restored = true;
+        }
+        it = m_pending_filament_selections.erase(it);
+    }
+    return restored;
+}
+
 void PresetBundle::export_selections(AppConfig &config)
 {
     if (m_selection_export_blockers > 0)
@@ -4262,13 +4316,22 @@ void PresetBundle::export_selections(AppConfig &config)
     config.clear_printer_settings(printer_name);
     config.set_printer_setting(printer_name, PRESET_PRINTER_NAME, printer_name);
     config.set_printer_setting(printer_name, PRESET_PRINT_NAME, prints.get_selected_preset_name());
-    config.set_printer_setting(printer_name, PRESET_FILAMENT_NAME,     filament_presets.front());
+    // Orca Zoukei: a slot still on the startup fallback of a preset that has not arrived yet keeps the saved name, so
+    // closing before the cloud sync does not forget it (see restore_pending_filament_selections()).
+    auto saved_name = [this, &printer_name](size_t i) -> const std::string & {
+        if (printer_name == m_pending_filament_printer && filament_presets.size() == m_pending_filament_count)
+            for (const PendingFilamentSelection &p : m_pending_filament_selections)
+                if (p.idx == i && filament_presets[i] == p.fallback)
+                    return p.saved;
+        return filament_presets[i];
+    };
+    config.set_printer_setting(printer_name, PRESET_FILAMENT_NAME,     saved_name(0));
     config.set_printer_setting(printer_name, "curr_bed_type", config.get("curr_bed_type"));
     for (unsigned i = 1; i < filament_presets.size(); ++i) {
         char name[64];
         assert(!filament_presets[i].empty());
         sprintf(name, "filament_%02u", i);
-        config.set_printer_setting(printer_name, name, filament_presets[i]);
+        config.set_printer_setting(printer_name, name, saved_name(i));
     }
     // Load project config data into app config
     CNumericLocalesSetter locales_setter;

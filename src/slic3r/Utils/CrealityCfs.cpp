@@ -608,18 +608,118 @@ std::string project_signature(const std::vector<ProjectFilament>& project)
     return list.dump();
 }
 
+std::string filament_signature(const ProjectFilament& filament) { return filament.name + "|" + normalize_hex(filament.color, ""); }
+
+SyncTargets sync_targets(const std::vector<std::string>& old_sigs, const std::vector<int>& old_slots, const std::vector<std::string>& new_sigs,
+                         const std::vector<int>& chosen, const std::vector<int>& matched)
+{
+    const std::size_t n      = new_sigs.size();
+    auto              at     = [](const std::vector<int>& v, std::size_t i) { return i < v.size() ? v[i] : NO_SLOT; };
+    SyncTargets       result;
+    result.write.assign(n, NO_SLOT);
+    result.slots.assign(n, NO_SLOT);
+
+    // Unchanged filaments: the same signature in the old list (reordering, adding or removing filaments changes indices,
+    // not filaments). Order-preserving pairs first (longest common subsequence), then whatever was moved.
+    const std::size_t                m = old_sigs.size();
+    std::vector<int>                 old_of(n, -1);
+    std::vector<bool>                consumed(m, false);
+    std::vector<std::vector<int>>    lcs(n + 1, std::vector<int>(m + 1, 0));
+    for (std::size_t i = n; i-- > 0;)
+        for (std::size_t j = m; j-- > 0;)
+            lcs[i][j] = new_sigs[i] == old_sigs[j] ? lcs[i + 1][j + 1] + 1 : std::max(lcs[i + 1][j], lcs[i][j + 1]);
+    for (std::size_t i = 0, j = 0; i < n && j < m;) {
+        if (new_sigs[i] == old_sigs[j]) {
+            old_of[i]   = int(j);
+            consumed[j] = true;
+            ++i, ++j;
+        } else if (lcs[i + 1][j] >= lcs[i][j + 1])
+            ++i;
+        else
+            ++j;
+    }
+    for (std::size_t i = 0; i < n; ++i)
+        if (old_of[i] < 0)
+            for (std::size_t j = 0; j < old_sigs.size(); ++j)
+                if (!consumed[j] && old_sigs[j] == new_sigs[i]) {
+                    old_of[i]   = int(j);
+                    consumed[j] = true;
+                    break;
+                }
+
+    // Slots held by unchanged filaments (explicit choice first, else where they were).
+    std::map<int, std::size_t> occupied;
+    for (std::size_t i = 0; i < n; ++i)
+        if (old_of[i] >= 0) {
+            int s = at(chosen, i);
+            if (s == NO_SLOT)
+                s = at(old_slots, std::size_t(old_of[i]));
+            if (s == NO_SLOT)
+                s = at(matched, i);
+            result.slots[i] = s;
+            if (s != NO_SLOT && !occupied.count(s))
+                occupied[s] = i;
+        }
+    auto free_for = [&](int s) { return s != NO_SLOT && !occupied.count(s); };
+
+    for (std::size_t i = 0; i < n; ++i) {
+        if (old_of[i] >= 0)
+            continue;
+        int target = NO_SLOT;
+        if (const int c = at(chosen, i); c != NO_SLOT) {
+            // the user's word wins, unless another unchanged filament was explicitly put there too
+            const auto it = occupied.find(c);
+            if (it == occupied.end() || at(chosen, it->second) != c)
+                target = c;
+            else
+                ++result.conflicts;
+        } else if (free_for(at(matched, i)))
+            target = at(matched, i);
+        else if (old_sigs.size() == n && i < consumed.size() && !consumed[i] && free_for(at(old_slots, i)))
+            target = at(old_slots, i); // edited in place: keep the slot it held
+        result.write[i] = target;
+        result.slots[i] = target != NO_SLOT ? target : at(matched, i);
+    }
+
+    // One slot, one write: identical filaments write once, different ones not at all.
+    std::map<int, std::vector<std::size_t>> by_slot;
+    for (std::size_t i = 0; i < n; ++i)
+        if (result.write[i] != NO_SLOT)
+            by_slot[result.write[i]].push_back(i);
+    for (const auto& entry : by_slot) {
+        const std::vector<std::size_t>& list = entry.second;
+        if (list.size() < 2)
+            continue;
+        const std::string& first = new_sigs[list.front()];
+        const bool same = std::all_of(list.begin(), list.end(), [&](std::size_t i) { return new_sigs[i] == first; });
+        for (std::size_t k = same ? 1 : 0; k < list.size(); ++k)
+            result.write[list[k]] = NO_SLOT;
+        if (!same)
+            ++result.conflicts;
+    }
+    return result;
+}
+
 std::vector<std::pair<CfsSlot, MaterialSpec>> plan_project_sync(const std::vector<ProjectFilament>& project,
                                                                 const std::vector<PresetInfo>& presets, const PrinterSnapshot& snapshot,
-                                                                const std::string& temps_from)
+                                                                const std::vector<int>& targets, const std::string& temps_from)
 {
-    std::vector<CfsSlot> slots;
-    for (const CfsBox& box : snapshot.cfs_boxes())
-        slots.insert(slots.end(), box.slots.begin(), box.slots.end());
     std::vector<std::pair<CfsSlot, MaterialSpec>> plan;
-    for (std::size_t i = 0; i < project.size() && i < slots.size(); ++i) {
-        const CfsSlot& slot = slots[i];
-        if (slot.is_rfid_locked())
+    std::set<int>                                 written;
+    const std::vector<CfsBox>                     boxes = snapshot.cfs_boxes();
+    for (std::size_t i = 0; i < project.size() && i < targets.size(); ++i) {
+        const int key = targets[i];
+        if (key == NO_SLOT || key_box(key) < 1 || !written.insert(key).second)
             continue;
+        const CfsSlot* found = nullptr;
+        for (const CfsBox& box : boxes)
+            if (box.id == key_box(key))
+                for (const CfsSlot& s : box.slots)
+                    if (s.slot_id == key_slot(key))
+                        found = &s;
+        if (found == nullptr || found->is_rfid_locked())
+            continue;
+        const CfsSlot& slot = *found;
         const ProjectFilament& f      = project[i];
         const PresetInfo*      preset = nullptr;
         for (const PresetInfo& p : presets)

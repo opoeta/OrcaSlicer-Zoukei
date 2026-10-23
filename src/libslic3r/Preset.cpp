@@ -1961,6 +1961,7 @@ PresetCollection::UserPresetLoad PresetCollection::resolve_user_preset(
         else {
             auto inherits_config2 = dynamic_cast<ConfigOptionString *>(inherits_config);
             if ((inherits_config2 && !inherits_config2->value.empty())) {
+                out.missing_parent = true;
                 out.errors.push_back((boost::format("can not find parent %1% for config %2%!") % inherits_config2->value % preset.file).str());
                 return out;
             }
@@ -2093,6 +2094,8 @@ void PresetCollection::load_presets(
 
     struct UserPresetFile { fs::path path; std::string canonical_name; };
     std::vector<UserPresetFile> files;
+    // Files whose "inherits" names a preset that is not in the collection yet (see below).
+    std::vector<size_t> missing_parent;
     //BBS: change to json format
     for (auto &dir_entry : boost::filesystem::directory_iterator(dir))
     {
@@ -2138,6 +2141,10 @@ void PresetCollection::load_presets(
                                                        extruder_id_name, extruder_variant_name, key_set1, key_set2, read_only);
                 }
             }
+            if (loaded.missing_parent && ! loaded.install) {
+                missing_parent.push_back(i); // retried below, once the folder's other presets are in
+                return;
+            }
             const bool leave_files = read_only || (! lock_path.empty() && ! instance_lock.locked());
             // Committing can remove an unreadable preset's file, and a filesystem error
             // there is reported without stopping the rest of the directory.
@@ -2149,11 +2156,53 @@ void PresetCollection::load_presets(
             }
         });
 
+    size_t num_loaded = presets_loaded.size();
     if (presets_loaded.size() > 0)
         m_presets.insert(m_presets.end(), std::make_move_iterator(presets_loaded.begin()), std::make_move_iterator(presets_loaded.end()));
     sort_presets();
+
+    // Orca Zoukei: a user preset may inherit another user preset of this folder ("X K2" inherits "X"; the cloud sync
+    // loads such pairs in two passes). Resolve them now that the folder's presets are in the collection, repeating
+    // for chains, so they survive a restart instead of failing with "can not find parent" (the project's selection
+    // then fell back to the first compatible filament). A parent that really does not exist still fails as before.
+    for (bool progress = ! missing_parent.empty(); progress;) {
+        progress = false;
+        std::vector<size_t> still_missing;
+        presets_loaded.clear();
+        for (size_t i : missing_parent) {
+            CNumericLocalesSetter locales_setter;
+            UserPresetLoad        loaded = this->resolve_user_preset(files[i].path, files[i].canonical_name, resolved_origin, substitution_rule,
+                                                                     extruder_id_name, extruder_variant_name, key_set1, key_set2, read_only);
+            if (loaded.missing_parent && ! loaded.install) {
+                still_missing.push_back(i);
+                continue;
+            }
+            progress = true;
+            try {
+                // never removes or rewrites files here: the preset inherits, and the lock is not held
+                this->commit_user_preset(std::move(loaded), presets_loaded, substitutions, preset_loaded_fn, true);
+            } catch (const std::runtime_error &err) {
+                errors_cummulative += err.what();
+                errors_cummulative += "\n";
+            }
+        }
+        if (! presets_loaded.empty()) {
+            num_loaded += presets_loaded.size();
+            m_presets.insert(m_presets.end(), std::make_move_iterator(presets_loaded.begin()), std::make_move_iterator(presets_loaded.end()));
+            sort_presets();
+        }
+        missing_parent = std::move(still_missing);
+    }
+    // Parents that are nowhere: logged and counted as before.
+    for (size_t i : missing_parent) {
+        CNumericLocalesSetter locales_setter;
+        presets_loaded.clear();
+        this->commit_user_preset(this->resolve_user_preset(files[i].path, files[i].canonical_name, resolved_origin, substitution_rule,
+                                                           extruder_id_name, extruder_variant_name, key_set1, key_set2, read_only),
+                                 presets_loaded, substitutions, preset_loaded_fn, true);
+    }
     //BBS: add config related logs
-    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": loaded %1% presets from %2%, type %3%")%presets_loaded.size() %dir %Preset::get_type_string(m_type);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": loaded %1% presets from %2%, type %3%")%num_loaded %dir %Preset::get_type_string(m_type);
     //this->select_preset(first_visible_idx());
     if (! errors_cummulative.empty())
         throw Slic3r::RuntimeError(errors_cummulative);

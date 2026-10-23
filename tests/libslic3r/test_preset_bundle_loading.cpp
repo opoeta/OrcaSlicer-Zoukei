@@ -886,6 +886,80 @@ TEST_CASE("A directory of user presets loads with each one resolved against its 
     }
 }
 
+TEST_CASE("A saved filament whose preset arrives after startup is put back", "[Preset][Bundle][Regression]")
+{
+    PresetBundle bundle;
+    Preset      &printer = add_inmemory_preset(bundle.printers, "Test Printer");
+    printer.is_system    = true;
+    add_inmemory_preset(bundle.filaments, "Test PLA");
+
+    AppConfig app_config;
+    app_config.set("presets", PRESET_PRINTER_NAME, "Test Printer");
+    app_config.set_printer_setting("Test Printer", PRESET_FILAMENT_NAME, "Test PLA");
+    app_config.set_printer_setting("Test Printer", "filament_01", "Cloud PLA"); // comes with the cloud sync
+    app_config.set_printer_setting("Test Printer", "filament_02", "Gone PLA");  // never comes
+    bundle.load_selections(app_config);
+    REQUIRE(bundle.filament_presets.size() == 3);
+    CHECK(bundle.filament_presets[0] == "Test PLA");
+    CHECK(bundle.filament_presets[1] != "Cloud PLA");
+    const std::string fallback = bundle.filament_presets[2];
+    CHECK(fallback != "Gone PLA");
+    bundle.export_selections(app_config); // closing before the sync does not forget the saved names
+    CHECK(app_config.get_printer_setting("Test Printer", "filament_01") == "Cloud PLA");
+    CHECK(app_config.get_printer_setting("Test Printer", "filament_02") == "Gone PLA");
+
+    add_inmemory_preset(bundle.filaments, "Cloud PLA");
+    bundle.update_compatible(PresetSelectCompatibleType::Never);
+
+    SECTION("restored as soon as it exists; a preset that never comes keeps the upstream fallback")
+    {
+        CHECK(bundle.restore_pending_filament_selections());
+        CHECK(bundle.filament_presets[1] == "Cloud PLA");
+        CHECK(bundle.filament_presets[2] == fallback);
+        CHECK_FALSE(bundle.restore_pending_filament_selections()); // once
+    }
+    SECTION("a slot the user changed meanwhile is left alone")
+    {
+        add_inmemory_preset(bundle.filaments, "Other PLA");
+        bundle.filament_presets[1] = "Other PLA";
+        CHECK_FALSE(bundle.restore_pending_filament_selections());
+        CHECK(bundle.filament_presets[1] == "Other PLA");
+    }
+}
+
+TEST_CASE("A user preset inheriting another user preset of the same folder loads, in any file order", "[Preset][Bundle][Regression]")
+{
+    // "PLA Silk Voolt Rosa Shock K2.json" lists before "PLA Silk Voolt Rosa Shock.json" (' ' < '.'): the child was
+    // resolved before its parent was in the collection, failed with "can not find parent", and only came back with
+    // the cloud sync, after the startup selection had fallen back to another filament.
+    ScopedTemporaryDir   temp_dir;
+    RenameTestCollection coll;
+    const fs::path       dir = temp_dir.path() / PRESET_PRINT_NAME;
+
+    DynamicPrintConfig root(coll.default_preset().config);
+    root.option<ConfigOptionFloat>("layer_height", true)->value = 0.12;
+    root.option<ConfigOptionString>(BBL_JSON_KEY_INHERITS, true)->value = std::string();
+    fs::create_directories(dir);
+    root.save_to_json((dir / "Rosa.json").string(), "Rosa", "User", "1.0.0");
+    write_minimal_child(dir / "Rosa K2.json", "Rosa K2", "Rosa");
+    write_minimal_child(dir / "Rosa K2 B.json", "Rosa K2 B", "Rosa K2"); // a chain of user presets
+    write_minimal_child(dir / "Orphan.json", "Orphan", "Nowhere");       // a parent that really does not exist
+
+    PresetsConfigSubstitutions substitutions;
+    coll.load_presets(temp_dir.path().string(), PRESET_PRINT_NAME, substitutions, ForwardCompatibilitySubstitutionRule::Disable);
+
+    for (const char *name : {"Rosa K2", "Rosa K2 B"}) {
+        const Preset *child = coll.find_preset(name);
+        REQUIRE(child != nullptr);
+        CHECK(child->loaded);
+        CHECK_THAT(child->config.opt_float("layer_height"), Catch::Matchers::WithinAbs(0.12, 1e-9));
+    }
+    CHECK(coll.find_preset("Rosa K2")->inherits() == "Rosa");
+    CHECK(coll.find_preset("Orphan") == nullptr);
+    CHECK(coll.error_count() == 1); // only the orphan
+    CHECK(fs::exists(dir / "Orphan.json")); // and its file is kept, as before
+}
+
 TEST_CASE("A user preset synced to the cloud and back keeps its values on every nozzle variant", "[Preset][Bundle]")
 {
     // Two extruders with a Standard and a High Flow variant each, as on a dual-nozzle printer.

@@ -1,7 +1,9 @@
 // Project -> CFS auto-sync: keeps a Creality printer's CFS slots in step with the sidebar's
-// filament list (filament 1 -> slot 1A, 2 -> 1B, ...). Opening or creating a project only takes its
-// list as the new baseline; later preset or colour changes are written to the changed slots after
-// a short quiet period, and held while the printer is busy. Toggle: Preferences,
+// filament list. Each edited filament is written to the slot it is mapped to (explicit choice, else the
+// loaded slot of the same type + colour, else the slot it held before the edit), never by list position;
+// unmapped filaments and slots no filament uses are left alone (CrealityCfs::sync_targets). Opening or
+// creating a project only takes its list as the new baseline; later preset or colour changes are written
+// after a short quiet period, and held while the printer is busy. Toggle: Preferences,
 // app_config "creality_cfs_auto_sync" (on by default).
 //
 // Ported from _AutoSync of the "Creality CFS Sync" OrcaSlicer plugin by Heyde Moura.
@@ -51,6 +53,9 @@ private:
     long long                            m_presets_refreshed_ms{0};
     bool                                 m_blocked_notified{false};
     std::vector<CrealityCfs::ProjectFilament> m_pending_project;
+    std::vector<std::string>             m_last_sigs;  // per filament, at the last sync
+    std::vector<int>                     m_last_slots; // slot key each of them occupied
+    long long                            m_hold_until_ms{0};
     std::shared_ptr<std::atomic<bool>>   m_writing;
 };
 

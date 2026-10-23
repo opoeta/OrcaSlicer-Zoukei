@@ -302,6 +302,11 @@ public:
     // BBS Load user presets
     PresetsConfigSubstitutions load_user_presets(std::string user, ForwardCompatibilitySubstitutionRule rule, bool read_only = false);
     PresetsConfigSubstitutions load_user_presets(AppConfig &config, std::map<std::string, std::map<std::string, std::string>>& my_presets, ForwardCompatibilitySubstitutionRule rule);
+    // Orca Zoukei: load_selections() replaces a saved filament (app config "filament" / "filament_NN") whose preset does not
+    // exist (yet) by a compatible fallback. When that preset turns up later (user presets synced from the cloud a few
+    // seconds after startup), the saved name is put back, unless the printer, the filament count or that slot changed
+    // meanwhile. Called by both load_user_presets(); true when a selection was restored.
+    bool restore_pending_filament_selections();
 
     bool reload_local_bundle(const std::string& preset_folder, const std::string& bundle_id, std::string* error = nullptr);
     std::vector<std::string> list_local_bundle_ids(const std::string& preset_folder);
@@ -741,6 +746,16 @@ public:
         const std::atomic<bool>* cancel = nullptr, std::vector<std::string>* failed = nullptr);
 
 private:
+    struct PendingFilamentSelection
+    {
+        size_t      idx;
+        std::string saved;    // the name in the app config
+        std::string fallback; // what load_selections() put in its place
+    };
+    std::vector<PendingFilamentSelection> m_pending_filament_selections;
+    std::string                           m_pending_filament_printer;
+    size_t                                m_pending_filament_count{0};
+
     // Move the presets and vendor profiles of `others` into this bundle, in one pass
     // over each collection. A preset whose name this bundle or an earlier one of
     // `others` already has is left out and listed under the bundle that repeats it.

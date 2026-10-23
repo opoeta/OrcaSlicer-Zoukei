@@ -27,6 +27,11 @@ namespace GUI { namespace CfsUi {
 // Project filament index -> printer slot {box_id, slot_id}; box 0 is the external spool.
 // Explicit choices persist per project file (app config); otherwise a default is derived.
 std::optional<std::pair<int, int>> mapped_slot(int filament_idx);
+// The same mapping for every project filament WITHOUT the positional fallback (explicit choice, else a loaded slot of the
+// same type + colour); empty when the printer reports no slots. Used by the project -> printer slot sync.
+std::vector<std::optional<std::pair<int, int>>> matched_slots();
+// The slot the user picked for the filament (project filament_cfs_slot), if any.
+std::optional<std::pair<int, int>> chosen_mapped_slot(int filament_idx);
 
 // The same as the print dialog's tray id: CFS unit index * 4 + slot, 255 for the external spool.
 std::optional<int> mapped_tray(int filament_idx);

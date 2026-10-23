@@ -9,6 +9,7 @@
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "slic3r/Utils/CrealityCfs.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/SnapmakerPrinterAgent.hpp"
 
@@ -27,6 +28,7 @@ namespace {
 
 constexpr int         TICK_MS     = 2000;
 constexpr long long   DEBOUNCE_MS = 2000;
+constexpr long long   HOLD_MS     = 20000; // the heads report what was written a little later
 constexpr const char* CONFIG_KEY  = "creality_cfs_auto_sync";
 
 long long now_ms()
@@ -97,13 +99,27 @@ std::vector<Fil> project_filaments()
     return out;
 }
 
-// Head (0-3) each project filament is mapped to by its sidebar badge, -1 = none.
+// Head (0-3) each project filament is mapped to by its sidebar badge WITHOUT the positional fallback (explicit choice or
+// same type + colour), -1 = none; empty while the printer reports no heads.
 std::vector<int> current_heads(size_t n)
+{
+    const auto matched = CfsUi::matched_slots();
+    if (matched.empty())
+        return {};
+    std::vector<int> heads(n, -1);
+    for (size_t i = 0; i < n && i < matched.size(); ++i)
+        if (matched[i] && matched[i]->first == 1)
+            heads[i] = matched[i]->second;
+    return heads;
+}
+
+// Head the user picked for each filament, -1 = automatic.
+std::vector<int> chosen_heads(size_t n)
 {
     std::vector<int> heads(n, -1);
     for (size_t i = 0; i < n; ++i)
-        if (const auto slot = CfsUi::mapped_slot(int(i)); slot && slot->first == 1)
-            heads[i] = slot->second;
+        if (const auto c = CfsUi::chosen_mapped_slot(int(i)); c && c->first == 1)
+            heads[i] = c->second;
     return heads;
 }
 
@@ -266,11 +282,13 @@ void SnapmakerU1AutoSync::tick()
             BOOST_LOG_TRIVIAL(info) << "Snapmaker U1 auto-sync: baseline recorded (" << project.size() << " project filaments)";
             return;
         }
+        const long long now = now_ms();
         if (sigs == m_last && !m_has_pending) {
-            m_heads = current_heads(project.size()); // the mapping as it was before the next edit
+            if (now >= m_hold_until_ms) // the mapping as it was before the next edit
+                if (auto heads = current_heads(project.size()); !heads.empty())
+                    m_heads = std::move(heads);
             return;
         }
-        const long long now = now_ms();
         if (!m_has_pending || sigs != m_pending) {
             m_has_pending      = true;
             m_pending          = sigs;
@@ -291,22 +309,27 @@ void SnapmakerU1AutoSync::tick()
             }
             return;
         }
+        // Only edited filaments, each to the head it occupies (or was given); moved/removed filaments and unmapped ones
+        // write nothing (same rule as the Creality CFS sync, CrealityCfs::sync_targets).
         std::vector<SnapmakerPrinterAgent::HeadWrite> writes;
-        const std::vector<int>                        heads_now = current_heads(project.size());
+        std::vector<int>                              heads_now = current_heads(project.size());
+        if (heads_now.empty())
+            heads_now.assign(project.size(), -1);
+        const CrealityCfs::SyncTargets targets = CrealityCfs::sync_targets(m_last, m_heads, sigs, chosen_heads(project.size()), heads_now);
         for (size_t i = 0; i < project.size(); ++i) {
-            if (i < m_last.size() && m_last[i] == sigs[i])
-                continue;
-            int head = i < m_heads.size() ? m_heads[i] : -1;
-            if (head < 0)
-                head = heads_now[i];
+            const int head = targets.write[i];
             if (head < 0 || head >= SnapmakerPrinterAgent::HEAD_COUNT)
                 continue; // no head for this filament
             auto w = project[i].write;
             w.head = head;
             writes.push_back(std::move(w));
         }
-        m_last        = sigs;
-        m_has_pending = false;
+        m_last          = sigs;
+        m_heads         = targets.slots;
+        m_hold_until_ms = now + HOLD_MS;
+        m_has_pending   = false;
+        if (targets.conflicts > 0)
+            CrealityCfsAgent::notify(_u8L("Snapmaker U1") + ": " + _u8L("two different filaments are mapped to the same slot; that slot was left as it is."));
         if (writes.empty())
             return;
         int written = 0;

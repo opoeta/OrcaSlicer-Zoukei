@@ -2,6 +2,7 @@
 
 #include "CrealityCfsUi.hpp"
 #include "GUI_App.hpp"
+#include "I18N.hpp"
 #include "Plater.hpp"
 #include "GUI_ObjectList.hpp"
 #include "NotificationManager.hpp"
@@ -9,6 +10,7 @@
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "slic3r/Utils/CrealityCfs.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 
@@ -25,6 +27,7 @@ namespace {
 
 constexpr int         TICK_MS     = 2000;
 constexpr long long   DEBOUNCE_MS = 2000;
+constexpr long long   HOLD_MS     = 20000; // the IFS reports what was written a little later
 constexpr const char* CONFIG_KEY  = "creality_cfs_auto_sync";
 
 long long now_ms()
@@ -110,12 +113,27 @@ std::vector<Fil> project_filaments()
     return out;
 }
 
+// IFS port (1-4) each project filament is mapped to by its sidebar badge WITHOUT the positional fallback (explicit choice
+// or same type + colour), -1 = none / external spool; empty while the printer reports no slots.
 std::vector<int> current_ports(size_t n)
 {
-    std::vector<int> ports(n, 0);
+    const auto matched = CfsUi::matched_slots();
+    if (matched.empty())
+        return {};
+    std::vector<int> ports(n, -1);
+    for (size_t i = 0; i < n && i < matched.size(); ++i)
+        if (matched[i] && matched[i]->first == 1)
+            ports[i] = matched[i]->second + 1;
+    return ports;
+}
+
+// Port the user picked for each filament, -1 = automatic or the external spool.
+std::vector<int> chosen_ports(size_t n)
+{
+    std::vector<int> ports(n, -1);
     for (size_t i = 0; i < n; ++i)
-        if (const auto slot = CfsUi::mapped_slot(int(i)); slot && slot->first == 1)
-            ports[i] = slot->second + 1;
+        if (const auto c = CfsUi::chosen_mapped_slot(int(i)); c && c->first == 1)
+            ports[i] = c->second + 1;
     return ports;
 }
 
@@ -369,11 +387,13 @@ void FlashforgeIfsAutoSync::tick()
             BOOST_LOG_TRIVIAL(info) << "Flashforge IFS auto-sync: baseline recorded (" << project.size() << " project filaments)";
             return;
         }
+        const long long now = now_ms();
         if (sigs == m_last && !m_has_pending) {
-            m_ports = current_ports(project.size()); // the mapping as it was before the next edit
+            if (now >= m_hold_until_ms) // the mapping as it was before the next edit
+                if (auto ports = current_ports(project.size()); !ports.empty())
+                    m_ports = std::move(ports);
             return;
         }
-        const long long now = now_ms();
         if (!m_has_pending || sigs != m_pending) {
             m_has_pending      = true;
             m_pending          = sigs;
@@ -394,22 +414,27 @@ void FlashforgeIfsAutoSync::tick()
             }
             return;
         }
+        // Only edited filaments, each to the port it occupies (or was given); moved/removed filaments and unmapped ones
+        // write nothing (same rule as the Creality CFS sync, CrealityCfs::sync_targets).
         std::vector<FlashforgePrinterAgent::SlotWrite> writes;
-        const std::vector<int>                         ports_now = current_ports(project.size());
+        std::vector<int>                               ports_now = current_ports(project.size());
+        if (ports_now.empty())
+            ports_now.assign(project.size(), -1);
+        const CrealityCfs::SyncTargets targets = CrealityCfs::sync_targets(m_last, m_ports, sigs, chosen_ports(project.size()), ports_now);
         for (size_t i = 0; i < project.size(); ++i) {
-            if (i < m_last.size() && m_last[i] == sigs[i])
-                continue;
-            int port = i < m_ports.size() ? m_ports[i] : 0;
-            if (port == 0)
-                port = ports_now[i];
+            const int port = targets.write[i];
             if (port < 1 || port > 4)
                 continue; // external spool or no slot
             auto w = project[i].write;
             w.port = port;
             writes.push_back(std::move(w));
         }
-        m_last        = sigs;
-        m_has_pending = false;
+        m_last          = sigs;
+        m_ports         = targets.slots;
+        m_hold_until_ms = now + HOLD_MS;
+        m_has_pending   = false;
+        if (targets.conflicts > 0)
+            CrealityCfsAgent::notify("Flashforge IFS: " + _u8L("two different filaments are mapped to the same slot; that slot was left as it is."));
         if (writes.empty())
             return;
         agent->write_slots(std::move(writes));

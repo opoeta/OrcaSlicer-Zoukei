@@ -4,6 +4,7 @@
 
 #include "slic3r/Utils/CrealityCfs.hpp"
 
+#include <algorithm>
 #include <clocale>
 #include <string>
 
@@ -172,15 +173,132 @@ TEST_CASE("Creality CFS project sync plan", "[CrealityCfs]")
     std::vector<PresetInfo> presets(1);
     presets[0].name = "Hyper PLA @Creality K2"; presets[0].type = "PLA"; presets[0].vendor = "Creality";
 
-    std::vector<ProjectFilament> project(3);
+    std::vector<ProjectFilament> project(4);
     project[0].name = "Hyper PLA @Creality K2"; project[0].color = "#FFFFFF"; // slot 1A is an RFID spool
     project[1].name = "Hyper PLA @Creality K2"; project[1].color = "#FF0000"; // 1B already matches
     project[2].name = "Hyper PLA @Creality K2"; project[2].color = "#0000FF"; // 1C is empty
-    const auto plan = plan_project_sync(project, presets, snap);
+    project[3].name = "Hyper PLA @Creality K2"; project[3].color = "#00FF00"; // no slot: never written
+    const std::vector<int> targets = {slot_key(1, 0), slot_key(1, 1), slot_key(1, 2), NO_SLOT};
+    const auto plan = plan_project_sync(project, presets, snap, targets);
     REQUIRE(plan.size() == 1);
     CHECK(plan[0].first.label() == "1C");
     CHECK(plan[0].second.color == "#0000FF");
     CHECK(project_signature(project) != project_signature({project[0]}));
+
+    // the targets decide, not the list position; one slot is never written twice; the external spool never
+    const auto moved = plan_project_sync({project[2], project[2]}, presets, snap, {slot_key(1, 3), slot_key(1, 3)});
+    REQUIRE(moved.size() == 1);
+    CHECK(moved[0].first.label() == "1D");
+    CHECK(plan_project_sync({project[2]}, presets, snap, {slot_key(0, 0)}).empty());
+    CHECK(plan_project_sync({project[2]}, presets, snap, {slot_key(1, 9)}).empty());
+}
+
+TEST_CASE("Creality CFS sync targets follow the mapping, not the list order", "[CrealityCfs]")
+{
+    // The owner's K2 Plus with two CFS: slot keys 1A..1D = 100..103, 2A..2D = 200..203.
+    const int A1 = slot_key(1, 0), B1 = slot_key(1, 1), C1 = slot_key(1, 2), D1 = slot_key(1, 3);
+    const int A2 = slot_key(2, 0), B2 = slot_key(2, 1), C2 = slot_key(2, 2), D2 = slot_key(2, 3);
+    const std::vector<std::string> old_sigs = {"VOOLT OFFWHITE|#FFFFFF", "Vermelho|#FF0000", "Rosa Shock|#FF00AA", "Preto|#000000",
+                                               "Rosa Shock|#FF00AA",     "Verde|#00FF00",    "Amarelo|#FFFF00",    "Preto|#000000"};
+    const std::vector<int> old_slots = {A1, A2, B1, C1, B2, D1, C2, D2};
+    const std::vector<int> none(8, NO_SLOT);
+
+    SECTION("nothing changed: nothing is written")
+    {
+        const auto t = sync_targets(old_sigs, old_slots, old_sigs, none, old_slots);
+        CHECK(t.write == none);
+        CHECK(t.slots == old_slots);
+    }
+    SECTION("reordering the list never relabels the CFS")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        std::swap(sigs[1], sigs[5]);
+        std::swap(sigs[0], sigs[6]);
+        std::vector<int> matched = old_slots;
+        std::swap(matched[1], matched[5]);
+        std::swap(matched[0], matched[6]);
+        const auto t = sync_targets(old_sigs, old_slots, sigs, none, matched);
+        CHECK(t.write == none);
+        CHECK(t.slots == matched);
+    }
+    SECTION("removing a filament shifts indices but writes nothing")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        sigs.erase(sigs.begin() + 2);
+        const auto t = sync_targets(old_sigs, old_slots, sigs, std::vector<int>(7, NO_SLOT), std::vector<int>(7, NO_SLOT));
+        CHECK(t.write == std::vector<int>(7, NO_SLOT));
+        CHECK(t.slots[2] == C1); // "Preto" keeps 1C
+        CHECK(t.slots[3] == B2); // the second pink keeps 2B
+    }
+    SECTION("an edited filament updates the slot it occupies")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        sigs[1]                     = "Vermelho Silk|#FF0000"; // new preset, same colour: still matched to 2A
+        sigs[6]                     = "Laranja|#FF8000";       // new colour: no slot matches, keeps 2C
+        std::vector<int> matched    = old_slots;
+        matched[6]                  = NO_SLOT;
+        const auto t                = sync_targets(old_sigs, old_slots, sigs, none, matched);
+        std::vector<int> expected   = none;
+        expected[1]                 = A2;
+        expected[6]                 = C2;
+        CHECK(t.write == expected);
+        CHECK(t.slots == old_slots);
+    }
+    SECTION("an edited filament never takes the slot of an unchanged one")
+    {
+        // pink 1B is recoloured blue; the remaining pink must stay on 2B even if the badge now matches it to 1B
+        std::vector<std::string> sigs = old_sigs;
+        sigs[2]                     = "Rosa Shock|#0000FF";
+        std::vector<int> matched    = old_slots;
+        matched[2]                  = NO_SLOT;
+        matched[4]                  = B1;
+        const auto t                = sync_targets(old_sigs, old_slots, sigs, none, matched);
+        CHECK(t.write[2] == B1);
+        CHECK(t.write[4] == NO_SLOT);
+        CHECK(t.slots[4] == B2);
+    }
+    SECTION("a new filament without a matching slot writes nothing unless a slot was picked")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        sigs.push_back("Azul|#0000FF");
+        std::vector<int> matched = old_slots;
+        matched.push_back(NO_SLOT);
+        std::vector<int> chosen(9, NO_SLOT);
+        auto             t = sync_targets(old_sigs, old_slots, sigs, chosen, matched);
+        CHECK(t.write == std::vector<int>(9, NO_SLOT));
+        chosen[8] = D2; // picked explicitly in the slot picker
+        matched[8] = D2;
+        t          = sync_targets(old_sigs, old_slots, sigs, chosen, matched);
+        CHECK(t.write[8] == D2);
+        CHECK(std::count(t.write.begin(), t.write.end(), NO_SLOT) == 8);
+    }
+    SECTION("two different filaments on one slot: the slot is left alone")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        sigs[0]                     = "Branco|#FFFFFF";
+        sigs[3]                     = "Cinza|#808080";
+        std::vector<int> chosen     = none;
+        chosen[0] = chosen[3]       = D1;
+        const auto t                = sync_targets(old_sigs, old_slots, sigs, chosen, chosen);
+        CHECK(t.write == none);
+        CHECK(t.conflicts == 1);
+    }
+    SECTION("identical filaments on one slot: written once")
+    {
+        std::vector<std::string> sigs = old_sigs;
+        sigs[3] = sigs[7]       = "Preto Fosco|#000000";
+        std::vector<int> chosen = none;
+        chosen[3] = chosen[7]   = C1;
+        const auto t            = sync_targets(old_sigs, old_slots, sigs, chosen, chosen);
+        CHECK(t.write[3] == C1);
+        CHECK(t.write[7] == NO_SLOT);
+        CHECK(t.conflicts == 0);
+    }
+    SECTION("U1 / IFS keys (plain head or port numbers) work the same")
+    {
+        const auto t = sync_targets({"a", "b"}, {1, 2}, {"b", "a"}, {-1, -1}, {2, 1});
+        CHECK(t.write == std::vector<int>{-1, -1});
+    }
 }
 
 TEST_CASE("Creality CFS ams_filament_setting", "[CrealityCfs]")

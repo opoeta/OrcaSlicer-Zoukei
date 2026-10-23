@@ -356,7 +356,8 @@ void draw_chip(wxDC& dc, const wxRect& r, const wxString& txt, const wxColour& f
 // first; then each remaining filament, in order, takes the first FREE loaded slot with the same type+colour (slot
 // order breaks ties); the rest fall back to their own position, then to any free CFS slot. A physical slot is thus
 // never given to two filaments while an equivalent free one exists (e.g. same spool in 1B and 2B).
-std::vector<const Entry*> assign_slots(const std::vector<Entry>& es)
+// positional = false stops after the type+colour match (the slot sync must not guess: see CrealityCfs::sync_targets).
+std::vector<const Entry*> assign_slots(const std::vector<Entry>& es, bool positional = true)
 {
     PresetBundle* b = wxGetApp().preset_bundle;
     std::vector<const Entry*> out;
@@ -391,7 +392,7 @@ std::vector<const Entry*> assign_slots(const std::vector<Entry>& es)
             }
         }
     }
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n && positional; ++i) {
         if (out[i] != nullptr || chosen_slot(int(i)))
             continue;
         size_t pos = 0;
@@ -573,6 +574,19 @@ std::optional<std::pair<int, int>> mapped_slot(int idx)
         return std::nullopt;
     return std::make_pair(e->box, e->slot);
 }
+
+std::vector<std::optional<std::pair<int, int>>> matched_slots()
+{
+    std::vector<std::optional<std::pair<int, int>>> out;
+    const auto                                      es = current_entries();
+    if (es.empty())
+        return out;
+    for (const Entry* e : assign_slots(es, false))
+        out.push_back(e != nullptr ? std::make_optional(std::make_pair(e->box, e->slot)) : std::nullopt);
+    return out;
+}
+
+std::optional<std::pair<int, int>> chosen_mapped_slot(int idx) { return chosen_slot(idx); }
 
 bool mapped_slot_empty(int idx)
 {

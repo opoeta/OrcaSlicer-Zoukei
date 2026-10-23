@@ -42951,3 +42951,6 @@ msgstr "A impressora está imprimindo."
 
 msgid "The printer is updating its firmware."
 msgstr "A impressora está atualizando o firmware."
+
+msgid "two different filaments are mapped to the same slot; that slot was left as it is."
+msgstr "dois filamentos diferentes estão mapeados para o mesmo slot; esse slot não foi alterado."

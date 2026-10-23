@@ -180,10 +180,37 @@ struct ProjectFilament
 };
 
 std::string project_signature(const std::vector<ProjectFilament>& project);
-// Slots that must change so that CFS slot i holds project filament i (RFID spools untouched).
+// One filament of project_signature: "name|#RRGGBB".
+std::string filament_signature(const ProjectFilament& filament);
+
+// ---- which slot an edited project filament is written to (Creality CFS, Snapmaker U1, Flashforge IFS) ----
+// Slots are opaque keys (slot_key(box, slot)), NO_SLOT = none. The sync only updates the slot a filament already occupies,
+// or the one the user picked for it; it never relabels slots because the list was reordered or a filament was removed.
+constexpr int NO_SLOT = -1;
+inline int    slot_key(int box, int slot) { return box * 100 + slot; }
+inline int    key_box(int key) { return key / 100; }
+inline int    key_slot(int key) { return key % 100; }
+
+struct SyncTargets
+{
+    std::vector<int> write; // per project filament: slot to write it into, NO_SLOT = leave the printer alone
+    std::vector<int> slots; // per project filament: the slot it is known to occupy after this sync (the next "old_slots")
+    int              conflicts{0}; // slots skipped because two different filaments claimed them
+};
+// old_sigs/old_slots: the filaments at the last sync and the slot each occupied then. new_sigs: the filaments now.
+// chosen: explicit slot per filament (project filament_cfs_slot, NO_SLOT = automatic). matched: the sidebar badge's mapping
+// now without its positional fallback (explicit choice, else a loaded slot of the same type + colour).
+// A filament whose signature is still in the old list (even at another index) is unchanged: nothing is written. An edited
+// filament goes to its explicit slot, else its matched slot, else (same list length, edited in place) the slot it held,
+// provided no unchanged filament occupies it. Unmapped filaments write nothing; two different filaments on one slot: neither.
+SyncTargets sync_targets(const std::vector<std::string>& old_sigs, const std::vector<int>& old_slots, const std::vector<std::string>& new_sigs,
+                         const std::vector<int>& chosen, const std::vector<int>& matched);
+
+// The CFS writes for project filament i into slot targets[i] (NO_SLOT = none): RFID spools, the external spool, unknown
+// slots and slots that already hold the filament are skipped; a slot is never written twice.
 std::vector<std::pair<CfsSlot, MaterialSpec>> plan_project_sync(const std::vector<ProjectFilament>& project,
                                                                 const std::vector<PresetInfo>& presets, const PrinterSnapshot& snapshot,
-                                                                const std::string& temps_from = "preset");
+                                                                const std::vector<int>& targets, const std::string& temps_from = "preset");
 
 using PresetForSlot = std::function<const PresetInfo*(const CfsSlot&)>;
 nlohmann::json build_ams_json(const PrinterSnapshot& snapshot, const PresetForSlot& preset_for_slot = {});
