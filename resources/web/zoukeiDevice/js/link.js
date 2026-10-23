@@ -141,6 +141,10 @@
             if (msg.videoToken) { this.token = msg.videoToken; this._emit('token'); return; }
             if ('current_object' in msg || 'excluded_objects' in msg || 'objects' in msg) return;
 
+            // Temperatures arrive as strings ("50.100000"); an unreadable one ("", "xxx.xxxxxx") must not wipe the last good reading.
+            ['nozzleTemp', 'targetNozzleTemp', 'bedTemp0', 'bedTemp1', 'bedTemp2', 'targetBedTemp0', 'boxTemp', 'targetBoxTemp'].forEach(k => {
+                if (k in msg && !isFinite(parseFloat(msg[k]))) delete msg[k];
+            });
             const first = !this.hasStatus;
             this.hasStatus = true;
             this._merge(msg);
@@ -179,6 +183,9 @@
         pause() { return this.set({ pause: 1 }); }
         resume() { return this.set({ pause: 0 }); }
         stop() { return this.set({ stop: 1 }); }
+        // "OK" on a printer error. Creality Print sends cleanErr:1 (and errorHandling:1 first for the F022); only the generic
+        // cleanErr:1 is sent here. The alert goes away when the printer's status brings err.errcode 0.
+        clearError() { return this.set({ cleanErr: 1 }); }
         home(axes) { return this.set({ autohome: axes }); }      // "X Y" | "Z"
         gcode(cmd) { return this.set({ gcodeCmd: cmd }); }
         move(axis, dist) { return this.set({ setPosition: axis + dist + (axis === 'Z' ? ' F600' : ' F3000') }); }

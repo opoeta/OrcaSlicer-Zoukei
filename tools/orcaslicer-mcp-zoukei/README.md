@@ -145,6 +145,7 @@ the window.
 | `printer_control_status` | `GET /printer_control` | whether the Preferences switch is on |
 | `print_send` | `POST /print/send` | upload the sliced plate to the selected preset's print host, optionally start (control) |
 | `print_pause` / `print_resume` / `print_stop` | `POST /devices/{id}/pause\|resume\|stop` | control |
+| `device_clear_error` | `POST /devices/{id}/clear_error` | control (Creality) |
 | `printer_set_temperature` | `POST /devices/{id}/temperature` | nozzle (0-350), bed (0-limit), chamber (0-80) targets (control) |
 | `filament_load` / `filament_unload` | `POST /devices/{id}/filament` | heat + move filament of a slot (control) |
 | `slot_write` | `PUT /devices/{id}/slots` | write colour / type of a slot (control) |

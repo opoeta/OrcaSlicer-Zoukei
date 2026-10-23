@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -63,6 +64,21 @@ std::vector<std::string> words(const std::string& text)
 
 bool contains(const std::string& haystack, const std::string& needle) { return haystack.find(needle) != std::string::npos; }
 
+// Locale independent text -> double ("50.100000" is 50.1 whatever the C locale: std::stod / strtod follow LC_NUMERIC, and
+// under pt_BR they stop at the dot, which used to turn the K2's string temperatures into 0). False when not a number.
+bool parse_double(const std::string& raw, double& out)
+{
+    const std::string text = trim(raw);
+    const char*       first = text.data();
+    const char*       last  = text.data() + text.size();
+    if (first != last && *first == '+')
+        ++first;
+    if (first == last)
+        return false;
+    const auto res = std::from_chars(first, last, out);
+    return res.ec == std::errc() && res.ptr == last;
+}
+
 // Python's float(value) with a default for None / "" / garbage.
 double to_num(const json& value, double fallback = 0.)
 {
@@ -72,15 +88,21 @@ double to_num(const json& value, double fallback = 0.)
         if (value.is_boolean())
             return value.get<bool>() ? 1. : 0.;
         if (value.is_string()) {
-            const std::string text = trim(value.get<std::string>());
-            if (text.empty())
-                return fallback;
-            std::size_t used = 0;
-            const double result = std::stod(text, &used);
-            return used == text.size() ? result : fallback;
+            double result = 0.;
+            return parse_double(value.get<std::string>(), result) ? result : fallback;
         }
     } catch (...) {}
     return fallback;
+}
+
+// Reads a temperature field into `target`; an unreadable value ("", "xxx.xxxxxx", null) keeps the last known one.
+void read_temp(const json& msg, const char* key, std::optional<double>& target)
+{
+    if (!msg.contains(key))
+        return;
+    const double v = to_num(msg[key], std::nan(""));
+    if (!std::isnan(v))
+        target = v;
 }
 
 int to_int(const json& value, int fallback = 0)
@@ -373,16 +395,12 @@ void apply_status(PrinterSnapshot& s, const json& msg)
         s.layer = to_int(msg["layer"]);
     if (msg.contains("TotalLayer"))
         s.total_layers = to_int(msg["TotalLayer"]);
-    if (msg.contains("nozzleTemp"))
-        s.nozzle_temp = to_num(msg["nozzleTemp"]);
-    if (msg.contains("targetNozzleTemp"))
-        s.nozzle_target = to_num(msg["targetNozzleTemp"]);
-    if (msg.contains("bedTemp0"))
-        s.bed_temp = to_num(msg["bedTemp0"]);
-    if (msg.contains("targetBedTemp0"))
-        s.bed_target = to_num(msg["targetBedTemp0"]);
-    if (msg.contains("boxTemp"))
-        s.box_temp = to_num(msg["boxTemp"]);
+    // Absent keys (incremental messages) and unreadable values keep the last known reading; bed = bedTemp0 (main bed).
+    read_temp(msg, "nozzleTemp", s.nozzle_temp);
+    read_temp(msg, "targetNozzleTemp", s.nozzle_target);
+    read_temp(msg, "bedTemp0", s.bed_temp);
+    read_temp(msg, "targetBedTemp0", s.bed_target);
+    read_temp(msg, "boxTemp", s.box_temp);
     if (msg.contains("boxConfig") && msg["boxConfig"].is_object())
         s.box_config = msg["boxConfig"];
     if (msg.contains("boxsInfo") && msg["boxsInfo"].is_object() && msg["boxsInfo"].contains("materialBoxs"))

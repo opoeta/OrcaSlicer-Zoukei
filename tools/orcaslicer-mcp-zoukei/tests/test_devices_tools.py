@@ -10,7 +10,7 @@ class DevicesToolsTest(ToolTestCase):
     def test_tool_list(self):
         self.assertEqual(sorted(self.mcp.tools), sorted([
             "device_list", "device_status", "device_slots", "print_hosts", "printer_control_status", "print_send",
-            "print_pause", "print_resume", "print_stop", "printer_set_temperature", "filament_load", "filament_unload",
+            "print_pause", "print_resume", "print_stop", "device_clear_error", "printer_set_temperature", "filament_load", "filament_unload",
             "slot_write", "creality_cloud_status", "creality_cloud_filaments", "creality_cloud_upload",
             "creality_cloud_upload_status", "creality_cloud_upload_cancel"]))
 
@@ -60,6 +60,12 @@ class DevicesToolsTest(ToolTestCase):
         self.assertEqual(self.last()[:3], ("POST", "/api/v1/devices/d1/resume", {"confirm": True}))
         self.run_tool("print_stop", confirm=True)
         self.assertEqual(self.last()[:2], ("POST", "/api/v1/devices/selected/stop"))
+
+    def test_clear_error(self):
+        self.run_tool("device_clear_error", confirm=True)
+        self.assertEqual(self.last()[:3], ("POST", "/api/v1/devices/selected/clear_error", {"confirm": True}))
+        self.run_tool("device_clear_error", device="abc")
+        self.assertEqual(self.last()[:3], ("POST", "/api/v1/devices/abc/clear_error", {}))
 
     def test_print_send(self):
         self.run_tool("print_send", name="benchy", start=True, plate=1, confirm=True)

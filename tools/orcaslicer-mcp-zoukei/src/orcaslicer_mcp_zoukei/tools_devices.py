@@ -1,7 +1,7 @@
 """MCP tools for the Orca Zoukei printers and printing group (G5). They map onto the endpoints documented at the top
 of src/slic3r/GUI/RemoteAPI/RemoteAPIDevices.cpp.
 
-Reads are always allowed. Every control tool (print_send, print_pause / resume / stop, printer_set_temperature,
+Reads are always allowed. Every control tool (print_send, print_pause / resume / stop, device_clear_error, printer_set_temperature,
 filament_load / unload, slot_write) is refused by OrcaSlicer (HTTP 403, blocked_by_remote_api_policy) unless BOTH hold:
   1. the owner ticked Preferences > Remote API > "Allow printer control from the Remote API" (default OFF; it cannot be
      changed through the API), and
@@ -99,6 +99,13 @@ def register(mcp) -> None:
         """CONTROL, DESTRUCTIVE. Stop (cancel) the running or paused print; it cannot be resumed. Needs the Preferences
         switch and confirm=True."""
         return await call("POST", f"devices/{_dev(device)}/stop", _body(confirm))
+
+    @mcp.tool()
+    async def device_clear_error(device: Device = "selected", confirm: Confirm = False) -> dict:
+        """CONTROL. Creality printers only (K2 / K2 Plus ...): dismiss the active printer error, like the OK button of Creality
+        Print (websocket {"method":"set","params":{"cleanErr":1}}). Fix the cause first; the error disappears from the status once
+        the printer reports errcode 0. Needs the Preferences switch and confirm=True."""
+        return await call("POST", f"devices/{_dev(device)}/clear_error", _body(confirm))
 
     @mcp.tool()
     async def printer_set_temperature(

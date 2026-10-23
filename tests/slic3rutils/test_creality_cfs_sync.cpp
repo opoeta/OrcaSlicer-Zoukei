@@ -4,6 +4,9 @@
 
 #include "slic3r/Utils/CrealityCfs.hpp"
 
+#include <clocale>
+#include <string>
+
 using namespace Slic3r::CrealityCfs;
 using json = nlohmann::json;
 
@@ -77,6 +80,45 @@ TEST_CASE("Creality CFS status folds into the snapshot", "[CrealityCfs]")
     CHECK(snap.cfs_boxes().size() == 1);
     apply_status(snap, json{{"deviceState", 1}});
     CHECK_FALSE(check_writable(snap).empty());
+}
+
+TEST_CASE("Creality K2 string temperatures survive a comma-decimal locale and partial messages", "[CrealityCfs]")
+{
+    // Recorded K2 Plus status during a print: temperatures are strings with a dot.
+    const json full = json::parse(R"({"bedTemp0": "50.100000", "bedTemp1": "0.000000", "bedTemp2": "0.000000",
+        "targetBedTemp0": "50", "nozzleTemp": "139.800000", "targetNozzleTemp": 140, "boxTemp": 28})");
+
+    // Under pt_BR strtod stops at the dot (50.1 -> "50" + garbage -> used to become 0). Locale may be missing on the host.
+    const std::string old_locale = std::setlocale(LC_NUMERIC, nullptr);
+    for (const char* name : {"pt_BR.UTF-8", "pt_BR", "Portuguese_Brazil.1252", "de_DE.UTF-8", "German_Germany.1252"})
+        if (std::setlocale(LC_NUMERIC, name))
+            break;
+
+    PrinterSnapshot snap;
+    apply_status(snap, full);
+    REQUIRE(snap.bed_temp);
+    CHECK(*snap.bed_temp == 50.1);
+    REQUIRE(snap.bed_target);
+    CHECK(*snap.bed_target == 50.);
+    REQUIRE(snap.nozzle_temp);
+    CHECK(*snap.nozzle_temp == 139.8);
+    REQUIRE(snap.nozzle_target);
+    CHECK(*snap.nozzle_target == 140.);
+    REQUIRE(snap.box_temp);
+    CHECK(*snap.box_temp == 28.);
+
+    // Incremental message without the temperatures, or with unreadable ones: the last known values stay.
+    apply_status(snap, json{{"printProgress", 12}});
+    apply_status(snap, json{{"nozzleTemp", "xxx.xxxxxx"}, {"bedTemp0", ""}, {"boxTemp", nullptr}});
+    CHECK(*snap.bed_temp == 50.1);
+    CHECK(*snap.nozzle_temp == 139.8);
+    CHECK(*snap.box_temp == 28.);
+
+    // A real new value (also a genuine 0) replaces them.
+    apply_status(snap, json{{"bedTemp0", "0.000000"}});
+    CHECK(*snap.bed_temp == 0.);
+
+    std::setlocale(LC_NUMERIC, old_locale.c_str());
 }
 
 TEST_CASE("Creality CFS AMS payload", "[CrealityCfs]")

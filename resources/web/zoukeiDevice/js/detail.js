@@ -110,7 +110,13 @@
             const sub = h('span.muted', { text: [dev.modelName || dev.model, dev.address].filter(Boolean).join(' · ') });
             const stateBadge = h('span.badge.wait', { text: Z.t('connecting') });
             const back = h('button.btn', { type: 'button', onclick: () => Z.app.back() }, icon('back'), Z.t('printers'));
-            const alertBox = h('div.alert', { hidden: true }, icon('warn'), h('span'));
+            const alertText = h('span.alert-text');
+            // "Dismiss": same order as Creality Print's generic error OK, {"cleanErr":1} (its F022 path also sends errorHandling:1).
+            const alertClear = h('button.btn.small.alert-clear', { type: 'button', onclick: () => {
+                if (!link.online) return;
+                Z.confirm(Z.t('clear_error_confirm'), { okLabel: Z.t('clear_error') }).then(yes => { if (yes) link.clearError(); });
+            } }, Z.t('clear_error'));
+            const alertBox = h('div.alert', { hidden: true }, icon('warn'), alertText, alertClear);
 
             // current print
             const thumb = h('img', { alt: '' });
@@ -229,9 +235,11 @@
 
                 const err = s.err && (Number(s.err.errcode) || Number(s.err.key)) ? s.err : null;
                 alertBox.hidden = !err;
+                alertClear.hidden = mr;               // Moonraker/Flashforge errors are not cleared this way
+                alertClear.disabled = !link.online;
                 if (err) {
                     const k2 = Z.k2Error ? Z.k2Error(err) : null;
-                    const box = alertBox.lastChild;
+                    const box = alertText;
                     alertBox.classList.toggle('warning', !!k2 && k2.level === 'warning');
                     if (k2) {
                         // Creality K2 table: real message + code; unknown codes keep the generic text with the code.

@@ -21,7 +21,9 @@
 //                                               uploads the sliced plate to the selected printer preset's print host
 //   POST /api/v1/devices/{id}/pause | resume | stop      {confirm}
 //   POST /api/v1/devices/{id}/temperature       {nozzle?, bed?, chamber?, extruder?, confirm}
-//   POST /api/v1/devices/{id}/filament          {action: load|unload, unit?, slot, nozzle_temp?, confirm}
+//   POST /api/v1/devices/{id}/clear_error       {confirm}: Creality only, dismisses the active printer error (websocket
+//                                               {"method":"set","params":{"cleanErr":1}}, Creality Print's generic "OK")
+//   POST /api/v1/devices/{id}/filament         {action: load|unload, unit?, slot, nozzle_temp?, confirm}
 //   PUT  /api/v1/devices/{id}/slots             {unit?, slot, type?, color?, colors?, filament_id?, setting_id?, confirm}
 //
 // The printers' own rules stay in force: a Snapmaker U1 head with an official (locked) spool is never forced, slot
@@ -46,6 +48,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/PostProcessor.hpp"
 #include "slic3r/Utils/ASCIIFolding.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/PrintHost.hpp"
 #include "slic3r/Utils/SnapmakerPrinterAgent.hpp"
@@ -383,6 +386,25 @@ json op_print_control(const std::string &id, const std::string &action, const js
     json sent = {{"command", action}, {"state_before", m->print_status}};
     log_control(action.c_str(), {{"device", m->get_dev_id()}, {"sent", sent}});
     return result_of(action.c_str(), m, sent, rc);
+}
+
+// Creality (K-series) only: dismisses the active printer error, the generic "OK" of Creality Print ({"cleanErr":1}).
+json op_clear_error(const std::string &id, const json &body)
+{
+    require_control(body, "clear_error");
+    MachineObject *m = need_machine(id);
+    if (agent_id_of(m) != CREALITY_CFS_PRINTER_AGENT_ID)
+        zk::fail("not_supported", "clear_error is only available for Creality printers");
+    if (!m->is_connected())
+        zk::fail("not_connected", "the printer is not connected");
+    json j;
+    j["print"]["command"]     = "clean_error";
+    j["print"]["param"]       = "";
+    j["print"]["sequence_id"] = std::to_string(MachineObject::m_sequence_id++);
+    const int rc = m->publish_json(j, 1);
+    json sent = {{"command", "clean_error"}, {"ws", {{"method", "set"}, {"params", {{"cleanErr", 1}}}}}};
+    log_control("clear_error", {{"device", m->get_dev_id()}, {"sent", sent}});
+    return result_of("clear_error", m, sent, rc);
 }
 
 double need_temp(const json &body, const char *key, double lo, double hi)
@@ -762,7 +784,7 @@ bool Controller::dispatch_devices(const Request &req, Response &out)
 
     // ---- control (gated inside the ops) -------------------------------------------------------
     const bool dev_action = parts[0] == "devices" && parts.size() == 3 &&
-                            ((m == "POST" && (parts[2] == "pause" || parts[2] == "resume" || parts[2] == "stop" || parts[2] == "temperature" || parts[2] == "filament")) ||
+                            ((m == "POST" && (parts[2] == "pause" || parts[2] == "resume" || parts[2] == "stop" || parts[2] == "temperature" || parts[2] == "filament" || parts[2] == "clear_error")) ||
                              (m == "PUT" && parts[2] == "slots"));
     const bool send = m == "POST" && parts.size() == 2 && parts[0] == "print" && parts[1] == "send";
     if (!dev_action && !send)
@@ -785,6 +807,8 @@ bool Controller::dispatch_devices(const Request &req, Response &out)
                 return op_print_control(id, act, body);
             if (act == "temperature")
                 return op_temperature(id, body);
+            if (act == "clear_error")
+                return op_clear_error(id, body);
             if (act == "filament")
                 return op_filament(id, body);
             return op_write_slot(id, body);
