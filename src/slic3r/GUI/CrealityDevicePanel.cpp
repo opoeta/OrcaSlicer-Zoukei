@@ -1,6 +1,7 @@
 #include "CrealityDevicePanel.hpp"
 
 #include "CrealityDevice/DeviceStore.hpp"
+#include "DeviceConsole.hpp"
 #include "Zoukei/PrintMarkers.hpp"
 #include "Zoukei/CrealityCloudUi.hpp"
 #include "CrealityDevice/ImageServer.hpp"
@@ -804,6 +805,9 @@ void CrealityDevicePanel::register_routes()
         post_command("print_markers", Zoukei::PrintMarkers::web_answer(json_string(j, "requestId"), json_string(j, "name")));
     };
     h["download_video"]         = [this](const json& j) { route_download_video(j); };
+    // Orca Zoukei: the Console (activity log) commands of the page.
+    DeviceConsole::register_routes(h, [this](const std::string& c, json d) { post_command(c, std::move(d)); },
+                                   [this](const std::string& c, json d) { post_command_async(c, std::move(d)); });
 }
 
 }} // namespace Slic3r::GUI

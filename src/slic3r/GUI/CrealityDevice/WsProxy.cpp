@@ -1,4 +1,5 @@
 #include "WsProxy.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 
 #include "libslic3r/Utils.hpp"
 
@@ -226,8 +227,13 @@ public:
         asio::post(m_strand, [self] { self->do_resolve(); });
     }
 
+    // The Creality panel's own link (ws://host:9999) is part of the device console, like the agent's link.
+    bool console_link() const { return !m_endpoint.secure && m_endpoint.port == "9999"; }
+
     void send(std::string data)
     {
+        if (console_link())
+            DeviceActivity::ws_message(m_endpoint.host, true, data);
         auto self = shared_from_this();
         asio::post(m_strand, [self, data = std::move(data)]() mutable {
             if (self->m_finished)
@@ -380,6 +386,8 @@ private:
                 }
                 std::string data = beast::buffers_to_string(self->m_buffer.data());
                 self->m_buffer.consume(self->m_buffer.size());
+                if (self->console_link())
+                    DeviceActivity::ws_message(self->m_endpoint.host, false, data);
                 self->emit("message", data, 0, std::string(), true);
                 self->do_read();
             });

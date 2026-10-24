@@ -57,6 +57,22 @@ def register(mcp) -> None:
         return await call("GET", f"devices/{_dev(device)}/slots")
 
     @mcp.tool()
+    async def device_activity(
+        device: Device = "selected",
+        since: Annotated[int, Field(description="Return only entries with seq > since. Pass the 'next' value of the previous answer to follow the log (poll).", ge=0)] = 0,
+        limit: Annotated[int, Field(description="Max entries (1..2000, default 200). With since=0 the newest entries are returned.", ge=1, le=2000)] = 200,
+        source: Annotated[str | None, Field(description="Comma-separated filter: ws-out, ws-in, sync, agent, error, klipper.")] = None,
+        q: Annotated[str | None, Field(description="Case-insensitive text filter on the entry text.")] = None,
+        raw: Annotated[bool, Field(description="Include the raw (redacted) JSON of each entry.")] = False,
+    ) -> dict:
+        """Live activity log of a printer in OrcaSlicer (the 'Console' of the device panel): websocket messages sent and
+        received (changes only, heartbeats and telemetry skipped), project -> CFS / IFS / U1 sync decisions (which project
+        filament, target slot, why, wrote or skipped), agent events and errors. Read-only; tokens, passwords and cookies are
+        never recorded. Answer: {entries:[{seq,t,source,text,raw?}], next, dropped, total}."""
+        return await call("GET", f"devices/{_dev(device)}/activity",
+                          params=clean(since=since or None, limit=limit, source=source, q=q, raw=1 if raw else None))
+
+    @mcp.tool()
     async def print_hosts() -> dict:
         """Print host presets (OctoPrint, Moonraker, PrusaLink, Duet, ...) of the printer presets and physical printers.
         Addresses and kinds only; API keys and passwords are never returned."""

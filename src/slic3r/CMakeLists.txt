@@ -75,6 +75,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/FlashforgeIfsAutoSync.hpp
     GUI/SnapmakerU1AutoSync.cpp
     GUI/SnapmakerU1AutoSync.hpp
+    GUI/DeviceConsole.cpp
+    GUI/DeviceConsole.hpp
     GUI/SpoolmanUi.cpp
     GUI/SpoolmanUi.hpp
     GUI/ZoukeiUpdateUi.cpp
@@ -115,6 +117,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Zoukei/FlowCalibChain.hpp
     GUI/Zoukei/PrintMarkerTimeline.cpp
     GUI/Zoukei/PrintMarkerTimeline.hpp
+    GUI/Zoukei/BackgroundWorkers.cpp
+    GUI/Zoukei/BackgroundWorkers.hpp
     GUI/Zoukei/CrealityCloud.cpp
     GUI/Zoukei/CrealityCloud.hpp
     GUI/Zoukei/CrealityCloudUi.cpp
@@ -844,6 +848,7 @@ set(SLIC3R_GUI_SOURCES
     Utils/CrealityCfsAgent.cpp
     Utils/CrealityCfsAgent.hpp
     Utils/CrealityCfsClient.hpp
+    Utils/DeviceActivityLog.hpp
     Utils/CrealityPrintAgent.cpp
     Utils/CrealityPrintAgent.hpp
     Utils/BoxFilamentSync.cpp
@@ -1082,6 +1087,7 @@ add_library(libslic3r_creality_net STATIC
     GUI/CrealityDevice/ImageServer.cpp
     GUI/CrealityDevice/WsProxy.cpp
     Utils/CrealityCfsClient.cpp
+    Utils/DeviceActivityLog.cpp
     Utils/CrealityCloudCallback.cpp
 )
 target_include_directories(libslic3r_creality_net PRIVATE Utils ${CMAKE_CURRENT_BINARY_DIR})

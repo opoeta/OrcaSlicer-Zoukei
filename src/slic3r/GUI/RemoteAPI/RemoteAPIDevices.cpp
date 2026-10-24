@@ -9,6 +9,11 @@
 //   GET  /api/v1/devices                        printers the app knows: agent, model, online, connected, selected, state
 //   GET  /api/v1/devices/{id}                   one printer ("selected" = the selected one): state, progress, layer,
 //                                               temperatures, remaining time, slots
+//   GET  /api/v1/devices/{id}/activity          the device Console: ring buffer (2000) of websocket traffic (changes only), sync
+//                                               decisions, agent events, errors, klippy.log lines. ?since=<seq>&limit=<n>
+//                                               &source=ws-out,ws-in,sync,agent,error,klipper&q=<text>&raw=1. Answer
+//                                               {entries:[{seq,t,time,source,text,raw?}], next, dropped, total}; poll with since=next.
+//                                               Tokens, passwords and cookies are never recorded.
 //   GET  /api/v1/devices/{id}/slots             filament slots (Bambu AMS, Creality CFS, Flashforge IFS, Snapmaker U1
 //                                               heads, external spool) with colour / type / lock / feed state
 //   GET  /api/v1/print_hosts                    printer presets / physical printers with a print host (OctoPrint,
@@ -49,6 +54,7 @@
 #include "slic3r/GUI/PostProcessor.hpp"
 #include "slic3r/Utils/ASCIIFolding.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/PrintHost.hpp"
 #include "slic3r/Utils/SnapmakerPrinterAgent.hpp"
@@ -147,6 +153,49 @@ MachineObject *need_machine(const std::string &id)
     if (it2 != local.end() && it2->second != nullptr)
         return it2->second;
     zk::fail("unknown_device", "no printer with this id; see GET /devices");
+}
+
+// The device console of a printer: the log is keyed by the printer's host (IP), the id may be "selected", a device id or a host.
+json op_activity(const std::string &id, const Request &req)
+{
+    std::vector<std::string> candidates;
+    json                     device = json::object();
+    try {
+        MachineObject *m = need_machine(id);
+        device           = {{"id", m->get_dev_id()}, {"name", m->get_dev_name()}, {"ip", m->get_dev_ip()}};
+        candidates.push_back(DeviceActivity::key_of(m->get_dev_ip()));
+        candidates.push_back(DeviceActivity::key_of(m->get_dev_id()));
+    } catch (...) {
+        // not a known machine: maybe a host that has a log
+    }
+    if (id != "selected")
+        candidates.push_back(DeviceActivity::key_of(id));
+    std::string host;
+    for (const std::string &c : candidates)
+        if (!c.empty() && !DeviceActivity::entries(c).empty()) {
+            host = c;
+            break;
+        }
+    if (host.empty())
+        for (const std::string &c : candidates)
+            if (!c.empty()) {
+                host = c;
+                break;
+            }
+    auto num = [&](const char *key, long long def) {
+        const std::string v = zk::query_value(req, key);
+        if (v.empty())
+            return def;
+        char *end = nullptr;
+        const long long n = std::strtoll(v.c_str(), &end, 10);
+        return end != v.c_str() ? n : def;
+    };
+    json out = DeviceActivity::query(host, std::uint64_t(std::max<long long>(0, num("since", 0))), size_t(std::clamp<long long>(num("limit", 200), 1, 2000)),
+                                     DeviceActivity::source_mask(zk::query_value(req, "source")), zk::query_value(req, "q"),
+                                     num("raw", 0) != 0);
+    out["device"] = device;
+    out["hosts_with_log"] = DeviceActivity::hosts();
+    return out;
 }
 
 json tray_json(const DevAmsTray &t)
@@ -760,6 +809,11 @@ bool Controller::dispatch_devices(const Request &req, Response &out)
                         {"switch", "Preferences > Remote API > Allow printer control from the Remote API"},
                         {"also_needed", "\"confirm\": true in every control request"}};
         }, 30));
+        return true;
+    }
+    if (m == "GET" && parts.size() == 3 && parts[0] == "devices" && parts[2] == "activity") {
+        const std::string id = parts[1];
+        out = zk::reply(run_on_ui([id, req]() -> json { return zk::guard([&]() -> json { return op_activity(id, req); }); }, 30));
         return true;
     }
     if (parts[0] == "devices" && parts.size() >= 2 && m == "GET" && (parts.size() == 2 || (parts.size() == 3 && parts[2] == "slots"))) {

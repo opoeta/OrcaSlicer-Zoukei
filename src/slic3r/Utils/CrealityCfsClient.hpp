@@ -7,6 +7,7 @@
 
 #include "CrealityCfs.hpp"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -33,6 +34,8 @@ public:
     static std::shared_ptr<Client> get(const std::string& host);
     // "http://10.1.2.3:7125/x" -> "10.1.2.3"
     static std::string strip_host(const std::string& print_host);
+    // Application shutdown: stops every link (I/O threads joined within `max_wait` each, else left to finish alone).
+    static void shutdown_all(std::chrono::milliseconds max_wait);
 
     ~Client();
 
@@ -55,6 +58,7 @@ public:
     struct Impl;
 
 private:
+    WriteResult modify_material_impl(int box_id, int slot_id, const MaterialSpec& spec, bool force, double verify_timeout_s);
     explicit Client(std::string host);
     std::shared_ptr<Impl> m_impl;
 };

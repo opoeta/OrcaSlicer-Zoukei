@@ -6,6 +6,7 @@
 // format can make that context current and draw the preview's toolpaths (same buffers, same VAOs) from its own
 // camera. Everything the studio changes in the G-code viewer is restored after each of its renders.
 #include "PhotoStudio.hpp"
+#include "BackgroundWorkers.hpp"
 #include "StudioMedia.hpp"
 #include "StudioRender.hpp"
 
@@ -1947,6 +1948,8 @@ void studio_selftest_tick()
     wxGetApp().CallAfter([]() { open_photo_studio(); });
     std::thread([out]() {
         std::this_thread::sleep_for(std::chrono::seconds(4));
+        if (Zoukei::shutting_down())
+            return;
         wxGetApp().CallAfter([out]() {
             for (int live = 1; live >= 0; --live) {
                 std::vector<uint8_t> rgba;

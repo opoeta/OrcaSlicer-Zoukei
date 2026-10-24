@@ -59,7 +59,11 @@
             u1_load_confirm: 'Load the filament of head T{head}? The printer heats the nozzle and moves filament.', u1_unload_confirm: 'Unload the filament of head T{head}? The printer heats the nozzle and moves filament.',
             u1_feed_started: 'Request sent. The head card shows the progress.', u1_feed_loading: 'Loading...', u1_feed_unloading: 'Unloading...', u1_feed_manual: 'Manual feed', u1_feed_error: 'Feed error',
             u1_map: 'Extruder map', u1_map_info: 'Which head prints each tool (T) of the G-code. Orca sets it from the print dialog when it sends a print.',
-            u1_sync_all_info: 'The heads are the reference: the project filaments mapped to them take their type and colour.'
+            u1_sync_all_info: 'The heads are the reference: the project filaments mapped to them take their type and colour.',
+            console: 'Console', console_title: 'Console', con_pause: 'Pause', con_resume: 'Resume', con_clear: 'Clear', con_copy: 'Copy all', con_export: 'Export .txt',
+            con_show_all: 'Show all traffic', con_klipper: 'Read klippy.log', con_search: 'Search text', con_follow: 'Jump to the end', con_empty: 'No activity yet.',
+            con_count: '{n} of {total} entries', con_paused: 'paused', con_copied: 'Console copied.', con_exported: 'Saved to {path}', con_export_failed: 'Nothing was saved.',
+            con_details: 'Click an entry to see the raw message.', con_klipper_err: 'Could not read klippy.log from the printer.', con_secrets: 'Tokens, passwords and cookies are never recorded.'
         },
         pt: {
             printers: 'Impressoras', add: 'Adicionar', added: 'Adicionada', scan_lan: 'Buscar na rede', scanning: 'Procurando na rede...',
@@ -116,7 +120,11 @@
             u1_load_confirm: 'Carregar o filamento da cabeça T{head}? A impressora aquece o bico e movimenta o filamento.', u1_unload_confirm: 'Descarregar o filamento da cabeça T{head}? A impressora aquece o bico e movimenta o filamento.',
             u1_feed_started: 'Pedido enviado. O cartão da cabeça mostra o andamento.', u1_feed_loading: 'Carregando...', u1_feed_unloading: 'Descarregando...', u1_feed_manual: 'Alimentação manual', u1_feed_error: 'Erro de alimentação',
             u1_map: 'Mapa de extrusoras', u1_map_info: 'Qual cabeça imprime cada ferramenta (T) do G-code. O Orca define isso no diálogo de impressão ao enviar o trabalho.',
-            u1_sync_all_info: 'As cabeças são a referência: os filamentos do projeto mapeados a elas assumem o tipo e a cor.'
+            u1_sync_all_info: 'As cabeças são a referência: os filamentos do projeto mapeados a elas assumem o tipo e a cor.',
+            console: 'Console', console_title: 'Console', con_pause: 'Pausar', con_resume: 'Retomar', con_clear: 'Limpar', con_copy: 'Copiar tudo', con_export: 'Exportar .txt',
+            con_show_all: 'Mostrar todo o tráfego', con_klipper: 'Ler klippy.log', con_search: 'Buscar texto', con_follow: 'Ir para o fim', con_empty: 'Nenhuma atividade ainda.',
+            con_count: '{n} de {total} entradas', con_paused: 'pausado', con_copied: 'Console copiado.', con_exported: 'Salvo em {path}', con_export_failed: 'Nada foi salvo.',
+            con_details: 'Clique numa entrada para ver a mensagem bruta.', con_klipper_err: 'Não foi possível ler o klippy.log da impressora.', con_secrets: 'Tokens, senhas e cookies nunca são registrados.'
         }
     };
 

@@ -9,7 +9,7 @@ class DevicesToolsTest(ToolTestCase):
 
     def test_tool_list(self):
         self.assertEqual(sorted(self.mcp.tools), sorted([
-            "device_list", "device_status", "device_slots", "print_hosts", "printer_control_status", "print_send",
+            "device_list", "device_status", "device_slots", "device_activity", "print_hosts", "printer_control_status", "print_send",
             "print_pause", "print_resume", "print_stop", "device_clear_error", "printer_set_temperature", "filament_load", "filament_unload",
             "slot_write", "creality_cloud_status", "creality_cloud_filaments", "creality_cloud_upload",
             "creality_cloud_upload_status", "creality_cloud_upload_cancel"]))
@@ -27,6 +27,15 @@ class DevicesToolsTest(ToolTestCase):
         self.assertEqual(self.last()[:2], ("GET", "/api/v1/print_hosts"))
         self.run_tool("printer_control_status")
         self.assertEqual(self.last()[:2], ("GET", "/api/v1/printer_control"))
+
+    def test_device_activity(self):
+        self.run_tool("device_activity")
+        self.assertEqual(self.last()[:2], ("GET", "/api/v1/devices/selected/activity"))
+        self.assertEqual(self.last()[4], {"limit": "200"})
+        self.run_tool("device_activity", device="10.1.2.3", since=42, limit=50, source="sync,error", q="slot", raw=True)
+        self.assertEqual(self.last()[1], "/api/v1/devices/10.1.2.3/activity")
+        self.assertEqual(self.last()[4], {"since": "42", "limit": "50", "source": "sync,error", "q": "slot", "raw": "1"})
+        self.assertEqual(self.last()[2], {})
 
     def test_creality_cloud(self):
         self.run_tool("creality_cloud_status")

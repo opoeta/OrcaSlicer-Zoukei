@@ -1,5 +1,6 @@
 #include "SnapmakerU1DevicePanel.hpp"
 #include "SnapmakerU1AutoSync.hpp"
+#include "DeviceConsole.hpp"
 #include "FlashforgeIfsAutoSync.hpp"
 #include "Zoukei/PrintMarkers.hpp"
 
@@ -479,6 +480,9 @@ void SnapmakerU1DevicePanel::register_routes()
     h["u1_write_head"]        = [this](const json& j) { route_write_head(j); };
     h["u1_feed"]              = [this](const json& j) { route_feed(j); };
     h["u1_sync_all"]          = [this](const json& j) { route_sync_all(j); };
+    // Orca Zoukei: the Console (activity log) commands of the page.
+    DeviceConsole::register_routes(h, [this](const std::string& c, json d) { post_command(c, std::move(d)); },
+                                   [this](const std::string& c, json d) { post_command_async(c, std::move(d)); });
 }
 
 }} // namespace Slic3r::GUI

@@ -2,6 +2,7 @@
 #include "CrealityCfsAgent.hpp"
 
 #include "CrealityCfsClient.hpp"
+#include "DeviceActivityLog.hpp"
 #include "CrealityPrint.hpp"
 #include "Http.hpp"
 #include "slic3r/GUI/CrealityDevice/DeviceStore.hpp"
@@ -12,6 +13,7 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/Zoukei/BackgroundWorkers.hpp"
 
 #include <boost/log/trivial.hpp>
 
@@ -121,7 +123,7 @@ std::string CrealityCfsAgent::current_model_id()
 void CrealityCfsAgent::notify(const std::string& text, bool error)
 {
     BOOST_LOG_TRIVIAL(info) << "Creality CFS: " << text;
-    if (wxTheApp == nullptr)
+    if (wxTheApp == nullptr || GUI::Zoukei::shutting_down())
         return;
     GUI::wxGetApp().CallAfter([text, error] {
         if (GUI::Plater* plater = GUI::wxGetApp().plater(); plater != nullptr && plater->get_notification_manager() != nullptr)
@@ -186,6 +188,7 @@ int CrealityCfsAgent::connect_printer(const PrinterConnectionParams& params)
         });
     }
     BOOST_LOG_TRIVIAL(info) << "Creality CFS agent: connecting to " << host << " as " << params.dev_id;
+    DeviceActivity::agent(host, "Orca connects the printer agent (dev_id " + params.dev_id + ")");
     if (client->snapshot().connected)
         on_printer_message({{"__connected__", true}});
     return BAMBU_NETWORK_SUCCESS;
@@ -205,6 +208,8 @@ int CrealityCfsAgent::disconnect_printer()
     }
     if (client && listener)
         client->remove_listener(listener);
+    if (client)
+        DeviceActivity::agent(client->host(), "Orca disconnects the printer agent");
     return BAMBU_NETWORK_SUCCESS;
 }
 
@@ -400,20 +405,31 @@ int CrealityCfsAgent::handle_print_command(const json& cmd)
     if (!client)
         return -1;
     const std::string command = cmd.value("command", std::string());
+    if (command != "push_status" && command != "get_version")
+        DeviceActivity::agent(client->host(), "Orca command: " + command, cmd);
     if (command == "ams_filament_setting") {
         MaterialSpec spec;
         int          ams_index = 0, slot_id = 0;
         const PrinterSnapshot snap = client->snapshot();
-        if (!ams_setting_to_spec(cmd, presets(), snap.library, spec, ams_index, slot_id))
+        if (!ams_setting_to_spec(cmd, presets(), snap.library, spec, ams_index, slot_id)) {
+            DeviceActivity::error(client->host(), "ams_filament_setting: could not turn the command into a slot write (malformed or filament preset unknown)");
             return -1;
+        }
         const auto boxes = snap.cfs_boxes();
         if (ams_index < 0 || ams_index >= int(boxes.size())) {
             BOOST_LOG_TRIVIAL(warning) << "Creality CFS agent: ams_filament_setting for unknown AMS " << ams_index;
+            DeviceActivity::error(client->host(), "ams_filament_setting for unknown CFS unit " + std::to_string(ams_index));
             return ORCA_NETWORK_ERR_CAP_NOT_AVAILABLE;
         }
         const int box_id = boxes[ams_index].id;
+        DeviceActivity::agent(client->host(), "ams_filament_setting: Orca unit " + std::to_string(ams_index) + " slot " + std::to_string(slot_id) +
+                                                  " -> box" + std::to_string(box_id) + "/slot" + std::to_string(slot_id) + " " + spec.vendor + " " + spec.name +
+                                                  " (" + spec.type + ") " + spec.color);
         std::weak_ptr<CrealityCfsAgent> weak = weak_from_this();
         std::thread([weak, client, box_id, slot_id, spec] {
+            const GUI::Zoukei::WorkerToken token;
+            if (!token)
+                return;
             const WriteResult result = client->modify_material(box_id, slot_id, spec);
             BOOST_LOG_TRIVIAL(info) << "Creality CFS agent: slot " << box_id << "/" << slot_id << ": " << result.message;
             if (auto self = weak.lock()) {
@@ -440,6 +456,11 @@ int CrealityCfsAgent::handle_print_command(const json& cmd)
         const json params = command == "pause" ? json{{"pause", 1}} : command == "resume" ? json{{"pause", 0}} : json{{"stop", 1}};
         return client->send("set", params) ? BAMBU_NETWORK_SUCCESS : -1;
     }
+    if (command == "clean_error") {
+        // Creality Print's generic "OK" on a printer error: {"set": {"cleanErr": 1}}. Its F022 path also sends errorHandling:1
+        // first; the generic case needs only cleanErr. The printer's next status (err.errcode 0) tells it worked.
+        return client->send("set", json{{"cleanErr", 1}}) ? BAMBU_NETWORK_SUCCESS : -1;
+    }
     if (command == "set_bed_temp" || command == "set_nozzle_temp") {
         int temp = 0;
         if (cmd.contains("temp") && cmd["temp"].is_number())
@@ -454,6 +475,7 @@ int CrealityCfsAgent::handle_print_command(const json& cmd)
         return BAMBU_NETWORK_SUCCESS;
     }
     BOOST_LOG_TRIVIAL(info) << "Creality CFS agent: print command not supported: " << command;
+    DeviceActivity::agent(client->host(), "command not supported by this agent: " + command);
     return ORCA_NETWORK_ERR_CMD_NOT_SUPPORTED;
 }
 
@@ -482,6 +504,8 @@ int CrealityCfsAgent::upload_job(const PrintParams& params, const OnUpdateStatus
     };
     auto fail = [&](const std::string& text) {
         BOOST_LOG_TRIVIAL(error) << "Creality CFS agent: " << text;
+        if (!host.empty())
+            DeviceActivity::error(host, "upload/print: " + text);
         report(PrintingStageERROR, -1, text);
         return -1;
     };

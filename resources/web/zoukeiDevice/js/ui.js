@@ -41,6 +41,8 @@
     // Line icons, 24x24, drawn with the current text colour.
     const ICONS = {
         back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+        copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',
+        terminal: '<path d="M4 5h16v14H4zM7 9l3 3-3 3M12 15h5"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
         refresh: '<path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/>',
         scan: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',

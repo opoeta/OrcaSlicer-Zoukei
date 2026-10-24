@@ -49,6 +49,8 @@ std::shared_ptr<Slic3r::FlashforgePrinterAgent> ifs_agent();
 bool u1_active();
 // The Snapmaker agent of the selected printer when it is a U1 (null for any other printer).
 std::shared_ptr<Slic3r::SnapmakerPrinterAgent> u1_agent();
+// Device-console key (host without scheme / port) of the selected printer's print host; empty when none.
+std::string activity_host();
 // Header of the sidebar column of a unit: "CFS n", or "IFS" for the Flashforge unit (empty for the unused second column).
 wxString unit_title(int box);
 

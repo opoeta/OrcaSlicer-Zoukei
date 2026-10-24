@@ -39,6 +39,7 @@
 #include <boost/assert/source_location.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <atomic>
+#include <boost/log/core.hpp>
 #include <boost/asio/ip/basic_endpoint.hpp>
 #include <boost/chrono/duration.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -240,6 +241,7 @@
 #include "ReleaseNote.hpp"
 #include "ZoukeiUpdateUi.hpp"
 #include "Zoukei/LibreMode.hpp"
+#include "Zoukei/BackgroundWorkers.hpp"
 #include "slic3r/Utils/ZoukeiUpdate.hpp"
 #include "PrivacyUpdateDialog.hpp"
 #include "ModelMall.hpp"
@@ -1292,6 +1294,40 @@ GUI_App::GUI_App()
     reset_to_active();
 }
 
+#ifdef _WIN32
+// Orca Zoukei: last resort against a process that outlives its main window. A normal exit after shutdown() takes a
+// few seconds; if the process is still alive after `timeout_s`, the main thread's call stack goes to a crash_*.log
+// in the log folder (so the cause can be found) and the process is terminated instead of lingering invisibly.
+static void start_exit_watchdog(unsigned timeout_s)
+{
+    static std::atomic<bool> started{false};
+    if (started.exchange(true))
+        return;
+    const DWORD main_tid = GetCurrentThreadId();
+    std::thread([main_tid, timeout_s]() {
+        std::this_thread::sleep_for(std::chrono::seconds(timeout_s));
+        // The stack walk below suspends the main thread; if that thread holds a lock the walk needs, this ends it.
+        std::thread([]() {
+            std::this_thread::sleep_for(std::chrono::seconds(15));
+            TerminateProcess(GetCurrentProcess(), 1);
+        }).detach();
+        try {
+            BOOST_LOG_TRIVIAL(error) << "Exit watchdog: the process is still running " << timeout_s
+                                     << " s after GUI_App::shutdown; writing the main thread stack and terminating";
+            boost::log::core::get()->flush();
+            if (HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, main_tid)) {
+                CBaseException report;
+                report.OutputString(_T("Exit watchdog: the process did not exit %u s after GUI_App::shutdown. Main thread:\n"), timeout_s);
+                report.ShowCallstack(thread);
+                report.ShowLoadModules();
+                CloseHandle(thread);
+            }
+        } catch (...) {}
+        TerminateProcess(GetCurrentProcess(), 1);
+    }).detach();
+}
+#endif
+
 void GUI_App::shutdown()
 {
     BOOST_LOG_TRIVIAL(info) << "GUI_App::shutdown enter";
@@ -1309,8 +1345,13 @@ void GUI_App::shutdown()
     }
 
     if (m_is_recreating_gui) return;
+#ifdef _WIN32
+    start_exit_watchdog(60);
+#endif
     stop_http_server();
     set_closing(true);
+    // Orca Zoukei: Creality Cloud uploads / login listener and Creality CFS links, bounded.
+    Zoukei::shutdown_background_workers(std::chrono::milliseconds(3000));
     Slic3r::PluginManager::instance().set_shutting_down();
 
     if (m_agent)

@@ -1,4 +1,5 @@
 #include "CrealityCfsUi.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 
 #include "CrealityDevicePanel.hpp"
 #include "SpoolmanUi.hpp"
@@ -679,6 +680,19 @@ bool restore_colours(const std::string& dev_id, int ams, int slot, const std::st
 std::shared_ptr<FlashforgePrinterAgent> ifs_agent() { return flashforge_agent(); }
 
 std::shared_ptr<SnapmakerPrinterAgent> u1_agent() { return snapmaker_agent(); }
+
+std::string activity_host()
+{
+    PresetBundle* bundle = wxGetApp().preset_bundle;
+    if (bundle == nullptr)
+        return {};
+    const DynamicPrintConfig* config = nullptr;
+    if (bundle->physical_printers.has_selection())
+        config = bundle->physical_printers.get_selected_printer_config();
+    if (config == nullptr || !config->has("print_host") || config->opt_string("print_host").empty())
+        config = &bundle->printers.get_edited_preset().config;
+    return config->has("print_host") ? DeviceActivity::key_of(config->opt_string("print_host")) : std::string();
+}
 
 bool u1_active() { return snapmaker_agent() != nullptr && !current_entries().empty(); }
 

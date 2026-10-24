@@ -11,6 +11,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/CrealityCfs.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 #include "slic3r/Utils/SnapmakerPrinterAgent.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -280,6 +281,7 @@ void SnapmakerU1AutoSync::tick()
             m_last          = sigs;
             m_heads         = current_heads(project.size());
             BOOST_LOG_TRIVIAL(info) << "Snapmaker U1 auto-sync: baseline recorded (" << project.size() << " project filaments)";
+            DeviceActivity::sync(CfsUi::activity_host(), "U1 baseline: " + std::to_string(project.size()) + " project filament(s); only later edits are written");
             return;
         }
         const long long now = now_ms();
@@ -294,6 +296,7 @@ void SnapmakerU1AutoSync::tick()
             m_pending          = sigs;
             m_pending_since_ms = now;
             m_blocked_notified = false;
+            DeviceActivity::sync(CfsUi::activity_host(), "U1: project filaments changed (" + std::to_string(project.size()) + "); waiting for a quiet period");
             return;
         }
         if (now - m_pending_since_ms < DEBOUNCE_MS)
@@ -304,6 +307,7 @@ void SnapmakerU1AutoSync::tick()
         }
         if (const std::string reason = agent->write_block_reason(); !reason.empty()) {
             if (!m_blocked_notified) {
+                DeviceActivity::sync(CfsUi::activity_host(), "U1 write held: " + reason);
                 CrealityCfsAgent::notify(_u8L("Snapmaker U1") + ": " + _u8L("filament change queued") + ", " + reason + ".");
                 m_blocked_notified = true;
             }
@@ -316,6 +320,19 @@ void SnapmakerU1AutoSync::tick()
         if (heads_now.empty())
             heads_now.assign(project.size(), -1);
         const CrealityCfs::SyncTargets targets = CrealityCfs::sync_targets(m_last, m_heads, sigs, chosen_heads(project.size()), heads_now);
+        {
+            const std::vector<int> chosen = chosen_heads(project.size());
+            for (size_t i = 0; i < project.size(); ++i) {
+                const int   t   = i < targets.write.size() ? targets.write[i] : -1;
+                std::string why = t < 0 ? "unchanged, not mapped or head already used" :
+                                  (i < chosen.size() && chosen[i] >= 0) ? "explicit choice" :
+                                  (i < heads_now.size() && heads_now[i] == t) ? "matched (head with same type+colour)" : "head it held before the edit";
+                DeviceActivity::sync(CfsUi::activity_host(), "U1 filament " + std::to_string(i + 1) + " [" + sigs[i] + "] -> " +
+                                                                 (t < 0 ? std::string("no write") : "head T" + std::to_string(t + 1)) + " [" + why + "]");
+            }
+            if (targets.conflicts > 0)
+                DeviceActivity::error(CfsUi::activity_host(), "U1 conflict: " + std::to_string(targets.conflicts) + " head(s) claimed by two different filaments; left as they are");
+        }
         for (size_t i = 0; i < project.size(); ++i) {
             const int head = targets.write[i];
             if (head < 0 || head >= SnapmakerPrinterAgent::HEAD_COUNT)
@@ -334,6 +351,8 @@ void SnapmakerU1AutoSync::tick()
             return;
         int written = 0;
         agent->write_heads(writes, &written); // official and empty heads are skipped by the agent, never forced
+        DeviceActivity::sync(CfsUi::activity_host(), "U1 wrote " + std::to_string(written) + " of " + std::to_string(writes.size()) + " head(s)" +
+                                                         (written < int(writes.size()) ? " (official or empty heads are never forced)" : ""));
         if (written < int(writes.size()))
             CrealityCfsAgent::notify(_u8L("Snapmaker U1") + ": " + _u8L("official or empty heads were left as they are."));
     } catch (const std::exception& e) {

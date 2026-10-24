@@ -6,6 +6,7 @@
 // with ?code=..., which this window catches (vetoes) and exchanges for the session. See CrealityCloudUi.hpp.
 #include "CrealityCloudUi.hpp"
 #include "CrealityCloud.hpp"
+#include "BackgroundWorkers.hpp"
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
@@ -296,8 +297,13 @@ private:
         const CrealityCloud::ClientInfo info   = CrCloud::client_info();
         wxWeakRef<LoginDialog>          weak(this);
         std::thread([weak, region, info, code]() {
+            const Zoukei::WorkerToken token;
+            if (!token)
+                return;
             CrealityCloud::Session          s;
             const CrealityCloud::CallResult r = CrealityCloud::exchange_login_code(region, info, code, s);
+            if (Zoukei::shutting_down())
+                return;
             wxGetApp().CallAfter([weak, r, s]() {
                 if (weak)
                     weak->on_exchanged(r, s);

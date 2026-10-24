@@ -1,5 +1,6 @@
 #include "FlashforgeDevicePanel.hpp"
 #include "FlashforgeIfsAutoSync.hpp"
+#include "DeviceConsole.hpp"
 #include "Zoukei/PrintMarkers.hpp"
 
 #include "GUI.hpp"
@@ -516,6 +517,9 @@ void FlashforgeDevicePanel::register_routes()
     h["ifs_write_slot"]       = [this](const json& j) { route_ifs_write_slot(j); };
     h["ifs_repair"]           = [this](const json& j) { route_ifs_repair(j); };
     h["ifs_sync_all"]         = [this](const json& j) { route_ifs_sync_all(j); };
+    // Orca Zoukei: the Console (activity log) commands of the page.
+    DeviceConsole::register_routes(h, [this](const std::string& c, json d) { post_command(c, std::move(d)); },
+                                   [this](const std::string& c, json d) { post_command_async(c, std::move(d)); });
 }
 
 }} // namespace Slic3r::GUI

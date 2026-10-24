@@ -2,6 +2,7 @@
 #include "CrealityCfsClient.hpp"
 
 #include "Http.hpp"
+#include "DeviceActivityLog.hpp"
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
@@ -17,6 +18,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <future>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -59,6 +61,7 @@ struct Client::Impl
     asio::io_context                                           io;
     asio::executor_work_guard<asio::io_context::executor_type> work;
     std::thread                                                thread;
+    std::promise<void>                                         thread_done; // set when io.run() has returned
     tcp::resolver                                              resolver;
     asio::steady_timer                                         poll_timer;
     asio::steady_timer                                         reconnect_timer;
@@ -79,14 +82,21 @@ struct Client::Impl
             } catch (const std::exception& e) {
                 BOOST_LOG_TRIVIAL(error) << "Creality CFS link " << self->host << ": I/O thread stopped: " << e.what();
             }
+            self->thread_done.set_value();
         });
         asio::post(io, [this] { connect(); });
     }
 
-    void stop()
+    // Joins the I/O thread, at most `max_wait` when given (the thread owns a reference, so leaving it running is safe:
+    // a /info request in connect() can take up to 4 s).
+    void stop(std::chrono::milliseconds max_wait = std::chrono::milliseconds::max())
     {
         if (stopping.exchange(true))
             return;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+        }
+        cv.notify_all(); // blocked request() / modify_material() callers return now
         asio::post(io, [this] {
             ++generation;
             boost::system::error_code ec;
@@ -98,15 +108,23 @@ struct Client::Impl
         });
         work.reset();
         if (thread.joinable()) {
-            if (thread.get_id() == std::this_thread::get_id())
+            if (thread.get_id() == std::this_thread::get_id()) {
                 thread.detach();
-            else
+            } else if (max_wait == std::chrono::milliseconds::max() ||
+                       thread_done.get_future().wait_for(max_wait) == std::future_status::ready) {
                 thread.join();
+            } else {
+                BOOST_LOG_TRIVIAL(warning) << "Creality CFS link " << host << ": I/O thread still busy after " << max_wait.count()
+                                           << " ms, detached";
+                thread.detach();
+            }
         }
     }
 
     void notify(const json& msg)
     {
+        if (stopping)
+            return;
         std::vector<Listener> fns;
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -188,6 +206,7 @@ struct Client::Impl
             snapshot.last_error.clear();
         }
         BOOST_LOG_TRIVIAL(info) << "Creality CFS link connected to " << host;
+        DeviceActivity::ws_event(host, "WebSocket connected (ws://" + host + ":" + WS_PORT + ")");
         notify({{"__connected__", true}});
         queue_write(json({{"method", "get"}, {"params", {{"boxsInfo", 1}, {"boxConfig", 1}, {"reqMaterials", 1}}}}).dump());
         arm_poll(gen);
@@ -226,6 +245,7 @@ struct Client::Impl
 
     void on_text(const std::string& text)
     {
+        DeviceActivity::ws_message(host, false, text);
         const auto first = text.find_first_not_of(" \t\r\n");
         const bool is_object = first != std::string::npos && text[first] == '{';
         if (text.find("heart_beat") != std::string::npos && !is_object) {
@@ -254,6 +274,7 @@ struct Client::Impl
 
     void queue_write(std::string text)
     {
+        DeviceActivity::ws_message(host, true, text);
         outbox.push_back(std::move(text));
         pump();
     }
@@ -293,6 +314,7 @@ struct Client::Impl
         cv.notify_all();
         if (was_connected)
             BOOST_LOG_TRIVIAL(warning) << "Creality CFS link " << host << " dropped: " << reason;
+        DeviceActivity::ws_event(host, (was_connected ? "WebSocket dropped: " : "WebSocket failed: ") + reason + " (retry in 3 s)", true);
         notify({{"__disconnected__", reason}});
         reconnect_timer.expires_after(std::chrono::seconds(3));
         reconnect_timer.async_wait([this](beast::error_code ec) {
@@ -307,6 +329,7 @@ struct Client::Impl
 namespace {
 std::mutex                                     s_registry_mutex;
 std::map<std::string, std::weak_ptr<Client>>   s_registry;
+bool                                           s_shut_down{false}; // guarded by s_registry_mutex
 }
 
 std::string Client::strip_host(const std::string& print_host)
@@ -335,6 +358,8 @@ std::shared_ptr<Client> Client::get(const std::string& print_host)
     if (host.empty())
         return nullptr;
     std::lock_guard<std::mutex> lock(s_registry_mutex);
+    if (s_shut_down)
+        return nullptr;
     if (auto existing = s_registry[host].lock())
         return existing;
     std::shared_ptr<Client> client(new Client(host));
@@ -343,11 +368,27 @@ std::shared_ptr<Client> Client::get(const std::string& print_host)
     return client;
 }
 
+void Client::shutdown_all(std::chrono::milliseconds max_wait)
+{
+    std::vector<std::shared_ptr<Impl>> impls;
+    {
+        std::lock_guard<std::mutex> lock(s_registry_mutex);
+        s_shut_down = true;
+        for (auto& [host, weak] : s_registry)
+            if (auto client = weak.lock())
+                impls.push_back(client->m_impl);
+    }
+    for (const std::shared_ptr<Impl>& impl : impls)
+        impl->stop(max_wait);
+    if (!impls.empty())
+        BOOST_LOG_TRIVIAL(info) << "Creality CFS: " << impls.size() << " link(s) stopped for shutdown";
+}
+
 Client::Client(std::string host) : m_impl(std::make_shared<Impl>(std::move(host))) {}
 
 Client::~Client()
 {
-    m_impl->stop();
+    m_impl->stop(std::chrono::seconds(5));
 }
 
 const std::string& Client::host() const { return m_impl->host; }
@@ -411,9 +452,18 @@ json Client::request(const json& params, const std::vector<std::string>& expect,
 
 WriteResult Client::modify_material(int box_id, int slot_id, const MaterialSpec& spec, bool force, double verify_timeout_s)
 {
+    WriteResult r = modify_material_impl(box_id, slot_id, spec, force, verify_timeout_s);
+    DeviceActivity::add(m_impl->host, r.ok ? DeviceActivity::Source::Agent : DeviceActivity::Source::Error,
+                        "modify_material box" + std::to_string(box_id) + "/slot" + std::to_string(slot_id) + ": " + (r.ok ? "OK - " : "FAILED - ") + r.message);
+    return r;
+}
+
+WriteResult Client::modify_material_impl(int box_id, int slot_id, const MaterialSpec& spec, bool force, double verify_timeout_s)
+{
     WriteResult result;
     result.box_id  = box_id;
     result.slot_id = slot_id;
+    const std::string     label  = "box" + std::to_string(box_id) + "/slot" + std::to_string(slot_id);
     const PrinterSnapshot snap   = snapshot();
     const CfsSlot*        before = snap.find_slot(box_id, slot_id);
     if (before == nullptr) {
@@ -431,6 +481,8 @@ WriteResult Client::modify_material(int box_id, int slot_id, const MaterialSpec&
             return result;
         }
     }
+    DeviceActivity::agent(m_impl->host, "modify_material " + label + ": writing " + spec.vendor + " " + spec.name + " (" + spec.type + ") " + spec.color +
+                                            (spec.is_clear() ? " [clear]" : "") + (force ? " [force]" : ""));
     std::uint64_t ack_before;
     {
         std::lock_guard<std::mutex> lock(m_impl->mutex);

@@ -73,6 +73,21 @@ class State:
         self.errcode = 1103 if error else 0
         self.received = []          # every JSON message the clients sent
         self.log = log
+        # A CFS with four slots (box 1); "get boxsInfo" returns it and "set modifyMaterial" changes it (an ack is pushed too).
+        self.materials = [{"id": i, "vendor": "Creality", "type": t, "name": "Hyper " + t, "color": c, "rfid": "", "state": 1,
+                           "selected": 0, "minTemp": 190, "maxTemp": 240, "pressure": 0.04, "percent": 100, "editStatus": 0}
+                          for i, (t, c) in enumerate([("PLA", "#0ff0000"), ("PLA", "#000ff00"), ("PETG", "#00000ff"), ("ABS", "#0ffffff")])]
+
+    def boxs_info(self):
+        with self.lock:
+            return {"boxsInfo": {"materialBoxs": [{"id": 1, "type": 0, "state": 1, "temp": 28, "humidity": 40,
+                                                   "materials": [dict(m) for m in self.materials]}]}}
+
+    def modify_material(self, p):
+        with self.lock:
+            for m in self.materials:
+                if m["id"] == p.get("id"):
+                    m.update({k: p[k] for k in ("vendor", "type", "name", "color", "rfid", "minTemp", "maxTemp", "pressure") if k in p})
 
     def note(self, msg):
         with self.lock:
@@ -136,6 +151,13 @@ def serve_client(conn, state):
                 state.note(msg)
                 if msg.get("method") == "set" and (msg.get("params") or {}).get("cleanErr") == 1:
                     send({"err": {"errcode": 0, "key": 0}})
+                params = msg.get("params") or {}
+                if msg.get("method") == "get" and "boxsInfo" in params:
+                    send(state.boxs_info())
+                if msg.get("method") == "set" and isinstance(params.get("modifyMaterial"), dict):
+                    state.modify_material(params["modifyMaterial"])
+                    send({"modifyMaterial": {"state": 0}})
+                    send(state.boxs_info())
     except (OSError, ConnectionError):
         pass
     finally:

@@ -27,6 +27,8 @@
 #include "slic3r/GUI/CrealityCfsAutoSync.hpp"
 #include "slic3r/GUI/FlashforgeIfsAutoSync.hpp"
 #include "slic3r/GUI/SnapmakerU1DevicePanel.hpp"
+#include "slic3r/GUI/DeviceConsole.hpp"
+#include "slic3r/GUI/CrealityCfsUi.hpp"
 #include "slic3r/GUI/SnapmakerU1AutoSync.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
 #include "slic3r/GUI/CalibrationPanel.hpp"
@@ -2976,6 +2978,17 @@ wxMenu* MainFrame::generate_help_menu()
     append_menu_item(helpMenu, wxID_ANY, _L("Open Network Test"), _L("Open Network Test"), [](wxCommandEvent&) {
             NetworkTestDialog dlg(wxGetApp().mainframe);
             dlg.ShowModal();
+        });
+
+    // Orca Zoukei: live activity log (websocket changes, sync decisions, agent events, errors) of the selected printer.
+    append_menu_item(helpMenu, wxID_ANY, _L("Printer Console"), _L("Live activity of the selected printer: websocket, sync decisions, errors"),
+        [](wxCommandEvent&) {
+            const std::string host = CfsUi::activity_host();
+            if (host.empty()) {
+                wxMessageBox(_L("Select a printer preset that has a host (IP address) first."), _L("Printer Console"), wxOK | wxICON_INFORMATION, wxGetApp().mainframe);
+                return;
+            }
+            DeviceConsole::show_native(wxGetApp().mainframe, host);
         });
 
     if (wxGetApp().is_editor())

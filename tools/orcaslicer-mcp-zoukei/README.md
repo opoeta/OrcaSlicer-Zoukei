@@ -141,6 +141,7 @@ the window.
 | `device_list` | `GET /devices` | printers the app knows: agent, model, online, connected, selected, state |
 | `device_status` | `GET /devices/{id}` (`selected` = the selected printer) | state, progress, layer, remaining time, temperatures, can pause / resume / stop, slots, agent details |
 | `device_slots` | `GET /devices/{id}/slots` | Bambu AMS, Creality CFS, Flashforge IFS, Snapmaker U1 heads (lock + feeder state), external spool |
+| `device_activity` | `GET /devices/{id}/activity` | Console of the device panel: websocket traffic, sync decisions, agent events, errors (read-only, no secrets); poll with `since` |
 | `print_hosts` | `GET /print_hosts` | OctoPrint / Moonraker / PrusaLink ... presets and physical printers (no credentials) |
 | `printer_control_status` | `GET /printer_control` | whether the Preferences switch is on |
 | `print_send` | `POST /print/send` | upload the sliced plate to the selected preset's print host, optionally start (control) |

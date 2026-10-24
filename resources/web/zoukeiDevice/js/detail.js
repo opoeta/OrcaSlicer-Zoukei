@@ -214,7 +214,8 @@
                 h('div.temps', nozzle.el, bed.el, chamber.el, led.el, ai.el),
                 h('div.fans', fans.map(f => f.el)), speed.el, tabCard);
 
-            root.appendChild(h('header.topbar', back, h('div.title', name, sub), h('div.spacer'), stateBadge));
+            const consoleBtn = h('button.btn.small', { type: 'button', title: Z.t('console_title'), onclick: () => Z.openConsole(dev) }, icon('terminal'), Z.t('console'));
+            root.appendChild(h('header.topbar', back, h('div.title', name, sub), h('div.spacer'), consoleBtn, stateBadge));
             root.appendChild(alertBox);
             root.appendChild(h('div.cols', left, right));
 

@@ -11,6 +11,7 @@
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/Utils/CrealityCloudCallback.hpp"
+#include "BackgroundWorkers.hpp"
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Preset.hpp"
@@ -375,6 +376,14 @@ std::string callback_page(const std::string& title, const std::string& text, boo
            html_escape(title) + "</h1><p>" + html_escape(text) + "</p></div></body></html>";
 }
 
+// From a worker thread: run `fn` on the UI thread, unless the application is shutting down (the windows the
+// callbacks touch are going away and nothing must be queued behind the exit).
+void post_ui(std::function<void()> fn)
+{
+    if (!Zoukei::shutting_down() && wxTheApp != nullptr)
+        wxGetApp().CallAfter(std::move(fn));
+}
+
 struct BrowserLoginShared
 {
     std::mutex  m;
@@ -435,6 +444,14 @@ void cancel_browser_login()
         set_browser_state(BrowserLoginState::Cancelled);
 }
 
+void shutdown()
+{
+    ++s_browser_gen;
+    s_browser_cb = nullptr;
+    s_server.reset(); // stops the loopback listener and joins its threads
+    cancel_api_upload();
+}
+
 BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserLoginChange on_change, std::string& message)
 {
     cancel_browser_login();
@@ -463,11 +480,11 @@ BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserL
             return ok_page;
         }
         const std::string msg = r.message;
-        wxGetApp().CallAfter([gen, msg]() { browser_notify(gen, BrowserLoginState::Waiting, msg); });
+        post_ui([gen, msg]() { browser_notify(gen, BrowserLoginState::Waiting, msg); });
         return callback_page(fail_title, (boost::format(fail_text) % msg).str(), false);
     };
     auto on_done = [shared, gen]() {
-        wxGetApp().CallAfter([shared, gen]() {
+        post_ui([shared, gen]() {
             if (gen != s_browser_gen)
                 return;
             Session s;
@@ -479,7 +496,7 @@ BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserL
             browser_notify(gen, BrowserLoginState::Done, std::string());
         });
     };
-    auto on_timeout = [gen]() { wxGetApp().CallAfter([gen]() { browser_notify(gen, BrowserLoginState::TimedOut, std::string()); }); };
+    auto on_timeout = [gen]() { post_ui([gen]() { browser_notify(gen, BrowserLoginState::TimedOut, std::string()); }); };
 
     if (!s_server)
         s_server = std::make_unique<CrealityCloud::LoopbackCallbackServer>();
@@ -640,7 +657,7 @@ Throttle throttle()
 std::mutex                            s_upload_run_mutex; // one upload stream at a time
 std::chrono::steady_clock::time_point s_last_upload;      // guarded by s_upload_run_mutex
 
-bool cancelled(const std::shared_ptr<UploadControl>& c) { return c && c->cancel.load(); }
+bool cancelled(const std::shared_ptr<UploadControl>& c) { return Zoukei::shutting_down() || (c && c->cancel.load()); }
 
 // Sleeps `ms`, reporting the seconds left once per second. False when cancelled.
 bool wait_ms(int ms, const std::shared_ptr<UploadControl>& control, const UploadProgressFn& progress, UploadProgress pr)
@@ -740,7 +757,7 @@ std::vector<UploadReport> upload_blocking(std::vector<PreparedUpload> uploads, U
         out.push_back(std::move(rep));
     }
     if (dead && s.valid())
-        wxGetApp().CallAfter([]() { on_token_invalid(); });
+        post_ui([]() { on_token_invalid(); });
     return out;
 }
 
@@ -748,11 +765,14 @@ void upload_async(std::vector<PreparedUpload> uploads, std::function<void(const 
                   std::shared_ptr<UploadControl> control)
 {
     std::thread([uploads = std::move(uploads), done = std::move(done), progress = std::move(progress), control]() mutable {
+        const Zoukei::WorkerToken token;
+        if (!token)
+            return;
         UploadProgressFn on_progress;
         if (progress)
-            on_progress = [progress](const UploadProgress& p) { wxGetApp().CallAfter([progress, p]() { progress(p); }); };
+            on_progress = [progress](const UploadProgress& p) { post_ui([progress, p]() { progress(p); }); };
         std::vector<UploadReport> reports = upload_blocking(std::move(uploads), on_progress, control);
-        wxGetApp().CallAfter([reports = std::move(reports), done = std::move(done)]() {
+        post_ui([reports = std::move(reports), done = std::move(done)]() {
             if (done)
                 done(reports);
         });
@@ -772,6 +792,7 @@ bool start_api_upload(std::vector<PreparedUpload> uploads)
         s_api_control            = control;
     }
     std::thread([uploads = std::move(uploads), control]() mutable {
+        const Zoukei::WorkerToken token;
         auto on_progress = [](const UploadProgress& p) {
             std::lock_guard<std::mutex> lock(s_api_job_mutex);
             s_api_job.progress = p;
@@ -779,7 +800,7 @@ bool start_api_upload(std::vector<PreparedUpload> uploads)
         std::vector<UploadReport> reports = upload_blocking(std::move(uploads), on_progress, control);
         std::lock_guard<std::mutex> lock(s_api_job_mutex);
         s_api_job.results = std::move(reports);
-        s_api_job.state   = control->cancel ? "cancelled" : "done";
+        s_api_job.state   = control->cancel || Zoukei::shutting_down() ? "cancelled" : "done";
     }).detach();
     return true;
 }

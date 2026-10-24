@@ -57,6 +57,9 @@ constexpr int BROWSER_LOGIN_TIMEOUT_S = 300;
 // later change (a failed code exchange keeps Waiting with a message; Done / TimedOut end it).
 BrowserLoginState start_browser_login(bool open_browser, int timeout_s, BrowserLoginChange on_change, std::string& message);
 void              cancel_browser_login();   // UI thread; also drops the on_change callback
+// UI thread, application shutdown (Zoukei::shutdown_background_workers): closes the login listener and cancels the
+// uploads; late callbacks of either are dropped.
+void              shutdown();
 BrowserLoginState browser_login_state();    // any thread
 std::string       browser_login_url();      // the Creality page of the running attempt (UI thread)
 

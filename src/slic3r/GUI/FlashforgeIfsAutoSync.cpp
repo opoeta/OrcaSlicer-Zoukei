@@ -12,6 +12,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/CrealityCfs.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -385,6 +386,7 @@ void FlashforgeIfsAutoSync::tick()
             m_last          = sigs;
             m_ports         = current_ports(project.size());
             BOOST_LOG_TRIVIAL(info) << "Flashforge IFS auto-sync: baseline recorded (" << project.size() << " project filaments)";
+            DeviceActivity::sync(CfsUi::activity_host(), "IFS baseline: " + std::to_string(project.size()) + " project filament(s); only later edits are written");
             return;
         }
         const long long now = now_ms();
@@ -399,6 +401,7 @@ void FlashforgeIfsAutoSync::tick()
             m_pending          = sigs;
             m_pending_since_ms = now;
             m_blocked_notified = false;
+            DeviceActivity::sync(CfsUi::activity_host(), "IFS: project filaments changed (" + std::to_string(project.size()) + "); waiting for a quiet period");
             return;
         }
         if (now - m_pending_since_ms < DEBOUNCE_MS)
@@ -409,6 +412,7 @@ void FlashforgeIfsAutoSync::tick()
         }
         if (const std::string reason = agent->write_block_reason(); !reason.empty()) {
             if (!m_blocked_notified) {
+                DeviceActivity::sync(CfsUi::activity_host(), "IFS write held: " + reason);
                 CrealityCfsAgent::notify("Flashforge IFS: filament change queued, " + reason + ".");
                 m_blocked_notified = true;
             }
@@ -421,6 +425,19 @@ void FlashforgeIfsAutoSync::tick()
         if (ports_now.empty())
             ports_now.assign(project.size(), -1);
         const CrealityCfs::SyncTargets targets = CrealityCfs::sync_targets(m_last, m_ports, sigs, chosen_ports(project.size()), ports_now);
+        {
+            const std::vector<int> chosen = chosen_ports(project.size());
+            for (size_t i = 0; i < project.size(); ++i) {
+                const int   t   = i < targets.write.size() ? targets.write[i] : -1;
+                std::string why = (t < 1 || t > 4) ? "unchanged, not mapped, external spool or port already used" :
+                                  (i < chosen.size() && chosen[i] >= 1) ? "explicit choice" :
+                                  (i < ports_now.size() && ports_now[i] == t) ? "matched (port with same type+colour)" : "port it held before the edit";
+                DeviceActivity::sync(CfsUi::activity_host(), "IFS filament " + std::to_string(i + 1) + " [" + sigs[i] + "] -> " +
+                                                                 ((t < 1 || t > 4) ? std::string("no write") : "port " + std::to_string(t)) + " [" + why + "]");
+            }
+            if (targets.conflicts > 0)
+                DeviceActivity::error(CfsUi::activity_host(), "IFS conflict: " + std::to_string(targets.conflicts) + " port(s) claimed by two different filaments; left as they are");
+        }
         for (size_t i = 0; i < project.size(); ++i) {
             const int port = targets.write[i];
             if (port < 1 || port > 4)
@@ -437,6 +454,7 @@ void FlashforgeIfsAutoSync::tick()
             CrealityCfsAgent::notify("Flashforge IFS: " + _u8L("two different filaments are mapped to the same slot; that slot was left as it is."));
         if (writes.empty())
             return;
+        DeviceActivity::sync(CfsUi::activity_host(), "IFS writing " + std::to_string(writes.size()) + " port(s) (ZMOD)");
         agent->write_slots(std::move(writes));
     } catch (const std::exception& e) {
         BOOST_LOG_TRIVIAL(warning) << "Flashforge IFS auto-sync tick failed: " << e.what();

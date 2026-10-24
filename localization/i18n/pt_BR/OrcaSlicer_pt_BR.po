@@ -42954,3 +42954,42 @@ msgstr "A impressora está atualizando o firmware."
 
 msgid "two different filaments are mapped to the same slot; that slot was left as it is."
 msgstr "dois filamentos diferentes estão mapeados para o mesmo slot; esse slot não foi alterado."
+
+msgid "Console"
+msgstr "Console"
+
+msgid "Printer Console"
+msgstr "Console da impressora"
+
+msgid "Live activity of the selected printer: websocket, sync decisions, errors"
+msgstr "Atividade ao vivo da impressora selecionada: websocket, decisões de sincronização, erros"
+
+msgid "Select a printer preset that has a host (IP address) first."
+msgstr "Selecione antes um preset de impressora que tenha host (endereço IP)."
+
+msgid "Copy all"
+msgstr "Copiar tudo"
+
+msgid "Export .txt"
+msgstr "Exportar .txt"
+
+msgid "Export the console"
+msgstr "Exportar o console"
+
+msgid "Show all traffic"
+msgstr "Mostrar todo o tráfego"
+
+msgid "Read klippy.log (Klipper)"
+msgstr "Ler klippy.log (Klipper)"
+
+msgid "Activity"
+msgstr "Atividade"
+
+msgid "Entry"
+msgstr "Entrada"
+
+msgid "%d of %d entries"
+msgstr "%d de %d entradas"
+
+msgid "paused"
+msgstr "pausado"
