@@ -75,6 +75,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/FlashforgeIfsAutoSync.hpp
     GUI/SnapmakerU1AutoSync.cpp
     GUI/SnapmakerU1AutoSync.hpp
+    GUI/BambuConsole.cpp
+    GUI/BambuConsole.hpp
     GUI/DeviceConsole.cpp
     GUI/DeviceConsole.hpp
     GUI/SpoolmanUi.cpp
@@ -848,6 +850,7 @@ set(SLIC3R_GUI_SOURCES
     Utils/CrealityCfsAgent.cpp
     Utils/CrealityCfsAgent.hpp
     Utils/CrealityCfsClient.hpp
+    Utils/BambuActivity.hpp
     Utils/DeviceActivityLog.hpp
     Utils/CrealityPrintAgent.cpp
     Utils/CrealityPrintAgent.hpp
@@ -1087,6 +1090,7 @@ add_library(libslic3r_creality_net STATIC
     GUI/CrealityDevice/ImageServer.cpp
     GUI/CrealityDevice/WsProxy.cpp
     Utils/CrealityCfsClient.cpp
+    Utils/BambuActivity.cpp
     Utils/DeviceActivityLog.cpp
     Utils/CrealityCloudCallback.cpp
 )

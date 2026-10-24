@@ -11,6 +11,7 @@
 
 #include "GUI_App.hpp"
 #include "DeviceErrorDialog.hpp"
+#include "BambuConsole.hpp"
 #include "Plater.hpp"
 #include "ReleaseNote.hpp"
 #include <string>
@@ -2810,6 +2811,7 @@ int MachineObject::connect()
         host = get_dev_ip();
 
     if (m_agent) {
+        GUI::BambuConsole::on_connecting(this);
         try {
             PrinterConnectionParams params{
                 get_dev_id(),
@@ -2868,6 +2870,7 @@ void MachineObject::set_online_state(bool on_off)
     m_is_online = on_off;
     if (!on_off) m_active_state = NotActive;
     if (changed) {
+        GUI::BambuConsole::on_online(this, on_off);
         LifecycleEventContext ctx;
         ctx.name  = dev_id;
         ctx.code  = LifecycleEvtCode::Ok;
@@ -2929,6 +2932,8 @@ int MachineObject::publish_json(const json& json_item, int qos, int flag)
     } else {
         rtn = cloud_publish_json(json_item.dump(), qos, flag);
     }
+
+    GUI::BambuConsole::on_command(this, json_item, rtn); // printer Console (access code is never part of a command, the log redacts anyway)
 
     if (rtn == 0) {
         BOOST_LOG_TRIVIAL(info) << "publish_json: " << json_item.dump() << " code: " << rtn;
@@ -3199,6 +3204,9 @@ int MachineObject::parse_json(std::string tunnel, std::string payload, bool key_
             BOOST_LOG_TRIVIAL(trace) << "parse_json: dev_id=" << dev_id << ", tunnel is=" << tunnel << ", merged playload=" << j.dump();
         }
 #endif
+
+        // Orca Zoukei: the printer Console records what changed in this (merged, full-state) report.
+        GUI::BambuConsole::on_report(this, j);
 
         // Parse version info first, as if version arrive or change, 'print' need parse again with new compatible settings
         try {

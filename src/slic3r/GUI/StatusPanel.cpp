@@ -9,6 +9,7 @@
 
 #include "BitmapCache.hpp"
 #include "GUI_App.hpp"
+#include "BambuConsole.hpp"
 #include "MainFrame.hpp"
 
 #include "MsgDialog.hpp"
@@ -1654,6 +1655,21 @@ wxBoxSizer *StatusBasePanel::create_monitoring_page()
     bSizer_monitoring_title->Add(m_bitmap_timelapse_img, 0, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(5));
     bSizer_monitoring_title->Add(m_bitmap_recording_img, 0, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(5));
     bSizer_monitoring_title->Add(m_bitmap_vcamera_img, 0, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(5));
+    {
+        // Orca Zoukei: the printer Console (MQTT changes, commands, HMS / errors, AMS) of the printer shown in this monitor.
+        auto* console_btn = new Button(m_panel_monitoring_title, _L("Console"));
+        console_btn->SetStyle(ButtonStyle::Regular, ButtonType::Window);
+        console_btn->SetMinSize(wxSize(FromDIP(64), FromDIP(24)));
+        console_btn->SetCornerRadius(FromDIP(12));
+        console_btn->SetToolTip(_L("Live activity of this printer: reports, commands, HMS / errors, AMS"));
+        console_btn->Bind(wxEVT_BUTTON, [](wxCommandEvent&) {
+            DeviceManager* dm = wxGetApp().getDeviceManager();
+            MachineObject* obj = dm ? dm->get_selected_machine() : nullptr;
+            if (obj != nullptr && !BambuConsole::key_of(obj).empty())
+                BambuConsole::show(wxGetApp().mainframe, obj);
+        });
+        bSizer_monitoring_title->Add(console_btn, 0, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(5));
+    }
     bSizer_monitoring_title->Add(m_setting_button, 0, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(5));
 
     bSizer_monitoring_title->Add(FromDIP(13), 0, 0);

@@ -28,6 +28,8 @@
 #include "slic3r/GUI/FlashforgeIfsAutoSync.hpp"
 #include "slic3r/GUI/SnapmakerU1DevicePanel.hpp"
 #include "slic3r/GUI/DeviceConsole.hpp"
+#include "slic3r/GUI/BambuConsole.hpp"
+#include "slic3r/Utils/DeviceActivityLog.hpp"
 #include "slic3r/GUI/CrealityCfsUi.hpp"
 #include "slic3r/GUI/SnapmakerU1AutoSync.hpp"
 #include "slic3r/GUI/MultiMachinePage.hpp"
@@ -2983,7 +2985,13 @@ wxMenu* MainFrame::generate_help_menu()
     // Orca Zoukei: live activity log (websocket changes, sync decisions, agent events, errors) of the selected printer.
     append_menu_item(helpMenu, wxID_ANY, _L("Printer Console"), _L("Live activity of the selected printer: websocket, sync decisions, errors"),
         [](wxCommandEvent&) {
-            const std::string host = CfsUi::activity_host();
+            std::string host = CfsUi::activity_host();
+            // A Bambu-style printer selected in the monitor: its log is keyed by its IP / device id, not by the preset's host.
+            if (host.empty() || DeviceActivity::entries(host).empty()) {
+                const std::string bambu = BambuConsole::selected_key();
+                if (!bambu.empty())
+                    host = bambu;
+            }
             if (host.empty()) {
                 wxMessageBox(_L("Select a printer preset that has a host (IP address) first."), _L("Printer Console"), wxOK | wxICON_INFORMATION, wxGetApp().mainframe);
                 return;

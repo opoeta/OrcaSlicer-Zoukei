@@ -42993,3 +42993,263 @@ msgstr "%d de %d entradas"
 
 msgid "paused"
 msgstr "pausado"
+
+#: src/slic3r/GUI/StatusPanel.cpp
+msgid "Live activity of this printer: reports, commands, HMS / errors, AMS"
+msgstr "Atividade ao vivo desta impressora: relatórios, comandos, HMS / erros, AMS"
+
+#: src/slic3r/GUI/BambuConsole.cpp
+msgid "Print job sent"
+msgstr "Trabalho de impressão enviado"
+
+#: src/slic3r/GUI/BambuConsole.cpp
+msgid "plate"
+msgstr "placa"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "failed"
+msgstr "falhou"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Preparing"
+msgstr "Preparando"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Paused"
+msgstr "Pausada"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Starting"
+msgstr "Iniciando"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Print state"
+msgstr "Estado da impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Stage"
+msgstr "Etapa"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Print error"
+msgstr "Erro de impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Print error cleared"
+msgstr "Erro de impressão limpo"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "HMS resolved"
+msgstr "HMS resolvido"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "serious"
+msgstr "grave"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "common"
+msgstr "comum"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "idle"
+msgstr "ociosa"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "changing filament"
+msgstr "trocando filamento"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "identifying RFID"
+msgstr "identificando RFID"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "assist"
+msgstr "assistência"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "calibrating"
+msgstr "calibrando"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "cold pull"
+msgstr "cold pull"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "self check"
+msgstr "autoverificação"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "status"
+msgstr "estado"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "heating the nozzle"
+msgstr "aquecendo o bico"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "cutting the filament"
+msgstr "cortando o filamento"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "pulling the current filament back"
+msgstr "recolhendo o filamento atual"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "pushing the new filament"
+msgstr "empurrando o filamento novo"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "confirming the filament was extruded"
+msgstr "confirmando que o filamento foi extrudado"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "purging the old filament"
+msgstr "purgando o filamento antigo"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "checking the position"
+msgstr "verificando a posição"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "waiting"
+msgstr "aguardando"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "AMS tray"
+msgstr "Bandeja do AMS"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "in use"
+msgstr "em uso"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "target"
+msgstr "destino"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "previous"
+msgstr "anterior"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "tray"
+msgstr "bandeja"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "external spool"
+msgstr "carretel externo"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "external spool / none"
+msgstr "carretel externo / nenhuma"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "external spool 2"
+msgstr "carretel externo 2"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "filament removed"
+msgstr "filamento removido"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "filament inserted"
+msgstr "filamento inserido"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "changed"
+msgstr "alterado"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "slot no longer reported"
+msgstr "slot não é mais informado"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Telemetry"
+msgstr "Telemetria"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Printer report received"
+msgstr "Relatório da impressora recebido"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Printer reply"
+msgstr "Resposta da impressora"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Command"
+msgstr "Comando"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "more lines"
+msgstr "linhas a mais"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Pause print"
+msgstr "Pausar impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Resume print"
+msgstr "Retomar impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Stop print"
+msgstr "Parar impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "AMS change filament"
+msgstr "AMS: trocar filamento"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "load"
+msgstr "carregar"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "unload"
+msgstr "descarregar"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "AMS filament setting"
+msgstr "AMS: configuração do filamento"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "AMS control"
+msgstr "AMS: controle"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Clear print error"
+msgstr "Limpar erro de impressão"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "MQTT connected"
+msgstr "MQTT conectado"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "MQTT connection failed"
+msgstr "Falha na conexão MQTT"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "wrong access code"
+msgstr "código de acesso incorreto"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "MQTT connection lost"
+msgstr "Conexão MQTT perdida"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "MQTT state"
+msgstr "Estado do MQTT"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Printer online"
+msgstr "Impressora online"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Printer offline"
+msgstr "Impressora offline"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Connecting over LAN"
+msgstr "Conectando pela LAN"
+
+#: src/slic3r/Utils/BambuActivity.cpp
+msgid "Connecting through the cloud"
+msgstr "Conectando pela nuvem"

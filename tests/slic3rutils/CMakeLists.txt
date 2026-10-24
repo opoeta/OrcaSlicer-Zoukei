@@ -7,6 +7,7 @@ add_executable(${_TEST_NAME}_tests
     test_creality_cfs_match.cpp
     test_creality_cfs_sync.cpp
     test_device_activity.cpp
+    test_bambu_activity.cpp
     test_box_filament_sync.cpp
     test_box_print_mapping.cpp
     test_dev_mapping.cpp

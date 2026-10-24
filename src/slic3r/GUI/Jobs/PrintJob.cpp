@@ -4,6 +4,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/BambuConsole.hpp"
 #include "slic3r/GUI/MainFrame.hpp"
 #include "slic3r/GUI/format.hpp"
 #include "bambu_networking.hpp"
@@ -760,6 +761,13 @@ void PrintJob::process(Ctl &ctl)
                     return;
             }
         }
+    }
+
+    // Orca Zoukei: the printer Console records the job that was sent (the transfer itself is not an MQTT command).
+    if (m_agent != nullptr && !m_creality) {
+        if (DeviceManager* dev_mgr = wxGetApp().getDeviceManager())
+            BambuConsole::on_print_job(dev_mgr->get_my_machine(m_dev_id), params.task_name.empty() ? params.project_name : params.task_name, params.print_type,
+                                       params.plate_index - 1, params.ams_mapping, result);
     }
 
     if (result < 0) {

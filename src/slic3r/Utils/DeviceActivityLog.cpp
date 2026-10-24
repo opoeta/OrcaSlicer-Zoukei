@@ -59,7 +59,9 @@ bool secret_key(const std::string& key)
 {
     const std::string k = lower(key);
     static const char* parts[] = {"token", "passw", "pwd", "cookie", "secret", "authoriz", "apikey", "api_key", "api-key", "credential",
-                                  "bearer", "sessionid", "session_id", "privatekey", "private_key", "signature", "access_key", "refresh"};
+                                  "bearer", "sessionid", "session_id", "privatekey", "private_key", "signature", "access_key", "refresh",
+                                  // Bambu LAN: access code of the printer, certificates, signed URLs
+                                  "access_code", "accesscode", "access-code", "cert", "rtsp_url"};
     for (const char* p : parts)
         if (k.find(p) != std::string::npos)
             return true;
@@ -278,12 +280,13 @@ json redact(const json& j) { return redact_impl(j, 0); }
 std::string redact_text(const std::string& s)
 {
     static const std::regex re(
-        R"((token|password|passwd|pwd|cookie|secret|api[_-]?key|authorization|bearer|x-api-key|sessionid)(["']?\s*[:=]\s*["']?)([^"'\s,&}]+))",
+        R"((token|password|passwd|pwd|cookie|secret|api[_-]?key|authorization|bearer|x-api-key|sessionid|access[_-]?code|dev_access_code|cert[a-z_]*)(["']?\s*[:=]\s*["']?)([^"'\s,&}]+))",
         std::regex::icase | std::regex::optimize);
     static const std::regex bearer(R"((bearer\s+)[A-Za-z0-9._~+/=-]{8,})", std::regex::icase | std::regex::optimize);
+    static const std::regex userinfo(R"((://[^/\s:@"']+:)[^/\s@"']+@)", std::regex::optimize); // rtsps://bblp:ACCESSCODE@host
     // Fast path: most entries mention none of these words.
     const std::string l = lower(s);
-    static const char* words[] = {"token", "passw", "pwd", "cookie", "secret", "api", "key", "authoriz", "bearer", "session"};
+    static const char* words[] = {"token", "passw", "pwd", "cookie", "secret", "api", "key", "authoriz", "bearer", "session", "access", "cert", "://"};
     bool any = false;
     for (const char* w : words)
         if (l.find(w) != std::string::npos) {
@@ -293,7 +296,7 @@ std::string redact_text(const std::string& s)
     if (!any)
         return s;
     try {
-        return std::regex_replace(std::regex_replace(s, bearer, "$1***"), re, "$1$2***");
+        return std::regex_replace(std::regex_replace(std::regex_replace(s, userinfo, "$1***@"), bearer, "$1***"), re, "$1$2***");
     } catch (...) {
         return "(unreadable text hidden)";
     }
