@@ -4625,7 +4625,10 @@ void PartPlate::render(const Transform3d& view_matrix, const Transform3d& projec
     }
 
     if (wxGetApp().show_plate_gridlines() && show_grid) {
-        glsafe(::glDepthMask(bottom ? GL_TRUE : GL_FALSE));
+        // Orca Zoukei: the grid never writes depth. Seen from below it used to (upstream), so the lines,
+        // drawn before the objects at z = 0, won the depth test over the faces lying on the bed and hid
+        // their colour and painting. The objects drawn afterwards now cover the grid, as in PrusaSlicer.
+        glsafe(::glDepthMask(GL_FALSE));
         render_grid(bottom);
         glsafe(::glDepthMask(GL_TRUE));
     }

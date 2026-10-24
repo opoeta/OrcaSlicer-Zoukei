@@ -329,8 +329,12 @@ void main()
     if (slope.actived) {
          if(world_pos.z<0.1 && world_pos.z>-0.1)
          {
-                color.rgb = LightBlue;
-                color.a = 0.8;
+                // Orca Zoukei: only the walls' 0.1 mm contact rim turns light blue. The face lying on the bed
+                // (normal pointing down) keeps its filament colour and painting, so it stays readable from below.
+                if (world_normal_z > -0.5) {
+                    color.rgb = LightBlue;
+                    color.a = 0.8;
+                }
          }
          else if( world_normal_z < slope.normal_z - EPSILON)
          {
