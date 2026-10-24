@@ -90,6 +90,7 @@
 #include "DeviceCore/DevPrintOptions.h"
 #include "DeviceCore/DevPrintTaskInfo.h"
 #include "DeviceCore/DevHMS.h"
+#include "DeviceCore/DevBmcu.h"
 
 #include "DeviceCore/DevMappingNozzle.h"
 #include "DeviceCore/DevManager.h"
@@ -4192,7 +4193,9 @@ int MachineObject::parse_json(std::string tunnel, std::string payload, bool key_
                             for (const auto& item : h) {
                                 if (item.is_object() && item.contains("attr") && item.contains("code") &&
                                     item["attr"].is_number_unsigned() && item["code"].is_number_unsigned() &&
-                                    is_auto_ignored_hms_item(item["attr"].get<unsigned>(), item["code"].get<unsigned>()))
+                                    (is_auto_ignored_hms_item(item["attr"].get<unsigned>(), item["code"].get<unsigned>()) ||
+                                     // "firmware of AMS x does not match the printer" for a BMCU unit (preference bmcu_ignore_fw_mismatch)
+                                     DevBmcu::ShouldIgnoreHms(this, item["attr"].get<unsigned>(), item["code"].get<unsigned>())))
                                     continue;
                                 filtered.push_back(item);
                             }
@@ -6203,6 +6206,10 @@ void MachineObject::add_command_error_code_dlg(int command_err, json action_json
 {
     if (is_auto_ignored_print_error(command_err)) {
         BOOST_LOG_TRIVIAL(info) << "skip command error dialog for 050x-409D (BMCU), dev_id=" << get_dev_id();
+        return;
+    }
+    if (DevBmcu::ShouldIgnorePrintError(this, command_err)) {
+        BOOST_LOG_TRIVIAL(info) << "skip command error dialog for AMS firmware mismatch (BMCU), dev_id=" << get_dev_id();
         return;
     }
 

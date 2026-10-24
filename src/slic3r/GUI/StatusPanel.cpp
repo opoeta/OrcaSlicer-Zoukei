@@ -120,6 +120,7 @@
 #include "ThermalPreconditioningDialog.hpp"
 #include <wx/dcgraph.h>
 #include "Zoukei/PrintMarkers.hpp"
+#include "DeviceCore/DevBmcu.h"
 
 
 namespace Slic3r { namespace GUI {
@@ -3125,8 +3126,13 @@ void StatusPanel::update_error_message()
 
     static int last_error = -1;
 
-    if (obj->print_error <= 0) {
+    // "Firmware of AMS x does not match the printer" caused by a BMCU: not a real error (preference bmcu_ignore_fw_mismatch)
+    if (obj->print_error <= 0 || DevBmcu::ShouldIgnorePrintError(obj, obj->print_error)) {
         error_info_reset();
+        if (obj->print_error > 0 && obj->print_error != last_error)
+            BOOST_LOG_TRIVIAL(info) << "print error " << obj->get_print_error_str() << " ignored (BMCU firmware mismatch)";
+        last_error = obj->print_error;
+        return;
     } else if (obj->print_error != last_error) {
         /* clear old dialog */
         if (m_print_error_dlg) { delete m_print_error_dlg; }

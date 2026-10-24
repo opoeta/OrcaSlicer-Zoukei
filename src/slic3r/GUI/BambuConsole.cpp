@@ -3,6 +3,7 @@
 #include "DeviceConsole.hpp"
 #include "DeviceManager.hpp"
 #include "DeviceCore/DevManager.h"
+#include "DeviceCore/DevBmcu.h"
 #include "GUI_App.hpp"
 #include "HMS.hpp"
 #include "I18N.hpp"
@@ -37,6 +38,12 @@ BA::Lookup lookup_for(MachineObject* obj)
     lk.print_error = [obj](int err) -> std::string {
         HMSQuery* q = wxGetApp().get_hms_query();
         return q ? std::string(q->query_print_error_msg(obj, err).ToUTF8().data()) : std::string();
+    };
+    lk.ignore_ams_fw_mismatch = [obj](int ams_id) {
+        if (!DevBmcu::IgnoreFwMismatchEnabled())
+            return false;
+        // kAnyAms (no unit in the code): ignore only when every AMS unit is a BMCU
+        return BmcuHms::is_ignorable_for(obj->get_ams_version(), ams_id);
     };
     return lk;
 }

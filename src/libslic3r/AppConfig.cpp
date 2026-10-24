@@ -504,6 +504,9 @@ void AppConfig::set_defaults()
     // Orca Zoukei updater (Utils/ZoukeiUpdate): check at start (at most once a day), pre-releases channel.
     if (get("zoukei_update_check").empty())
         set_bool("zoukei_update_check", true);
+    // BMCU (AMS-lite clone): hide the "firmware of AMS x does not match the printer" HMS / print_error
+    if (get("bmcu_ignore_fw_mismatch").empty())
+        set_bool("bmcu_ignore_fw_mismatch", true);
     if (get("zoukei_update_beta").empty())
         set_bool("zoukei_update_beta", false);
     // Orca Zoukei: iridescent shader on the 3D bed for holographic plate types (Preferences > Graphics).

@@ -3,6 +3,7 @@ add_executable(${_TEST_NAME}_tests
     ${_TEST_NAME}_tests_main.cpp
     test_bambu_filament_ids.cpp
     test_bmcu_flasher.cpp
+    test_bmcu_hms.cpp
     test_config_value_formatter.cpp
     test_creality_cfs_match.cpp
     test_creality_cfs_sync.cpp

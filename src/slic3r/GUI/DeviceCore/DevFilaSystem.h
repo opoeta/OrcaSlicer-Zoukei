@@ -6,6 +6,7 @@
 #include "DevFilaAmsSetting.h"
 #include "DevFilaSwitch.h"
 #include "DevUtil.h"
+#include "slic3r/Utils/BmcuHms.hpp"
 
 #include <map>
 #include <set>
@@ -23,7 +24,7 @@ namespace Slic3r {
 // Rule credited to OrcaStudio (https://github.com/jarczakpawel/OrcaStudio, AGPL-3.0).
 inline bool is_bmcu_sn(const std::string& sn)
 {
-    return sn.size() >= 3 && sn[0] == '0' && (sn[1] == 'E' || sn[1] == 'e') && (sn[2] == 'A' || sn[2] == 'a');
+    return BmcuHms::is_bmcu_serial(sn); // rule lives in slic3r/Utils/BmcuHms.hpp
 }
 }
 

@@ -37,6 +37,7 @@
 #include "libslic3r/Thread.hpp"
 
 #include "DeviceCore/DevFilaSystem.h"
+#include "DeviceCore/DevBmcu.h"
 #include "DeviceCore/DevManager.h"
 #include "Zoukei/BmcuFlasherDialog.hpp"
 #include "slic3r/Utils/BmcuFlasher.hpp"
@@ -1228,7 +1229,8 @@ void MachineInfoPanel::update_ams_ext(MachineObject *obj)
                     else {
                         wxString sn_text = it->second.sn;
                         ams_sn = sn_text.MakeUpper();
-                        is_bmcu = is_custom_sn(ams_sn);
+                        // single rule shared with the HMS filters (DevBmcu / BmcuHms)
+                        is_bmcu = DevBmcu::IsBmcu(obj, std::stoi(iter->second->GetAmsId()));
                     }
 
                     if (is_bmcu)

@@ -43253,3 +43253,18 @@ msgstr "Conectando pela LAN"
 #: src/slic3r/Utils/BambuActivity.cpp
 msgid "Connecting through the cloud"
 msgstr "Conectando pela nuvem"
+
+msgid "Ignore AMS firmware warning when it is a BMCU"
+msgstr "Ignorar aviso de firmware do AMS quando for BMCU"
+
+msgid ""
+"Hides the HMS / print error \"The firmware of AMS x does not match the "
+"printer\" when that AMS unit is a BMCU (serial starting with 0EA). It is "
+"logged as ignored in the device console."
+msgstr ""
+"Oculta o HMS / erro de impressão \"O firmware do AMS x não corresponde à "
+"impressora\" quando essa unidade AMS é um BMCU (número de série começando "
+"com 0EA). Fica registrado como ignorado no console do dispositivo."
+
+msgid "ignored (BMCU)"
+msgstr "ignorado (BMCU)"

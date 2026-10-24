@@ -29,6 +29,9 @@ struct Lookup
     std::function<std::string(const std::string&)> hms;
     // print_error -> description, "" when unknown.
     std::function<std::string(int)> print_error;
+    // "The firmware of AMS x does not match the printer" about AMS unit `ams_id` (BmcuHms::kAnyAms = unspecified):
+    // true when that unit is a BMCU and the preference is on -> logged as "ignored (BMCU)" instead of an error.
+    std::function<bool(int)> ignore_ams_fw_mismatch;
 };
 
 // The merged (full-state) JSON of one report. Cheap when nothing changed.

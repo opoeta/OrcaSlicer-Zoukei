@@ -1,6 +1,7 @@
 #include "BambuActivity.hpp"
 
 #include "DeviceActivityLog.hpp"
+#include "BmcuHms.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -462,7 +463,11 @@ void on_report(const std::string& host, const json& report, const Lookup& lk)
         if (get_int(p, "print_error", perr) && perr != s.print_error) {
             if (perr != 0) {
                 std::string desc = lk.print_error ? lk.print_error(int(perr)) : std::string();
-                out.push_back({Source::Error, T(lk, "Print error") + " " + hex8(perr) + (desc.empty() ? std::string() : ": " + cut(desc, 300)),
+                const auto  fw_id = BmcuHms::fw_mismatch_ams_id_from_print_error(unsigned(perr));
+                const bool  ignored = fw_id && lk.ignore_ams_fw_mismatch && lk.ignore_ams_fw_mismatch(*fw_id);
+                out.push_back({ignored ? Source::WsIn : Source::Error,
+                               T(lk, "Print error") + " " + hex8(perr) + (desc.empty() ? std::string() : ": " + cut(desc, 300)) +
+                                   (ignored ? " (" + T(lk, "ignored (BMCU)") + ")" : std::string()),
                                json{{"print_error", perr}}});
             } else if (!base) {
                 out.push_back({Source::WsIn, T(lk, "Print error cleared") + " (" + hex8(s.print_error) + ")", nullptr});
@@ -486,8 +491,12 @@ void on_report(const std::string& host, const json& report, const Lookup& lk)
                 const unsigned attr = kv.second["attr"].get<unsigned>(), code = kv.second["code"].get<unsigned>();
                 const unsigned level = code >> 16;
                 std::string    desc  = lk.hms ? lk.hms(hms_long_code(attr, code)) : std::string();
-                out.push_back({level >= 1 && level <= 3 ? Source::Error : Source::WsIn,
-                               "HMS " + kv.first + " [" + level_text(level, lk) + "]" + (desc.empty() ? std::string() : ": " + cut(desc, 300)), kv.second});
+                const auto     fw_id = BmcuHms::fw_mismatch_ams_id_from_hms(attr, code);
+                const bool     ignored = fw_id && lk.ignore_ams_fw_mismatch && lk.ignore_ams_fw_mismatch(*fw_id);
+                out.push_back({!ignored && level >= 1 && level <= 3 ? Source::Error : Source::WsIn,
+                               "HMS " + kv.first + " [" + level_text(level, lk) + "]" + (desc.empty() ? std::string() : ": " + cut(desc, 300)) +
+                                   (ignored ? " (" + T(lk, "ignored (BMCU)") + ")" : std::string()),
+                               kv.second});
             }
             if (!base)
                 for (const auto& kv : s.hms)

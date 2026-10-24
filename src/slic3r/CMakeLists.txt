@@ -941,6 +941,7 @@ set(SLIC3R_GUI_SOURCES
     Utils/Serial.hpp
     Utils/BmcuFlasher.cpp
     Utils/BmcuFlasher.hpp
+    Utils/BmcuHms.hpp
     Utils/BmcuSerialPort.cpp
     Utils/BmcuSerialPort.hpp
     Utils/SerialMessage.hpp

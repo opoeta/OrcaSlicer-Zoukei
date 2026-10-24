@@ -2416,6 +2416,11 @@ void PreferencesDialog::create_items()
     auto item_bambu_cloud     = create_item_bambu_cloud(_L("Enable Bambu Cloud"), _L("Allow logging into Bambu Cloud alongside Orca Cloud. When enabled, a Bambu login section appears on the homepage."));
     g_sizer->Add(item_bambu_cloud);
 
+    auto item_bmcu_fw = create_item_checkbox(_L("Ignore AMS firmware warning when it is a BMCU"),
+        _L("Hides the HMS / print error \"The firmware of AMS x does not match the printer\" when that AMS unit is a BMCU (serial starting with 0EA). It is logged as ignored in the device console."),
+        "bmcu_ignore_fw_mismatch");
+    g_sizer->Add(item_bmcu_fw);
+
     //// ONLINE > Update & sync
     g_sizer->Add(create_item_title(_L("Update & sync")), 1, wxEXPAND);
 

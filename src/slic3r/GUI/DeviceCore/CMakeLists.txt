@@ -38,6 +38,8 @@ list(APPEND SLIC3R_GUI_SOURCES
     GUI/DeviceCore/DevPrintTaskInfo.cpp
     GUI/DeviceCore/DevHMS.h
     GUI/DeviceCore/DevHMS.cpp
+    GUI/DeviceCore/DevBmcu.h
+    GUI/DeviceCore/DevBmcu.cpp
     GUI/DeviceCore/DevStorage.h
     GUI/DeviceCore/DevStorage.cpp
     GUI/DeviceCore/DevInfo.h
