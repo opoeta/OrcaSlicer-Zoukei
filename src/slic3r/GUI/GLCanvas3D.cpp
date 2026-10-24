@@ -6863,7 +6863,8 @@ static void debug_output_thumbnail(const ThumbnailData& thumbnail_data)
 #endif // ENABLE_THUMBNAIL_GENERATOR_DEBUG_OUTPUT
 
 bool GLCanvas3D::render_plate_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h,
-                                        Camera::ViewAngleType camera_view_angle_type, bool frame_object)
+                                        Camera::ViewAngleType camera_view_angle_type, bool frame_object,
+                                        bool perspective, double zoom_factor, bool live_shader)
 {
     // Remote API: offscreen render of the current plate. Unlike render_thumbnail()
     // (which frames the objects and deliberately skips the bed - see
@@ -6928,11 +6929,15 @@ bool GLCanvas3D::render_plate_thumbnail(ThumbnailData& thumbnail_data, unsigned 
         } camera_restore { global_camera, global_camera };
 
         Camera camera;
-        camera.set_type(Camera::EType::Ortho);
+        // perspective / zoom_factor reproduce the on-screen camera (perspective, zoomed out), whose depth buffer
+        // resolution is the one coplanar faces fight over.
+        camera.set_type(perspective ? Camera::EType::Perspective : Camera::EType::Ortho);
         camera.set_scene_box(scene_box);
         camera.set_viewport(0, 0, w, h);
         camera.select_view(camera_view_angle_type);
         camera.zoom_to_box(zoom_box);
+        if (zoom_factor > 0. && zoom_factor != 1.)
+            camera.set_zoom(camera.get_zoom() * zoom_factor);
         // Projection takes the FULL scene box: apply_projection() only uses it for
         // the near/far planes (the ortho extents come from the zoom above), so the
         // bed stays unclipped even when zoomed tight on the object.
@@ -6952,8 +6957,11 @@ bool GLCanvas3D::render_plate_thumbnail(ThumbnailData& thumbnail_data, unsigned 
         _render_bed(view_matrix, projection_matrix, bottom, false);
         _render_platelist(view_matrix, projection_matrix, bottom, true, true /*only_body: no plate toolbar icons*/, -1, false, true);
 
-        // Models: same draw loop render_thumbnail_internal() uses for its volumes.
-        GLShaderProgram *shader = wxGetApp().get_shader("thumbnail");
+        // Models: same draw loop render_thumbnail_internal() uses for its volumes, or (live_shader) the Prepare
+        // canvas' own object pass, shaders and depth bias included, to see exactly what the screen shows.
+        GLShaderProgram *shader = live_shader ? nullptr : wxGetApp().get_shader("thumbnail");
+        if (live_shader)
+            _render_objects(GLVolumeCollection::ERenderType::Opaque, false);
         if (shader != nullptr) {
             ModelObjectPtrs &      model_objects   = wxGetApp().model().objects;
             std::vector<ColorRGBA> extruder_colors = wxGetApp().plater()->get_extruders_colors();

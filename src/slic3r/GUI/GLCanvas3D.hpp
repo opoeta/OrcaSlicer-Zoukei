@@ -1203,7 +1203,8 @@ public:
     // models, framed on the build volume (so plate contact, bed position and
     // first-layer footprint are all readable). Returns false on FBO failure.
     bool render_plate_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h,
-                                Camera::ViewAngleType camera_view_angle_type, bool frame_object);
+                                Camera::ViewAngleType camera_view_angle_type, bool frame_object,
+                                bool perspective = false, double zoom_factor = 1.0, bool live_shader = false);
     // Offscreen render of the sliced toolpaths (preview) into thumbnail_data.
     // Returns false when no toolpaths are loaded or the FBO cannot be built.
     bool render_gcode_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h,
