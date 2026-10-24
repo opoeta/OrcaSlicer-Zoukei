@@ -402,23 +402,11 @@ void GLVolume::set_render_color()
     }
 }
 
-float GLVolume::depth_bias_units() const
-{
-    if (depth_bias_rank > 0)
-        return 8.f * float(depth_bias_rank);
-    return depth_bias ? 1.f : 0.f;
-}
-
-float GLVolume::depth_bias_factor() const
-{
-    return depth_bias_rank > 0 ? 2.f * float(depth_bias_rank) : 1.f;
-}
-
 void GLVolume::begin_depth_bias() const
 {
     if (const float units = this->depth_bias_units(); units > 0.f) {
         glsafe(::glEnable(GL_POLYGON_OFFSET_FILL));
-        glsafe(::glPolygonOffset(this->depth_bias_factor(), units));
+        glsafe(::glPolygonOffset(1.0f, units));
     }
 }
 
@@ -433,33 +421,17 @@ unsigned char model_part_depth_bias_rank(const ModelVolume& model_volume)
     const ModelObject *object = model_volume.get_object();
     if (object == nullptr || ! model_volume.is_model_part())
         return 0;
-    constexpr unsigned int max_rank = 16;
-    // Only parts that can share a face need an order, so the rank is the longest chain of LATER model parts whose
-    // bounding boxes (object coordinates, grown by 10 microns so touching faces count) overlap one after the other:
-    // an earlier part always ends up behind every later part it touches, and parts that touch nothing later (most
-    // inlays of an SVG import) get no bias at all. That keeps the ranks, and so the offsets, small.
-    std::vector<BoundingBoxf3> boxes;
-    size_t                     self = size_t(-1);
+    // 64 ranks = 128 offset units, still far below anything visible; beyond it the earliest parts share a rank.
+    constexpr unsigned int max_rank = 64;
+    unsigned int rank  = 0;
+    bool         after = false;
     for (const ModelVolume *v : object->volumes) {
-        if (! v->is_model_part())
-            continue;
-        if (v == &model_volume)
-            self = boxes.size();
-        if (self != size_t(-1)) {
-            BoundingBoxf3 bb = v->get_convex_hull().transformed_bounding_box(v->get_matrix());
-            bb.min -= Vec3d::Constant(0.01);
-            bb.max += Vec3d::Constant(0.01);
-            boxes.push_back(bb);
-        }
+        if (after && v->is_model_part())
+            ++ rank;
+        else if (v == &model_volume)
+            after = true;
     }
-    if (boxes.size() <= 1)
-        return 0;
-    std::vector<unsigned int> rank(boxes.size(), 0);
-    for (size_t i = boxes.size() - 1; i-- > 0;)
-        for (size_t j = i + 1; j < boxes.size(); ++ j)
-            if (rank[j] + 1 > rank[i] && boxes[i].intersects(boxes[j]))
-                rank[i] = std::min(rank[j] + 1, max_rank);
-    return (unsigned char)rank.front();
+    return (unsigned char)std::min(rank, max_rank);
 }
 
 ColorRGBA color_from_model_volume(const ModelVolume& model_volume)

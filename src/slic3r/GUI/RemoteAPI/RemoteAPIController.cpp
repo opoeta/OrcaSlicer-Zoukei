@@ -1761,7 +1761,6 @@ Response Controller::handle_get_gcode()
 Response Controller::handle_plate_render(const std::string &target)
 {
     // GET /api/v1/plate/render?view=editor|preview&angle=iso|top|front|left|right|rear|bottom&width=800&height=600
-    //     [&camera=ortho|perspective&zoom=<factor>&shader=thumbnail|live]  (editor view only)
     auto qparam = [&target](const char *name) -> std::string {
         auto qpos = target.find('?');
         if (qpos == std::string::npos) return {};
@@ -1816,28 +1815,6 @@ Response Controller::handle_plate_render(const std::string &target)
     w = std::min(std::max(w, 64L), 2048L);
     h = std::min(std::max(h, 64L), 2048L);
 
-    // editor view only: camera=perspective (default ortho) and zoom=<factor> (<1 zooms out from the framed view)
-    // reproduce what the Prepare canvas shows on screen.
-    const std::string camera_param = qparam("camera");
-    if (!camera_param.empty() && camera_param != "ortho" && camera_param != "perspective")
-        return { 400, {{"error", "bad_param"}, {"param", "camera"},
-                       {"allowed", nlohmann::json::array({"ortho", "perspective"})}} };
-    const bool perspective = camera_param == "perspective";
-    double zoom_factor = 1.0;
-    try {
-        const std::string zs = qparam("zoom");
-        if (!zs.empty()) zoom_factor = std::stod(zs);
-    } catch (...) {
-        return { 400, {{"error", "bad_param"}, {"param", "zoom"}} };
-    }
-    zoom_factor = std::min(std::max(zoom_factor, 0.01), 100.0);
-    // shader=live draws the objects with the Prepare canvas' own pass instead of the thumbnail shader
-    const std::string shader_param = qparam("shader");
-    if (!shader_param.empty() && shader_param != "thumbnail" && shader_param != "live")
-        return { 400, {{"error", "bad_param"}, {"param", "shader"},
-                       {"allowed", nlohmann::json::array({"thumbnail", "live"})}} };
-    const bool live_shader = shader_param == "live";
-
     const Camera::ViewAngleType va           = ait->second;
     const bool                  preview      = (view == "preview");
     const bool                  frame_object = frame.empty() ? preview : (frame == "object");
@@ -1846,7 +1823,7 @@ Response Controller::handle_plate_render(const std::string &target)
     auto png_out = std::make_shared<std::string>();
 
     // 30s (not the 10s default): a large plate at 2048px can outrun the default.
-    nlohmann::json j = run_on_ui([va, w, h, preview, frame_object, perspective, zoom_factor, live_shader, png_out]() -> nlohmann::json {
+    nlohmann::json j = run_on_ui([va, w, h, preview, frame_object, png_out]() -> nlohmann::json {
         Plater *plater = wxGetApp().plater();
         ThumbnailData data;
         if (preview) {
@@ -1866,7 +1843,7 @@ Response Controller::handle_plate_render(const std::string &target)
             }
         } else {
             GLCanvas3D *canvas = plater->get_view3D_canvas3D();
-            if (canvas == nullptr || !canvas->render_plate_thumbnail(data, (unsigned int)w, (unsigned int)h, va, frame_object, perspective, zoom_factor, live_shader))
+            if (canvas == nullptr || !canvas->render_plate_thumbnail(data, (unsigned int)w, (unsigned int)h, va, frame_object))
                 return {{"error", "render_failed"}, {"reason", "editor plate render failed"}};
         }
         size_t png_size = 0;
