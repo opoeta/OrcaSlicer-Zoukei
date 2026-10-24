@@ -402,6 +402,38 @@ void GLVolume::set_render_color()
     }
 }
 
+void GLVolume::begin_depth_bias() const
+{
+    if (const float units = this->depth_bias_units(); units > 0.f) {
+        glsafe(::glEnable(GL_POLYGON_OFFSET_FILL));
+        glsafe(::glPolygonOffset(1.0f, units));
+    }
+}
+
+void GLVolume::end_depth_bias() const
+{
+    if (this->depth_bias_units() > 0.f)
+        glsafe(::glDisable(GL_POLYGON_OFFSET_FILL));
+}
+
+unsigned char model_part_depth_bias_rank(const ModelVolume& model_volume)
+{
+    const ModelObject *object = model_volume.get_object();
+    if (object == nullptr || ! model_volume.is_model_part())
+        return 0;
+    // 64 ranks = 128 offset units, still far below anything visible; beyond it the earliest parts share a rank.
+    constexpr unsigned int max_rank = 64;
+    unsigned int rank  = 0;
+    bool         after = false;
+    for (const ModelVolume *v : object->volumes) {
+        if (after && v->is_model_part())
+            ++ rank;
+        else if (v == &model_volume)
+            after = true;
+    }
+    return (unsigned char)std::min(rank, max_rank);
+}
+
 ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
 {
     ColorRGBA color;
@@ -937,6 +969,7 @@ int GLVolumeCollection::load_object_volume(
             v.extruder_id = extruder_id;
     }
     v.is_modifier = !model_volume->is_model_part();
+    v.depth_bias_rank = model_part_depth_bias_rank(*model_volume);
     v.shader_outside_printer_detection_enabled = model_volume->is_model_part();
     if (in_assemble_view) {
         v.set_instance_transformation(instance->get_assemble_transformation());
@@ -1359,17 +1392,13 @@ void GLVolumeCollection::render(GLVolumeCollection::ERenderType       type,
         shader->set_uniform("projection_matrix", projection_matrix);
         const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
         shader->set_uniform("view_normal_matrix", view_normal_matrix);
-        if (volume.first->depth_bias) {
-            glsafe(::glEnable(GL_POLYGON_OFFSET_FILL));
-            glsafe(::glPolygonOffset(1.0f, 1.0f));
-        }
+        volume.first->begin_depth_bias();
 		//BBS: add outline related logic
         if (volume.first->selected && shader_can_outline && GUI::wxGetApp().show_outline())
             volume.first->render_with_outline(cnv_size);
         else
             volume.first->render();
-        if (volume.first->depth_bias)
-            glsafe(::glDisable(GL_POLYGON_OFFSET_FILL));
+        volume.first->end_depth_bias();
 
 #if ENABLE_ENVIRONMENT_MAP
         if (use_environment_texture)

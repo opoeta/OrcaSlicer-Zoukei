@@ -3333,6 +3333,8 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                     volume->extruder_id = extruder_id;
 
                 volume->is_modifier = !mvs->model_volume->is_model_part();
+                // a part added, removed or reordered changes the rank of the parts before it
+                volume->depth_bias_rank = model_part_depth_bias_rank(*mvs->model_volume);
                 volume->set_color(color_from_model_volume(*mvs->model_volume));
 
                 // updates volumes transformations
@@ -6971,7 +6973,9 @@ bool GLCanvas3D::render_plate_thumbnail(ThumbnailData& thumbnail_data, unsigned 
                 const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) *
                                                     model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
                 shader->set_uniform("view_normal_matrix", view_normal_matrix);
+                vol->begin_depth_bias();
                 vol->simple_render(shader, model_objects, extruder_colors, false);
+                vol->end_depth_bias();
                 vol->is_active = is_active;
             }
             shader->stop_using();
@@ -7305,7 +7309,11 @@ void GLCanvas3D::render_thumbnail_internal(ThumbnailData& thumbnail_data, const 
             shader->set_uniform("projection_matrix", projection_matrix);
             const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
             shader->set_uniform("view_normal_matrix", view_normal_matrix);
+            // Orca Zoukei: same depth bias as the Prepare view, so plate thumbnails and API renders show the part
+            // the slicer keeps on a shared face (SVG inlays on the bed face) instead of whichever was drawn first.
+            vol->begin_depth_bias();
             vol->simple_render(shader,  model_objects, extruder_colors, ban_light);
+            vol->end_depth_bias();
             vol->is_active = is_active;
         }
         shader->stop_using();
