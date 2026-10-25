@@ -19,6 +19,16 @@ if(NOT DEFINED ORCA_ZOUKEI_VERSION)
                         ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
         if(_zoukei_tag_rc EQUAL 0 AND _zoukei_tag MATCHES "^v([0-9]+(\\.[0-9]+)+(-[0-9A-Za-z.]+)?)$")
             set(ORCA_ZOUKEI_VERSION "${CMAKE_MATCH_1}")
+        else()
+            # Not a release commit: take the latest release tag it builds on, so the splash/About show the
+            # current release (the build commit is shown next to it) instead of the stale default above.
+            execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 --match "v[0-9]*" HEAD
+                            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+                            OUTPUT_VARIABLE _zoukei_last RESULT_VARIABLE _zoukei_last_rc
+                            ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if(_zoukei_last_rc EQUAL 0 AND _zoukei_last MATCHES "^v([0-9]+(\\.[0-9]+)+(-[0-9A-Za-z.]+)?)$")
+                set(ORCA_ZOUKEI_VERSION "${CMAKE_MATCH_1}")
+            endif()
         endif()
     endif()
 endif()

@@ -953,6 +953,7 @@ void ViewerImpl::reset()
     // should go back, not sit reserved until the next load
     std::vector<PathVertex>().swap(m_vertices);
     std::vector<float>().swap(m_vertices_colors);
+    std::vector<float>().swap(m_vertices_colors_bottom);
     std::vector<uint8_t>().swap(m_vertices_stripe);
     for (std::vector<float>& times : m_layer_start_times)
         std::vector<float>().swap(times);
@@ -1342,6 +1343,9 @@ static float encode_color(const Color& color) {
 
 void ViewerImpl::update_colors_texture()
 {
+    // Orca Zoukei: RealColor with a camera under the plate shows the set built from below (see apply_realcolor)
+    const std::vector<float>& colors = (m_view_from_below && !m_vertices_colors_bottom.empty()) ?
+        m_vertices_colors_bottom : m_vertices_colors;
 #if !defined(ENABLE_OPENGL_ES)
     if (m_colors_buf_id == 0)
         return;
@@ -1350,14 +1354,14 @@ void ViewerImpl::update_colors_texture()
     // ORCA: the colors of the vertices alone; the layers greyed or dimmed around the one the sliders
     // show are left to the shaders, see set_layer_colors(), so that a slider step uploads nothing.
     #ifdef ENABLE_OPENGL_ES
-        if (!m_vertices_colors.empty())
+        if (!colors.empty())
             // update gpu buffer for colors
-            m_texture_data.set_colors(m_vertices_colors);
+            m_texture_data.set_colors(colors);
     #else
         // Orca Zoukei: two floats per vertex, the colour and the coaxial stripes id (0 = none), see apply_tool_multi_colors()
-        std::vector<float> colors_and_stripes(2 * m_vertices_colors.size());
-        for (size_t i = 0; i < m_vertices_colors.size(); ++i) {
-            colors_and_stripes[2 * i]     = m_vertices_colors[i];
+        std::vector<float> colors_and_stripes(2 * colors.size());
+        for (size_t i = 0; i < colors.size(); ++i) {
+            colors_and_stripes[2 * i]     = colors[i];
             colors_and_stripes[2 * i + 1] = i < m_vertices_stripe.size() ? static_cast<float>(m_vertices_stripe[i]) : 0.0f;
         }
         m_colors_tex_size = colors_and_stripes.size() * sizeof(float);
@@ -1444,7 +1448,9 @@ void ViewerImpl::update_colors()
     // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM, Neotko), after the multi colours it builds on
     if (m_realcolor.enabled && (m_settings.view_type == EViewType::Tool || m_settings.view_type == EViewType::ColorPrint ||
         m_settings.view_type == EViewType::Summary))
-        apply_realcolor(m_vertices, m_vertices_colors, m_realcolor);
+        apply_realcolor(m_vertices, m_vertices_colors, m_realcolor, &m_vertices_colors_bottom);
+    else
+        m_vertices_colors_bottom.clear();
 
     update_colors_texture();
     m_settings.update_colors = false;
@@ -1464,10 +1470,16 @@ void ViewerImpl::apply_pending_updates()
 
 void ViewerImpl::render(const Mat4x4& view_matrix, const Mat4x4& projection_matrix)
 {
-    apply_pending_updates();
-
     const Mat4x4 inv_view_matrix = inverse(view_matrix);
     const Vec3 camera_position = { inv_view_matrix[12], inv_view_matrix[13], inv_view_matrix[14] };
+    // Orca Zoukei: the camera went under (or back over) the plate: swap the RealColor set, no recalculation
+    const bool below = camera_position[2] < 0.0f;
+    if (below != m_view_from_below) {
+        m_view_from_below = below;
+        if (!m_vertices_colors_bottom.empty())
+            update_colors_texture();
+    }
+    apply_pending_updates();
     render_segments(view_matrix, projection_matrix, camera_position);
     render_options(view_matrix, projection_matrix);
 

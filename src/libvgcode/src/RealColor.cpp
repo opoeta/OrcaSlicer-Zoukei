@@ -54,6 +54,7 @@ struct Grid
     std::vector<float> side;     // 3 floats per cell: running mean of the beads, seen from the side
     std::vector<float> z;        // highest bead per cell, kEmptyZ = nothing printed
     std::vector<uint32_t> stamp; // last polyline that touched the cell
+    std::vector<float> cover;    // bottom view only: how much of the light the beads laid so far stop
 
     int ix(float x) const { return static_cast<int>(std::floor((x - origin_x) / cell)); }
     int iy(float y) const { return static_cast<int>(std::floor((y - origin_y) / cell)); }
@@ -63,8 +64,11 @@ struct Grid
 
 } // namespace
 
-void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>& colors, const RealColorParams& params)
+void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>& colors, const RealColorParams& params,
+                     std::vector<float>* colors_bottom)
 {
+    if (colors_bottom != nullptr)
+        colors_bottom->clear();
     if (!params.enabled || vertices.size() < 2 || colors.size() != vertices.size())
         return;
 
@@ -106,8 +110,18 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
     g.stamp.assign(cells, 0u);
 
     const std::array<float, 256>& lut = srgb_lut();
+    const std::vector<float> raw = colors; // the colours as printed, before any of them is replaced
     const int blur_cells = std::min(12, std::max(0, static_cast<int>(std::lround(params.blur_mm / g.cell))));
     const float wall_blend = std::min(1.0f, std::max(0.0f, params.wall_blend));
+
+    // A filament without a TD is opaque: the bead shows its own colour, nothing under it, over it or beside it
+    // (apart from the walls, where stacked layers of different filaments really do mix) changes it.
+    auto is_opaque = [&](const PathVertex& v) {
+        return !(size_t(v.extruder_id) < params.td_mm.size() && params.td_mm[v.extruder_id] > 0.0f);
+    };
+    // false: seen from above, a bead covers what is below. true: seen from below (camera under the plate), the
+    // bead laid first is the one on top and the later ones, higher up, are the ones covered.
+    bool from_below = false;
 
     // Lays one bead over the cells under the segment a -> b.
     auto deposit = [&](const PathVertex& a, const PathVertex& b, uint32_t poly_id, const float* lin, float alpha, float beta) {
@@ -139,9 +153,16 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
                     float* tp = &g.top[id * 3];
                     float* sd = &g.side[id * 3];
                     const bool first = g.z[id] <= kEmptyZ;
-                    for (int k = 0; k < 3; ++k) {
-                        tp[k] = alpha * lin[k] + (1.0f - alpha) * tp[k];
-                        sd[k] = first ? lin[k] : sd[k] + (lin[k] - sd[k]) * beta;
+                    if (from_below) {
+                        const float free_light = (1.0f - g.cover[id]) * alpha;
+                        for (int k = 0; k < 3; ++k)
+                            tp[k] += free_light * lin[k];
+                        g.cover[id] += free_light;
+                    } else {
+                        for (int k = 0; k < 3; ++k) {
+                            tp[k] = alpha * lin[k] + (1.0f - alpha) * tp[k];
+                            sd[k] = first ? lin[k] : sd[k] + (lin[k] - sd[k]) * beta;
+                        }
                     }
                     g.z[id] = std::max(g.z[id], b.position[2]);
                 }
@@ -150,7 +171,7 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
     };
 
     // Colour a vertex shows once its layer is complete.
-    auto sample = [&](const PathVertex& a, const PathVertex& b, float* out) {
+    auto sample = [&](const PathVertex& a, const PathVertex& b, const float* own, float* out) {
         const int cx = g.ix(0.5f * (a.position[0] + b.position[0]));
         const int cy = g.iy(0.5f * (a.position[1] + b.position[1]));
         float top_sum[3] = { 0.0f, 0.0f, 0.0f };
@@ -163,9 +184,15 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
                 const size_t id = g.idx(xx, yy);
                 if (g.z[id] <= kEmptyZ)
                     continue;
-                for (int k = 0; k < 3; ++k) {
-                    top_sum[k] += g.top[id * 3 + k];
-                    side_sum[k] += g.side[id * 3 + k];
+                if (from_below) {
+                    const float rest = (1.0f - g.cover[id]) * kBacking;
+                    for (int k = 0; k < 3; ++k)
+                        top_sum[k] += g.top[id * 3 + k] + rest;
+                } else {
+                    for (int k = 0; k < 3; ++k) {
+                        top_sum[k] += g.top[id * 3 + k];
+                        side_sum[k] += g.side[id * 3 + k];
+                    }
                 }
                 ++n;
             }
@@ -174,6 +201,12 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
             out[0] = kBacking;
             out[1] = kBacking;
             out[2] = kBacking;
+            return;
+        }
+        if (from_below) {
+            const float inv_n = 1.0f / float(n);
+            for (int k = 0; k < 3; ++k)
+                out[k] = top_sum[k] * inv_n;
             return;
         }
         // Edge or wall: a probe that finds nothing, or something clearly lower, is an open side
@@ -189,8 +222,11 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
         }
         const float wall = std::min(1.0f, 0.6f * float(open)) * wall_blend;
         const float inv = 1.0f / float(n);
-        for (int k = 0; k < 3; ++k)
-            out[k] = top_sum[k] * inv * (1.0f - wall) + side_sum[k] * inv * wall;
+        for (int k = 0; k < 3; ++k) {
+            // An opaque bead keeps its own colour on the face; it is not averaged with what lies beside it
+            const float face = own != nullptr ? own[k] : top_sum[k] * inv;
+            out[k] = face * (1.0f - wall) + side_sum[k] * inv * wall;
+        }
     };
 
     uint32_t poly_id = 0;
@@ -230,13 +266,66 @@ void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>
             if (!v.is_extrusion())
                 continue;
             float out[3];
-            sample(vertices[k - 1], v, out);
+            float own_lin[3];
+            const float* own = nullptr;
+            if (is_opaque(v)) {
+                const int oc = static_cast<int>(raw[k]);
+                own_lin[0] = lut[(oc >> 16) & 0xFF];
+                own_lin[1] = lut[(oc >> 8) & 0xFF];
+                own_lin[2] = lut[oc & 0xFF];
+                own = own_lin;
+            }
+            sample(vertices[k - 1], v, own, out);
             const int cr = linear_to_srgb8(out[0]);
             const int cg = linear_to_srgb8(out[1]);
             const int cb = linear_to_srgb8(out[2]);
             colors[k] = static_cast<float>((cr << 16) | (cg << 8) | cb);
         }
         i = j;
+    }
+
+    // Seen from below. Only translucent beads change with the side they are seen from (an opaque one shows its own
+    // colour either way), so the second set is built only when there is one.
+    if (colors_bottom == nullptr)
+        return;
+    bool any_translucent = false;
+    for (size_t k = 1; k < vertices.size() && !any_translucent; ++k)
+        any_translucent = vertices[k].is_extrusion() && !is_opaque(vertices[k]);
+    if (!any_translucent)
+        return;
+
+    *colors_bottom = colors;
+    from_below = true;
+    std::fill(g.top.begin(), g.top.end(), 0.0f);
+    g.cover.assign(cells, 0.0f);
+    std::fill(g.z.begin(), g.z.end(), kEmptyZ);
+    // Beads in the order they were laid, from the plate up: the first one ends up on top.
+    last_end = 0;
+    for (size_t k = 1; k < vertices.size(); ++k) {
+        const PathVertex& v = vertices[k];
+        if (!v.is_extrusion())
+            continue;
+        const bool continues = last_end != 0 && last_end == k - 1 &&
+            vertices[last_end].extruder_id == v.extruder_id &&
+            std::abs(vertices[last_end].position[2] - v.position[2]) < 0.001f;
+        if (!continues)
+            ++poly_id;
+        last_end = k;
+        const int c = static_cast<int>(raw[k]);
+        const float lin[3] = { lut[(c >> 16) & 0xFF], lut[(c >> 8) & 0xFF], lut[c & 0xFF] };
+        const float td = size_t(v.extruder_id) < params.td_mm.size() && params.td_mm[v.extruder_id] > 0.0f ?
+            params.td_mm[v.extruder_id] : kOpaqueTd;
+        const float height = v.height > 0.0f ? v.height : 0.2f;
+        const float alpha = std::min(1.0f, std::max(0.02f, 1.0f - std::pow(0.1f, height / td)));
+        deposit(vertices[k - 1], v, poly_id, lin, alpha, 1.0f);
+    }
+    for (size_t k = 1; k < vertices.size(); ++k) {
+        const PathVertex& v = vertices[k];
+        if (!v.is_extrusion() || is_opaque(v))
+            continue;
+        float out[3];
+        sample(vertices[k - 1], v, nullptr, out);
+        (*colors_bottom)[k] = static_cast<float>((linear_to_srgb8(out[0]) << 16) | (linear_to_srgb8(out[1]) << 8) | linear_to_srgb8(out[2]));
     }
 }
 

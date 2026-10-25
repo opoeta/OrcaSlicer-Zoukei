@@ -371,6 +371,8 @@ private:
     void apply_tool_multi_colors();
     // Orca Zoukei: RealColor view (ported from OrcaFS-NeotkoCM), see RealColor.hpp
     RealColorParams m_realcolor;
+    std::vector<float> m_vertices_colors_bottom; // RealColor seen from under the plate, empty = same as m_vertices_colors
+    bool m_view_from_below{ false };
     Palette m_color_print_colors;
     //
     // OpenGL shaders ids

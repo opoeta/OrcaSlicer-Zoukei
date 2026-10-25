@@ -20,7 +20,11 @@ namespace libvgcode {
 //  - at the end of every layer each vertex takes the mean of its neighbourhood (the eye cannot resolve
 //    single lines), blending towards the side mean where the cell is on an edge or a wall.
 // This is how alternating-layer and sub-layer mixed filaments end up with their blended colour.
-void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>& colors, const RealColorParams& params);
+//  - a filament without a TD is opaque: its beads keep their own colour on the face (only walls mix layers),
+//  - `colors_bottom`, if given, receives the colours for a camera under the plate (first bead laid on top); it is
+//    left empty when it would equal `colors`, i.e. when no filament is translucent.
+void apply_realcolor(const std::vector<PathVertex>& vertices, std::vector<float>& colors, const RealColorParams& params,
+                     std::vector<float>* colors_bottom = nullptr);
 
 } // namespace libvgcode
 
