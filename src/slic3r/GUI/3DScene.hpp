@@ -86,12 +86,6 @@ struct ObjectFilamentResults {
 
 // Return appropriate color based on the ModelVolume.
 extern ColorRGBA color_from_model_volume(const ModelVolume& model_volume);
-// Orca Zoukei: depth-bias rank of a model part = number of model parts after it in its object (capped), 0 for the
-// last one and for anything that is not a model part. The slicer gives an overlap of two model parts to the LATER one
-// (slices_to_regions clips every earlier part by it), so Prepare pushes each earlier part back by its rank: on a face
-// two parts share (an SVG inlay set into the bed face of its base) the part the slicer keeps wins the depth test
-// instead of the two z-fighting into jagged triangles.
-extern unsigned char model_part_depth_bias_rank(const ModelVolume& model_volume);
 
 class GLVolume {
 public:
@@ -249,14 +243,6 @@ public:
         // slice error
         bool                slice_error : 1;
     };
-    // Orca Zoukei: depth-bias rank of a model part (model_part_depth_bias_rank), 0 = none.
-    unsigned char           depth_bias_rank{0};
-    // glPolygonOffset units this volume is drawn with, 0 = no offset. depth_bias alone keeps its single unit; a rank
-    // takes 2 units per later part, so every earlier part lies a resolvable step behind the next one.
-    float depth_bias_units() const { return depth_bias_rank > 0 ? 2.f * float(depth_bias_rank) : (depth_bias ? 1.f : 0.f); }
-    // Enable / disable GL_POLYGON_OFFSET_FILL around a draw call of this volume; no-op without a bias.
-    void  begin_depth_bias() const;
-    void  end_depth_bias() const;
 
     // Is mouse or rectangle selection over this object to select/deselect it ?
     EHoverState         	hover;
