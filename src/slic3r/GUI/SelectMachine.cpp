@@ -7476,7 +7476,13 @@ static wxString _get_tips(MachineObject* obj_)
 
     wxString ext_diameter;
     if (obj_->GetExtderSystem()->GetTotalExtderCount() == 1) {
-        ext_diameter += format_nozzle_diameter(obj_->GetExtderSystem()->GetNozzleDiameter(0));
+        float diameter = obj_->GetExtderSystem()->GetNozzleDiameter(0);
+        // Zoukei: non-Bambu agents (Flashforge/Moonraker) don't report the nozzle; show the printer preset's.
+        if (diameter <= 0.0f) {
+            auto* opt = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter");
+            if (opt && !opt->values.empty()) diameter = float(opt->values[0]);
+        }
+        ext_diameter += format_nozzle_diameter(diameter);
     } else if (obj_->GetExtderSystem()->GetTotalExtderCount() == 2) {
         ext_diameter += format_nozzle_diameter(obj_->GetExtderSystem()->GetNozzleDiameter(1));//Left
         ext_diameter += "/";
