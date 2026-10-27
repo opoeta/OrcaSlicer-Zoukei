@@ -89,7 +89,7 @@
             lw.replaceChildren();
             if (!ifs) { grid.appendChild(h('p.muted', { text: link.hasStatus ? Z.t('ifs_none') : Z.t('cfs_loading') })); return; }
             head.appendChild(h('span.badge.on', { text: uiLabel(ifs) }));
-            if (w) head.appendChild(h('span.badge.idle', { text: 'lessWaste' }));
+            if (w) head.appendChild(h('span.badge.on', { text: 'lessWaste' }));
             // 2x2 like the printer: slots 1-2 on the first row, 3-4 on the second
             ifs.slots.slice(0, 4).forEach(s => grid.appendChild(slotEl(s)));
             const busy = ctx.busy() || !link.online;
