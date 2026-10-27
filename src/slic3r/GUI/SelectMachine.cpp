@@ -5177,7 +5177,10 @@ void SelectMachineDialog::update_show_status(MachineObject* obj_)
     }
 
     /*check sdcard when if lan mode printer*/
-    if (obj_->is_lan_mode_printer()) {
+    // Zoukei: Bambu only, same reason as the NoSdcard check above.
+    if (obj_->is_lan_mode_printer()
+        && wxGetApp().getDeviceManager() != nullptr
+        && wxGetApp().getDeviceManager()->get_current_printer_agent_id() == BBL_PRINTER_AGENT_ID) {
         if (obj_->GetStorage()->get_sdcard_state() == DevStorage::SdcardState::NO_SDCARD
             && !obj_->can_use_emmc_print()) {
             show_status(PrintDialogStatus::PrintStatusLanModeNoSdcard);
