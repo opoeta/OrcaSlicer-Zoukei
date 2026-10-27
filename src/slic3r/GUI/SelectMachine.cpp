@@ -58,6 +58,7 @@
 #include "slic3r/GUI/SpoolmanUi.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
+#include "slic3r/Utils/NetworkAgentFactory.hpp"
 #include <memory>
 #include "slic3r/GUI/BBLStatusBarPrint.hpp"
 #include "slic3r/GUI/Widgets/HyperLink.hpp"
@@ -5154,7 +5155,11 @@ void SelectMachineDialog::update_show_status(MachineObject* obj_)
     } else if (obj_->is_in_printing() || obj_->ams_status_main == AMS_STATUS_MAIN_FILAMENT_CHANGE) {
         show_status(PrintDialogStatus::PrintStatusInPrinting);
         return;
-    } else if (!obj_->GetConfig()->SupportPrintWithoutSD() && (obj_->GetStorage()->get_sdcard_state() == DevStorage::SdcardState::NO_SDCARD)) {
+    } else if (!obj_->GetConfig()->SupportPrintWithoutSD() && (obj_->GetStorage()->get_sdcard_state() == DevStorage::SdcardState::NO_SDCARD)
+               // Zoukei: only Bambu printers report an SD card; Moonraker/Flashforge/Creality/Snapmaker agents upload to
+               // the printer's own storage and never fill the SD state, so the check would block every job (AD5X/ZMOD).
+               && wxGetApp().getDeviceManager() != nullptr
+               && wxGetApp().getDeviceManager()->get_current_printer_agent_id() == BBL_PRINTER_AGENT_ID) {
         show_status(PrintDialogStatus::PrintStatusNoSdcard);
         return;
     }
