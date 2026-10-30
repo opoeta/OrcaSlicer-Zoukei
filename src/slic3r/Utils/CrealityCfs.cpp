@@ -957,4 +957,35 @@ std::string fallback_model_id(const std::string& printer_model)
     return it == ids.end() ? printer_model : it->second;
 }
 
+std::vector<std::string> reserve_mismatch_warnings(const PrinterSnapshot& snapshot, const std::vector<std::pair<int, int>>& used_slots)
+{
+    std::vector<std::string> out;
+    const std::vector<CfsBox> boxes = snapshot.cfs_boxes();
+    auto same_text = [](std::string a, std::string b) {
+        for (char& c : a) c = char(std::tolower((unsigned char) c));
+        for (char& c : b) c = char(std::tolower((unsigned char) c));
+        return a == b;
+    };
+    for (const auto& [unit, slot_id] : used_slots) {
+        if (unit < 0 || unit >= int(boxes.size()) || slot_id < 0 || slot_id > 3)
+            continue;
+        const CfsSlot *used = nullptr, *reserve = nullptr;
+        for (const CfsSlot& s : boxes[size_t(unit)].slots) {
+            if (s.slot_id == slot_id)
+                used = &s;
+            else if (s.slot_id == (slot_id ^ 1))
+                reserve = &s;
+        }
+        if (used == nullptr || reserve == nullptr || !used->is_loaded() || !reserve->is_loaded())
+            continue;
+        const bool color_ok = same_text(normalize_hex(used->color), normalize_hex(reserve->color));
+        const bool type_ok  = same_text(used->type, reserve->type);
+        if (color_ok && type_ok)
+            continue;
+        out.push_back(used->label() + " (" + used->type + " " + normalize_hex(used->color) + ") / " + reserve->label() + " (" +
+                      reserve->type + " " + normalize_hex(reserve->color) + ")");
+    }
+    return out;
+}
+
 }} // namespace Slic3r::CrealityCfs

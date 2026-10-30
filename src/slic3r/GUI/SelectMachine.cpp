@@ -57,6 +57,7 @@
 #include "slic3r/GUI/CrealityCfsUi.hpp"
 #include "slic3r/GUI/SpoolmanUi.hpp"
 #include "slic3r/Utils/CrealityCfsAgent.hpp"
+#include "slic3r/Utils/CrealityCfsClient.hpp"
 #include "slic3r/Utils/FlashforgePrinterAgent.hpp"
 #include "slic3r/Utils/NetworkAgentFactory.hpp"
 #include <memory>
@@ -3785,6 +3786,32 @@ void SelectMachineDialog::on_send_print()
     assert(obj_->get_dev_id() == m_printer_last_select);
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", print_job: for send task, current printer id =  " << m_printer_last_select << std::endl;
+
+    // Zoukei: warn when a used CFS slot's reserve slot (A<->B, C<->D) holds another colour/material: no automatic swap.
+    if (is_creality_dialog() && !m_is_auto_retry_0500_409d_invoke) {
+        std::string map2, map_v0, map_info;
+        get_ams_mapping_result(map_v0, map2, map_info);
+        const json mapping = json::parse(map2, nullptr, false);
+        std::vector<std::pair<int, int>> used;
+        if (mapping.is_array())
+            for (const json& item : mapping)
+                if (item.is_object() && item.value("ams_id", 0xff) != 0xff && item.value("slot_id", 0xff) != 0xff)
+                    used.emplace_back(item.value("ams_id", 0xff), item.value("slot_id", 0xff));
+        if (auto client = CrealityCfs::Client::get(obj_->get_dev_ip())) {
+            const CrealityCfs::PrinterSnapshot snap = client->snapshot();
+            const std::vector<std::string> warnings = snap.connected ? CrealityCfs::reserve_mismatch_warnings(snap, used) : std::vector<std::string>();
+            if (!warnings.empty()) {
+                wxString text = _L("The reserve slot of a filament in use holds another colour or material. The printer will not switch to it when the spool runs out, and the print will stop:");
+                for (const std::string& w : warnings)
+                    text += "\n  " + from_u8(w);
+                text += "\n\n" + _L("Send anyway?");
+                if (wxMessageBox(text, _L("Reserve slot mismatch"), wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES) {
+                    Enable_Send_Button(true);
+                    return;
+                }
+            }
+        }
+    }
 
     // BMCU: a manual send resets the retry budget; an automatic retry keeps it.
     if (!m_is_auto_retry_0500_409d_invoke) {

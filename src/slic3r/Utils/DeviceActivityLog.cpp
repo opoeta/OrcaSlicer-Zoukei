@@ -15,6 +15,7 @@
 #include <mutex>
 #include <regex>
 #include <set>
+#include <thread>
 
 namespace Slic3r { namespace DeviceActivity {
 
@@ -134,6 +135,34 @@ std::string local_time(long long ms)
     return buf;
 }
 
+std::function<void(const std::string&, const std::string&)> s_alert_handler;
+std::map<std::string, long long>                             s_alert_last; // "host|code" -> unix ms
+
+// Calls the handler unless the same code fired for this host within 2 minutes. Never call with s_mutex held.
+void raise_alert(const std::string& key, const std::string& text)
+{
+    const std::string l = lower(text);
+    const char*       codes[] = {"key846", "speed_err", "key353"};
+    std::string       code    = "alert";
+    for (const char* c : codes)
+        if (l.find(c) != std::string::npos) {
+            code = c;
+            break;
+        }
+    std::function<void(const std::string&, const std::string&)> handler;
+    {
+        std::lock_guard<std::mutex> lock(s_mutex);
+        long long&                  last = s_alert_last[key + "|" + code];
+        const long long             now  = now_unix_ms();
+        if (now - last < 120000)
+            return;
+        last    = now;
+        handler = s_alert_handler;
+    }
+    if (handler)
+        handler(key, text);
+}
+
 void push(const std::string& host, Source source, std::string text, std::string raw)
 {
     const std::string key = key_of(host);
@@ -145,14 +174,20 @@ void push(const std::string& host, Source source, std::string text, std::string 
     e.source = source;
     e.text   = std::move(text);
     e.raw    = std::move(raw);
-    std::lock_guard<std::mutex> lock(s_mutex);
-    Dev& d = s_devs[key];
-    e.seq  = d.next_seq++;
-    d.ring.push_back(std::move(e));
-    while (d.ring.size() > CAPACITY) {
-        d.ring.pop_front();
-        ++d.dropped;
+    e.alert  = is_alert_text(e.text);
+    const std::string alert_text = e.alert ? e.text : std::string();
+    {
+        std::lock_guard<std::mutex> lock(s_mutex);
+        Dev& d = s_devs[key];
+        e.seq  = d.next_seq++;
+        d.ring.push_back(std::move(e));
+        while (d.ring.size() > CAPACITY) {
+            d.ring.pop_front();
+            ++d.dropped;
+        }
     }
+    if (!alert_text.empty())
+        raise_alert(key, alert_text);
 }
 
 std::string raw_of(const json& j)
@@ -550,6 +585,14 @@ int klipper_poll(const std::string& host_in, int port)
     const std::string key = key_of(host_in);
     if (key.empty())
         return -1;
+    // One poll per host at a time (the console and the background poller both call this).
+    static std::set<std::string> s_inflight;
+    {
+        std::lock_guard<std::mutex> lock(s_mutex);
+        if (!s_inflight.insert(key).second)
+            return 0;
+    }
+    struct Release { const std::string& k; ~Release() { std::lock_guard<std::mutex> lock(s_mutex); s_inflight.erase(k); } } release{key};
     long long offset;
     {
         std::lock_guard<std::mutex> lock(s_mutex);
@@ -591,7 +634,7 @@ int klipper_poll(const std::string& host_in, int port)
         }
     }
 
-    std::lock_guard<std::mutex> lock(s_mutex);
+    std::unique_lock<std::mutex> lock(s_mutex);
     Dev& d = s_devs[key];
     if (status == 416) { // nothing new, or the log was rotated (shorter than our offset)
         if (total >= 0 && total < d.k_offset) {
@@ -652,6 +695,7 @@ int klipper_poll(const std::string& host_in, int port)
 
     int         added = 0;
     std::size_t pos   = 0;
+    std::vector<std::string> alerts;
     while (pos <= text.size()) {
         std::size_t end = text.find('\n', pos);
         if (end == std::string::npos)
@@ -666,6 +710,9 @@ int klipper_poll(const std::string& host_in, int port)
         e.t_ms   = now_unix_ms();
         e.source = Source::Klipper;
         e.text   = cut(redact_text(line), MAX_KLIPPER_LINE);
+        e.alert  = is_alert_text(e.text);
+        if (e.alert && !initial) // the first read is history, not news
+            alerts.push_back(e.text);
         e.seq    = d.next_seq++;
         d.ring.push_back(std::move(e));
         ++added;
@@ -674,7 +721,40 @@ int klipper_poll(const std::string& host_in, int port)
             ++d.dropped;
         }
     }
+    lock.unlock();
+    for (const std::string& a : alerts)
+        raise_alert(key, a);
     return added;
+}
+
+bool is_alert_text(const std::string& text)
+{
+    const std::string l = lower(text);
+    static const char* words[] = {"key846", "speed_err", "key353", "empty printing", "stepper too far in past"};
+    for (const char* w : words)
+        if (l.find(w) != std::string::npos)
+            return true;
+    return false;
+}
+
+void set_alert_handler(std::function<void(const std::string&, const std::string&)> handler)
+{
+    std::lock_guard<std::mutex> lock(s_mutex);
+    s_alert_handler = std::move(handler);
+}
+
+void start_background_poll()
+{
+    static std::atomic<bool> started{false};
+    if (started.exchange(true))
+        return;
+    std::thread([] {
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::seconds(20));
+            for (const std::string& h : hosts())
+                klipper_poll(h);
+        }
+    }).detach();
 }
 
 }} // namespace Slic3r::DeviceActivity

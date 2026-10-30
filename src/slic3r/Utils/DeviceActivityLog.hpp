@@ -12,6 +12,7 @@
 #define slic3r_Utils_DeviceActivityLog_hpp_
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,7 @@ struct Entry
     Source        source{Source::Agent};
     std::string   text;
     std::string   raw; // redacted JSON (or text), may be empty
+    bool          alert{false}; // key846 / SPEED_ERR / key353 / pause: highlighted and notified
 };
 
 // "http://10.1.2.3:7125/x" -> "10.1.2.3" (lower case). The key every function below takes as `host`.
@@ -78,6 +80,14 @@ std::string    redact_text(const std::string& s);
 // lines added, or -1 on a network error (also logged as an error entry, once per outage).
 int  klipper_poll(const std::string& host, int port = 7125);
 bool klipper_line_relevant(const std::string& line);
+
+// ---- alerts --------------------------------------------------------------------------------------------------------
+// True for lines that mean "the print stopped / needs you": key846 (CFS empty printing), SPEED_ERR, key353 (MCU shutdown),
+// a pause. Such entries get Entry::alert and call the handler (any thread; at most once per host and code per 2 minutes).
+bool is_alert_text(const std::string& text);
+void set_alert_handler(std::function<void(const std::string& host, const std::string& text)> handler);
+// Polls klippy.log of every known host every 20 s so alerts arrive with the console closed. Idempotent.
+void start_background_poll();
 
 }} // namespace Slic3r::DeviceActivity
 

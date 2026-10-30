@@ -25,6 +25,10 @@ using Post    = std::function<void(const std::string& command, nlohmann::json da
 // `post` runs on the UI thread, `post_async` may be called from any thread.
 void register_routes(std::unordered_map<std::string, Handler>& routes, Post post, Post post_async);
 
+// Notification (+ taskbar flash) when a printer logs key846 / SPEED_ERR / key353, and the background klippy.log poll that
+// feeds it while the console is closed. Call once, from the UI thread, after the main frame exists.
+void install_alerts();
+
 // The native console window for a printer host (modeless; one per host, raised when already open).
 void show_native(wxWindow* parent, const std::string& host, const std::string& title = {});
 

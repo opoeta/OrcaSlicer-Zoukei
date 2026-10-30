@@ -224,6 +224,11 @@ bool ams_setting_to_spec(const nlohmann::json& print_cmd, const std::vector<Pres
 
 // Vendor model_id for a "Creality ..." printer_model name when the vendor profile is not at hand
 // (OrcaSlicer compares the device's model against model_id, not the name).
+// Pre-send check: for every used slot (CFS unit index in cfs_boxes() order, slot 0..3) whose reserve slot (A<->B, C<->D of the
+// same unit) is loaded with another colour or material, one human-readable line. The printer only swaps to the reserve slot
+// automatically when both match, so a mismatch means the print stops (key846) when the used spool runs out.
+std::vector<std::string> reserve_mismatch_warnings(const PrinterSnapshot& snapshot, const std::vector<std::pair<int, int>>& used_slots);
+
 std::string fallback_model_id(const std::string& printer_model);
 
 }} // namespace Slic3r::CrealityCfs

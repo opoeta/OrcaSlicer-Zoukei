@@ -28,6 +28,7 @@
 #include <wx/filedlg.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
+#include <wx/notifmsg.h>
 #include <wx/sizer.h>
 #include <wx/srchctrl.h>
 #include <wx/stattext.h>
@@ -121,6 +122,8 @@ public:
         m_attr_out.SetTextColour(dark ? wxColour(0x6F, 0xB4, 0xFF) : wxColour(0x1F, 0x5F, 0xBF));
         m_attr_agent.SetTextColour(dark ? wxColour(0xA8, 0xB0, 0xB4) : wxColour(0x5B, 0x65, 0x6A));
         m_attr_klipper.SetTextColour(dark ? wxColour(0xFF, 0xB8, 0x4D) : wxColour(0xA8, 0x62, 0x00));
+        m_attr_alert.SetTextColour(dark ? wxColour(0xFF, 0x6B, 0x6B) : wxColour(0xC6, 0x1A, 0x1A));
+        m_attr_alert.SetFont(wxGetApp().bold_font());
 
         auto* root = new wxBoxSizer(wxVERTICAL);
 
@@ -187,6 +190,8 @@ public:
             [this](long item) -> wxItemAttr* {
                 if (item < 0 || item >= long(m_view.size()))
                     return nullptr;
+                if (m_entries[m_view[size_t(item)]].alert)
+                    return &m_attr_alert;
                 switch (m_entries[m_view[size_t(item)]].source) {
                 case DA::Source::Error: return &m_attr_error;
                 case DA::Source::Sync: return &m_attr_sync;
@@ -378,12 +383,26 @@ private:
     wxCheckBox*                 m_klipper{nullptr};
     wxStaticText*               m_status{nullptr};
     ConsoleList*                m_list{nullptr};
-    mutable wxItemAttr          m_attr_default, m_attr_error, m_attr_sync, m_attr_out, m_attr_agent, m_attr_klipper;
+    mutable wxItemAttr          m_attr_default, m_attr_error, m_attr_sync, m_attr_out, m_attr_agent, m_attr_klipper, m_attr_alert;
 };
 
 std::map<std::string, ConsoleDialog*> s_windows; // owned by wx (top-level windows); entries removed on destroy
 
 } // namespace
+
+void install_alerts()
+{
+    DA::set_alert_handler([](const std::string& host, const std::string& text) {
+        wxTheApp->CallAfter([host, text] {
+            wxNotificationMessage note(_L("Printer needs attention"), wxString::FromUTF8(host) + ": " + wxString::FromUTF8(text.substr(0, 200)),
+                                       wxGetApp().mainframe, wxICON_WARNING);
+            note.Show(wxNotificationMessage::Timeout_Never);
+            if (wxGetApp().mainframe)
+                wxGetApp().mainframe->RequestUserAttention(wxUSER_ATTENTION_ERROR);
+        });
+    });
+    DA::start_background_poll();
+}
 
 void show_native(wxWindow* parent, const std::string& host_in, const std::string& title)
 {

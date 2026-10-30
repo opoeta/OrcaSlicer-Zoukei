@@ -883,6 +883,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
 
     wxGetApp().persist_window_geometry(this, true);
     wxGetApp().persist_window_geometry(&m_settings_dialog, true);
+    DeviceConsole::install_alerts();
 }
 
 bool MainFrame::handle_global_shortcut(const KeyChord& chord)

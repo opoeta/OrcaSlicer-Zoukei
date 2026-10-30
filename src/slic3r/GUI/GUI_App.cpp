@@ -2478,7 +2478,10 @@ void GUI_App::init_networking_callbacks()
 
                                 obj->set_online_state(false);
                             } else if (state == ConnectStatus::ConnectStatusLost) {
-                                m_device_manager->set_selected_machine("");
+                                // Zoukei: deselecting disconnects the agent and drops its websocket client, so a printer that was
+                                // switched off and on never came back. The Creality link retries every 3 s: keep the selection.
+                                if (obj->printer_agent_id != "creality_cfs")
+                                    m_device_manager->set_selected_machine("");
                                 event.SetInt(-1);
                                 BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: state = lost";
 
