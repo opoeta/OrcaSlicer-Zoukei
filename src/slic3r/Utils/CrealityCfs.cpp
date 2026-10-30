@@ -6,6 +6,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <locale>
 #include <map>
 #include <set>
 #include <sstream>
@@ -75,8 +76,11 @@ bool parse_double(const std::string& raw, double& out)
         ++first;
     if (first == last)
         return false;
-    const auto res = std::from_chars(first, last, out);
-    return res.ec == std::errc() && res.ptr == last;
+    // Apple's libc++ (Xcode 15) has no floating-point from_chars; the classic locale keeps the dot as decimal point.
+    std::istringstream in(std::string(first, last));
+    in.imbue(std::locale::classic());
+    in >> out;
+    return !in.fail() && in.peek() == std::char_traits<char>::eof();
 }
 
 // Python's float(value) with a default for None / "" / garbage.
