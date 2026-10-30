@@ -568,6 +568,8 @@ jobs:
           "$appimage" --appimage-extract
           ./scripts/build_preset_cache.sh -b build build/package/resources/profiles squashfs-root/resources/profiles
           appimagetool=$(find build -name "appimagetool.AppImage" | head -1)
+          # appimagetool now refuses an AppDir with 0700 dirs (extracted AppImage keeps the runner umask)
+          chmod -R a+rX squashfs-root
           ARCH=$(uname -m) "$appimagetool" --appimage-extract-and-run squashfs-root "$appimage"
           rm -rf squashfs-root
         # Ship the freshly-built validator so slice_check_linux (build_all.yml)
