@@ -65,6 +65,7 @@
 #include "slic3r/GUI/Widgets/HyperLink.hpp"
 #include "slic3r/GUI/DeviceCore/DevDefs.h"
 #include <wx/busycursor.h>
+#include <boost/lexical_cast.hpp>
 #include <boost/log/trivial.hpp>
 #include <cstdio>
 #include <cstddef>
@@ -138,8 +139,10 @@
 #include "slic3r/GUI/Tabbook.hpp"
 #include "slic3r/GUI/Widgets/ComboBox.hpp"
 #include "slic3r/GUI/Widgets/PopupWindow.hpp"
+#include "slic3r/Utils/IPrinterAgent.hpp"
 #include "slic3r/Utils/NetworkAgent.hpp"
 #include "slic3r/GUI/Zoukei/PrintMarkers.hpp"
+#include "slic3r/Utils/NetworkAgentFactory.hpp"
 #include <boost/filesystem.hpp>
 
 using json = nlohmann::json;
@@ -189,6 +192,16 @@ std::string get_nozzle_volume_type_cloud_string(NozzleVolumeType nozzle_volume_t
 
 // Throttle so the rack print-dispatch nozzle-mapping request isn't re-sent on every status poll.
 static int s_nozzle_mapping_last_request_time = 0;
+
+// Printer agents name a printer after its model, so two printers of one model are told apart by their address.
+wxString get_shown_printer_name(const MachineObject* obj)
+{
+    const wxString name = wxString::FromUTF8(obj->get_dev_name());
+    if (!obj->printer_agent_id.empty() && obj->printer_agent_id != BBL_PRINTER_AGENT_ID && !obj->get_dev_ip().empty() &&
+        obj->get_dev_ip() != obj->get_dev_name())
+        return name + " (" + wxString::FromUTF8(obj->get_dev_ip()) + ")";
+    return obj->is_lan_mode_printer() ? name + _L("(LAN)") : name;
+}
 
 std::vector<wxString> SelectMachineDialog::MACHINE_BED_TYPE_STRING;
 std::vector<std::string> SelectMachineDialog::MachineBedTypeString;
@@ -993,7 +1006,7 @@ void SelectMachineDialog::init_bind()
             if (!obj) return;
 
             if (obj->get_dev_id() == e.GetString()) {
-                m_printer_box->SetPrinterName(wxString::FromUTF8(obj->get_dev_name()) + _L("(LAN)"));
+                m_printer_box->SetPrinterName(get_shown_printer_name(obj));
             }
         }
     });
@@ -4131,6 +4144,7 @@ void SelectMachineDialog::on_refresh(wxCommandEvent &event)
 {
     BOOST_LOG_TRIVIAL(info) << "m_printer_last_select: on_refresh";
     show_status(PrintDialogStatus::PrintStatusRefreshingMachineList);
+    m_pull_filament_pending = true;
     update_user_machine_list();
 }
 
@@ -4366,7 +4380,7 @@ void SelectMachineDialog::update_user_printer()
     {
         m_printer_last_select = "";
         update_select_layout(nullptr);
-        m_printer_box->GetPrinterComboBox()->SetTextLabel("");
+        m_printer_box->GetPrinterComboBox()->SetValue(_L("No available printers"));
     }
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "for send task, current printer id =  " << m_printer_last_select << std::endl;
@@ -4567,6 +4581,7 @@ void SelectMachineDialog::on_selection_changed(wxCommandEvent &event)
 
         // Has changed machine unrecoverably
         m_check_flag = false;
+        m_pull_filament_pending = true;
     } else {
         BOOST_LOG_TRIVIAL(error) << "on_selection_changed dev_id not found";
         return;
@@ -4720,7 +4735,7 @@ static std::unordered_multimap<int, NozzleDef> s_get_slicing_extuder_nozzles()
             const auto& used_nozzles = nozzle_group_res->get_used_nozzles_in_extruder();
             for (const auto& used_nozzle : used_nozzles) {
                 NozzleDef nozzle_data;
-                nozzle_data.nozzle_diameter = std::stof(used_nozzle.diameter);
+                nozzle_data.nozzle_diameter = boost::lexical_cast<float>(used_nozzle.diameter);
                 nozzle_data.nozzle_flow_type = DevNozzle::ToNozzleFlowType(used_nozzle.volume_type);
                 if (used_nozzle.extruder_id == 0) {
                     used_extuder_nozzles.insert({ DEPUTY_EXTRUDER_ID, nozzle_data });
@@ -4828,7 +4843,7 @@ void SelectMachineDialog::CheckWarningRackStatus(MachineObject* obj_)
     for (const auto& slicing_nozzle : nozzle_vec) {
         try {
             NozzleDef data;
-            data.nozzle_diameter = std::stof(slicing_nozzle.diameter);
+            data.nozzle_diameter = boost::lexical_cast<float>(slicing_nozzle.diameter);
             data.nozzle_flow_type = DevNozzle::ToNozzleFlowType(slicing_nozzle.volume_type);
             need_nozzle_map[data]++;
         } catch (const std::exception& e) {
@@ -5088,6 +5103,18 @@ void SelectMachineDialog::update_show_status(MachineObject* obj_)
     }
 
     reset_timeout();
+
+    // Orca: pull-mode agents only refresh their filament data when asked, so ask before the mapping uses it
+    if (m_pull_filament_pending) {
+        m_pull_filament_pending = false;
+        if (agent->get_filament_sync_mode() == FilamentSyncMode::pull) {
+            wxBusyCursor busy;
+            if (agent->fetch_filament_info(obj_->get_dev_id())) {
+                m_ams_mapping_result.clear();
+                m_check_flag = false;
+            }
+        }
+    }
 
     /*check print all*/
     if (!obj_->GetConfig()->SupportPrintAllPlates() && m_print_plate_idx == PLATE_ALL_IDX)
@@ -6027,8 +6054,9 @@ void SelectMachineDialog::reset_and_sync_ams_list()
 }
 
 // Orca: collapse the per-nozzle material items into the single panel when the printer has one
-// extruder or a filament switch (both feed a single logical mapping surface); otherwise keep the
-// left/right split. Early-returns unless an item is actually in the wrong panel.
+// extruder or a filament switch (both feed a single logical mapping surface), or when the plate is
+// sliced for one nozzle (it has no left/right filament map); otherwise keep the left/right split.
+// Early-returns unless an item is actually in the wrong panel.
 void SelectMachineDialog::update_material_item_pos(MachineObject* obj_)
 {
     if (!obj_) {
@@ -6037,7 +6065,10 @@ void SelectMachineDialog::update_material_item_pos(MachineObject* obj_)
 
     const bool is_single_head = obj_->GetExtderSystem()->GetTotalExtderCount() < 2;
     const bool has_switcher = obj_->GetFilaSwitch()->IsInstalled();
-    const bool use_single_panel = is_single_head || has_switcher;
+    // reset_and_sync_ams_list() fills m_filaments_map only for a multi-nozzle plate
+    const auto& full_config = wxGetApp().preset_bundle->full_config();
+    const bool single_nozzle_plate = full_config.option<ConfigOptionFloats>("nozzle_diameter")->values.size() < 2;
+    const bool use_single_panel = is_single_head || has_switcher || single_nozzle_plate;
 
     bool to_change_pos = false;
     for (const auto& iter : m_materialList) {
@@ -6726,6 +6757,7 @@ bool SelectMachineDialog::Show(bool show)
 
 void SelectMachineDialog::show_init() {
     m_ams_mapping_result.clear();
+    m_pull_filament_pending = true;
 }
 
 SelectMachineDialog::~SelectMachineDialog()
@@ -7509,7 +7541,9 @@ static wxString _get_tips(MachineObject* obj_)
             auto* opt = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter");
             if (opt && !opt->values.empty()) diameter = float(opt->values[0]);
         }
-        ext_diameter += format_nozzle_diameter(diameter);
+        // A nozzle neither the printer nor the preset reports shows no size rather than "Unknown"
+        if (diameter > 0.0f)
+            ext_diameter += format_nozzle_diameter(diameter);
     } else if (obj_->GetExtderSystem()->GetTotalExtderCount() == 2) {
         ext_diameter += format_nozzle_diameter(obj_->GetExtderSystem()->GetNozzleDiameter(1));//Left
         ext_diameter += "/";
@@ -7533,13 +7567,8 @@ void PrinterInfoBox::SetPrinters(const std::vector<MachineObject*>& sorted_print
     std::vector<DropDown::Item> drop_items;
     for (MachineObject* obj : sorted_printers)
     {
-        wxString shown_dev_name = wxString::FromUTF8(obj->get_dev_name());
-        if (obj->is_lan_mode_printer()) {
-            shown_dev_name += _L("(LAN)");
-        }
-
         DropDown::Item drop_item;
-        drop_item.text = shown_dev_name;
+        drop_item.text = get_shown_printer_name(obj);
         drop_item.text_static_tips = _get_tips(obj);
         if (is_creality_printer_selected() || is_flashforge_printer_selected())
             drop_item.text_static_tips += "  " + (obj->is_connected() || obj->is_online() ? _L("Online") : _L("Offline"));

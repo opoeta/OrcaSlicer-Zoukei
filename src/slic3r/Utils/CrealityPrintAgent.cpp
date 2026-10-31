@@ -87,15 +87,15 @@ std::vector<std::string> name_words(const std::string& name)
 //   Return the exact name so a user preset keeps its tuning even when it shares
 //   a filament_id with the system preset.
 // Requires the preset's declared filament_type to equal the spool's base type
-// (PLA/PETG/ABS/...) for heuristic matches so we never auto-pick a PETG preset
-// for a PLA spool. Falls back to filaments.filament_id_by_type(base_type) when
-// nothing scores; the downstream resolver retains its legacy ID lookup for that
-// generic fallback and for agents that still supply filament IDs.
+// (PLA/PETG/ABS/...) so we never auto-pick a PETG preset for a PLA spool.
+// Falls back to a visible system base of the same type when nothing scores.
 std::string CrealityPrintAgent::match_filament_preset(const PresetCollection& filaments,
                                                       const std::string&      vendor,
                                                       const std::string&      brand_name,
                                                       const std::string&      base_type)
 {
+    if (base_type.empty()) return {}; // a spool the printer could not name has no preset
+
     const std::string vendor_lower = to_lower(vendor);
     const std::string brand_lower  = to_lower(brand_name);
     const std::string type_lower   = to_lower(base_type);
@@ -157,13 +157,17 @@ std::string CrealityPrintAgent::match_filament_preset(const PresetCollection& fi
     }
 
     if (matches.empty()) {
-        const std::string fallback = filaments.filament_id_by_type(base_type);
-        const bool        fallback_ok = has_visible_base_preset(filaments, fallback);
+        // first_visible_idx_by_type() returns any visible preset when no base of this
+        // type exists. Never sync an unrelated material to the CFS.
+        const auto&       fallback_preset = filaments.preset(filaments.first_visible_idx_by_type(base_type));
+        const std::string fallback        = fallback_preset.filament_id;
+        const bool        fallback_ok     = fallback_preset.config.opt_string("filament_type", 0u) == base_type &&
+                                    has_visible_base_preset(filaments, fallback);
         BOOST_LOG_TRIVIAL(info)
             << "CrealityPrintAgent: no preset scored for spool {" << vendor << " "
             << brand_name << " (" << base_type << ")} after considering " << considered
             << " presets; falling back to generic preset id \"" << fallback << "\""
-            << (fallback_ok ? "" : " (NOT visible — returning empty)");
+            << (fallback_ok ? "" : " (no visible base of this type; returning empty)");
         return fallback_ok ? fallback : std::string();
     }
 
@@ -216,8 +220,8 @@ std::string CrealityPrintAgent::normalize_filament_type(const std::string& filam
 //       "external": bool,                           // optional bridge compatibility marker
 //       "materials": [
 //         { "id": int, "state": int,             // state 1 = loaded
-//           "vendor": str, "type": str, "name": str,
-//           "color": "#0RRGGBB" }, ...
+//           "vendor": str, "type": str, "name": str, // all "" for an unknown RFID tag
+//           "color": "#dRRGGBB" }, ...
 //       ]}, ...
 //   ]}}
 bool CrealityPrintAgent::parse_cfs_response(const std::string&    response,
@@ -254,8 +258,8 @@ bool CrealityPrintAgent::parse_cfs_response(const std::string&    response,
     CFSSlot external_slot;
     bool external_loaded = false;
     for (const auto& box : resp["boxsInfo"]["materialBoxs"]) {
-        const int box_st   = box.value("state", 0);
-        const int box_type = box.value("type",  0);
+        const int box_st   = safe_json_int(box, "state");
+        const int box_type = safe_json_int(box, "type");
         const bool is_external = box_type == 1 || box.value("external", false);
         if (box_st != 1) continue;
         if (box_type != 0 && !is_external) continue;
@@ -274,24 +278,25 @@ bool CrealityPrintAgent::parse_cfs_response(const std::string&    response,
             //                                              selected as the active
             //                                              spool for printing,
             //                                          2 = loaded but not selected.
-            // We treat anything non-zero as loaded. Belt-and-braces: also skip
-            // entries that look blank (no vendor and no type) regardless of state.
-            const int s_state = mat.value("state", 0);
-            const std::string s_vendor = mat.value("vendor", std::string());
-            const std::string s_type   = mat.value("type",   std::string());
-            if (s_state == 0)                       continue; // explicitly empty
-            if (s_vendor.empty() && s_type.empty()) continue; // blank entry — likely empty under a different state encoding
+            // We treat anything non-zero as loaded. A loaded spool with an unknown RFID
+            // tag reports only its colour, so only an entry with no colour either is blank.
+            const int s_state = safe_json_int(mat, "state");
+            const std::string s_vendor = safe_json_string(mat, "vendor");
+            const std::string s_type   = safe_json_string(mat, "type");
+            const std::string s_color  = safe_json_string(mat, "color");
+            if (s_state == 0)                                          continue; // explicitly empty
+            if (s_vendor.empty() && s_type.empty() && s_color.empty()) continue; // blank entry
 
             CFSSlot s;
             s.box_id        = cfs_index;
-            s.slot_id       = mat.value("id",     0);
+            s.slot_id       = safe_json_int(mat, "id");
             s.vendor        = s_vendor;
-            s.brand_name    = mat.value("name",   "");
+            s.brand_name    = safe_json_string(mat, "name");
             s.filament_type = s_type;
-            s.color_hex     = mat.value("color",  "#FFFFFF");
+            s.color_hex     = s_color.empty() ? "#FFFFFF" : s_color;
 
-            // Creality reports colour as "#0RRGGBB" (8 chars with a leading zero
-            // after '#'). Normalise to standard "#RRGGBB".
+            // Creality reports colour as "#" + a digit + "RRGGBB". Drop the digit,
+            // as Creality Print does, to get a standard "#RRGGBB".
             if (s.color_hex.size() == 8 && s.color_hex[0] == '#')
                 s.color_hex = "#" + s.color_hex.substr(2);
 

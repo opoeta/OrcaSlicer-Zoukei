@@ -66,6 +66,7 @@
 #include "format.hpp"
 #include "Tab.hpp"
 #include "ConfigWizard.hpp"
+#include "ConfigWizardTypes.hpp"
 #include "../Utils/UndoRedo.hpp"
 #include "BitmapCache.hpp"
 #include "SavePresetDialog.hpp"
@@ -77,6 +78,7 @@
 
 #include "DeviceCore/DevManager.h"
 #include "slic3r/GUI/Widgets/Label.hpp"
+#include "slic3r/Utils/NetworkAgent.hpp"
 
 // A workaround for a set of issues related to text fitting into gtk widgets:
 #if defined(__WXGTK20__) || defined(__WXGTK3__)
@@ -1042,9 +1044,9 @@ PlaterPresetComboBox::~PlaterPresetComboBox()
         clr_picker->Destroy();
 }
 
-static void run_wizard(ConfigWizard::StartPage sp)
+static void run_wizard(StartPage sp)
 {
-    wxGetApp().run_wizard(ConfigWizard::RR_USER, sp);
+    wxGetApp().run_wizard(RunReason::RR_USER, sp);
 }
 
 void PlaterPresetComboBox::OnSelect(wxCommandEvent &evt)
@@ -1064,11 +1066,11 @@ void PlaterPresetComboBox::OnSelect(wxCommandEvent &evt)
         //if (marker == LABEL_ITEM_WIZARD_PRINTERS)
         //    show_add_menu();
         //else {
-            ConfigWizard::StartPage sp = ConfigWizard::SP_WELCOME;
+            StartPage sp = StartPage::SP_WELCOME;
             switch (marker) {
-            case LABEL_ITEM_WIZARD_PRINTERS: sp = ConfigWizard::SP_PRINTERS; break;
-            case LABEL_ITEM_WIZARD_FILAMENTS: sp = ConfigWizard::SP_FILAMENTS; break;
-            case LABEL_ITEM_WIZARD_MATERIALS: sp = ConfigWizard::SP_MATERIALS; break;
+            case LABEL_ITEM_WIZARD_PRINTERS: sp = StartPage::SP_PRINTERS; break;
+            case LABEL_ITEM_WIZARD_FILAMENTS: sp = StartPage::SP_FILAMENTS; break;
+            case LABEL_ITEM_WIZARD_MATERIALS: sp = StartPage::SP_MATERIALS; break;
             default: break;
             }
             wxTheApp->CallAfter([sp]() { run_wizard(sp); });
@@ -1105,16 +1107,15 @@ bool PlaterPresetComboBox::switch_to_tab()
     const Preset* selected_filament_preset = nullptr;
     if (m_type == Preset::TYPE_FILAMENT)
     {
-        const std::string& selected_preset = GetString(GetSelection()).ToUTF8().data();
-        if (!boost::algorithm::starts_with(selected_preset, Preset::suffix_modified()))
+        // Reload the editor only when it has a different preset open than this slot.
+        const std::string& slot_preset_name = wxGetApp().preset_bundle->filament_presets[m_filament_idx];
+        if (slot_preset_name != wxGetApp().preset_bundle->filaments.get_selected_preset_name())
         {
-            const std::string& preset_name = wxGetApp().preset_bundle->filaments.get_preset_name_by_alias(selected_preset);
-            if (wxGetApp().get_tab(m_type)->select_preset(preset_name))
-                wxGetApp().get_tab(m_type)->get_combo_box()->set_filament_idx(m_filament_idx);
-            else {
+            if (!wxGetApp().get_tab(m_type)->select_preset(slot_preset_name))
                 return false;
-            }
         }
+        // Bind the editor to this slot even when its preset is already open.
+        wxGetApp().get_tab(m_type)->get_combo_box()->set_filament_idx(m_filament_idx);
     }
 
     /*
@@ -1163,7 +1164,7 @@ void PlaterPresetComboBox::show_add_menu()
 
     append_menu_item(menu, wxID_ANY, _L("Add/Remove presets"), "",
         [](wxCommandEvent&) {
-            wxTheApp->CallAfter([]() { run_wizard(ConfigWizard::SP_PRINTERS); });
+            wxTheApp->CallAfter([]() { run_wizard(StartPage::SP_PRINTERS); });
         }, "menu_edit_preset", menu, []() { return true; }, wxGetApp().plater());
 
     wxGetApp().plater()->PopupMenu(menu);
@@ -1188,7 +1189,7 @@ void PlaterPresetComboBox::show_edit_menu()
 
     append_menu_item(menu, wxID_ANY, _L("Add/Remove presets"), "",
         [](wxCommandEvent&) {
-            wxTheApp->CallAfter([]() { run_wizard(ConfigWizard::SP_PRINTERS); });
+            wxTheApp->CallAfter([]() { run_wizard(StartPage::SP_PRINTERS); });
         }, "menu_edit_preset", menu, []() { return true; }, wxGetApp().plater());
 
     wxGetApp().plater()->PopupMenu(menu);
@@ -1714,14 +1715,14 @@ void TabPresetComboBox::OnSelect(wxCommandEvent &evt)
     if (marker >= LABEL_ITEM_DISABLED && marker < LABEL_ITEM_MAX) {
         this->SetSelection(m_last_selected);
         // BBS: Add/Remove filaments
-        ConfigWizard::StartPage sp = ConfigWizard::SP_WELCOME;
+        StartPage sp = StartPage::SP_WELCOME;
         switch (marker) {
-        case LABEL_ITEM_WIZARD_PRINTERS: sp = ConfigWizard::SP_PRINTERS; break;
-        case LABEL_ITEM_WIZARD_FILAMENTS: sp = ConfigWizard::SP_FILAMENTS; break;
-        case LABEL_ITEM_WIZARD_MATERIALS: sp = ConfigWizard::SP_MATERIALS; break;
+        case LABEL_ITEM_WIZARD_PRINTERS: sp = StartPage::SP_PRINTERS; break;
+        case LABEL_ITEM_WIZARD_FILAMENTS: sp = StartPage::SP_FILAMENTS; break;
+        case LABEL_ITEM_WIZARD_MATERIALS: sp = StartPage::SP_MATERIALS; break;
         default: break;
         }
-        if (sp != ConfigWizard::SP_WELCOME) {
+        if (sp != StartPage::SP_WELCOME) {
             wxTheApp->CallAfter([sp]() {
                 run_wizard(sp);
             });

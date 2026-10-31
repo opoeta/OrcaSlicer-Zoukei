@@ -64,6 +64,13 @@ public:
     // using the given camera matrices.
     //
     void render(const Mat4x4& view_matrix, const Mat4x4& projection_matrix);
+    // shortcut: the official translucent toolpaths and gloss (OrcaSlicer #16776) do not fit our segments renderer (vertex
+    // pulling, coaxial stripes in the colour buffer), so the caller sees opaque filaments. Port them to replace these.
+    void render_translucent(const Mat4x4&, const Mat4x4&) {}
+    bool has_translucent_toolpaths() const { return false; }
+    void set_gloss(bool) {}
+    bool is_translucent_filaments() const { return false; }
+    void set_translucent_filaments(bool) {}
     //
     // ORCA: realistic view. Render the toolpaths as seen from the light, to fill the caller's
     // shadow map. Depth only - the caller masks colour writes and owns the framebuffer.
