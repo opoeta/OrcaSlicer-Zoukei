@@ -124,7 +124,6 @@ namespace {
 using detail::reconnect_polylines;
 using detail::detect_overhang_corners;
 
-#define EXTRA_PERIMETER_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.
 
 template <class Fn>
 void for_each_boundary_point(const ExPolygon &expoly, Fn &&fn)
@@ -778,8 +777,7 @@ GenerateResult generate(const ExPolygons   &overhang_area,
                 if (trim_boundary.empty())
                     trim_boundary = wave_cover_polygons;
 
-                const coord_t seed_offset = additional_shell_count > 0 ? shell_inner_edge + seed_expansion : seed_expansion;
-                Polygons accumulated_region = intersection(offset(seeds, float(seed_offset), jtRound, 0., etOpenRound), wave_cover_polygons);
+                Polygons accumulated_region = intersection(offset(seeds, float(seed_expansion), jtRound, 0., etOpenRound), wave_cover_polygons);
                 if (accumulated_region.empty())
                     continue;
 

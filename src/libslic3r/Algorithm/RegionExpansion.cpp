@@ -301,7 +301,6 @@ std::vector<WaveSeed> wave_seeds(
                     if (boundary_id >= 0)
                         out.push_back({ src_id, uint32_t(boundary_id), ClipperZUtils::from_zpath(path) });
                 }
-                ++ iseed;
                 continue;
             }
             // Unable to determine source ID – drop the segment.
