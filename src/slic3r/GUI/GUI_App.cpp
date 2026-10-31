@@ -8929,7 +8929,7 @@ bool GUI_App::load_language(wxString language, bool initial)
     //FIXME wxWidgets cause havoc if the current locale is deleted. We just forget it causing memory leaks for now.
     m_wxLocale.release();
     m_wxLocale = Slic3r::make_unique<wxLocale>();
-    m_wxLocale->Init(locale_language);
+    m_wxLocale->Init(locale_language_info->Language);
     // Override language at the active wxTranslations class (which is stored in the active m_wxLocale)
     // to load possibly different dictionary, for example, load Czech dictionary for Slovak language.
     wxTranslations::Get()->SetLanguage(language_dict);
