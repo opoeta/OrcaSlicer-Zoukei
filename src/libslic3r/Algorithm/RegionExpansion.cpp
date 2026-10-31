@@ -257,7 +257,6 @@ std::vector<WaveSeed> wave_seeds(
     // Multiple pieces of a single src may intersect the same boundary.
     WaveSeeds out;
     out.reserve(segments.size());
-    int iseed = 0;
     for (const ClipperZUtils::ZPath &path : segments) {
         assert(path.size() >= 2);
         ClipperZUtils::ZPoint front = path.front();
@@ -313,12 +312,17 @@ std::vector<WaveSeed> wave_seeds(
             // See https://github.com/prusa3d/PrusaSlicer/issues/12469.
             // Segement is open, yet its first point seems to be part of boundary polygon.
             // Take the first point with src polygon index.
+            bool found = false;
             for (const ClipperZUtils::ZPoint &point : path) {
                 if (point.z() >= idx_boundary_end) {
                     front = point;
                     back = point;
+                    found = true;
+                    break;
                 }
             }
+            if (! found)
+                continue;
         }
 
         const Intersection *intersection = nullptr;
@@ -344,6 +348,8 @@ std::vector<WaveSeed> wave_seeds(
         } else {
             // This should be a closed contour.
             assert(front == back && front.z() >= idx_boundary_end && front.z() < idx_src_end);
+            if (front != back || front.z() < idx_boundary_end || front.z() >= idx_src_end)
+                continue;
             // Find a source boundary expolygon of one sample of this closed path.
             if (aabb_tree.empty())
                 aabb_tree = build_aabb_tree_over_expolygons(boundary);
@@ -353,7 +359,6 @@ std::vector<WaveSeed> wave_seeds(
             if (boundary_id >= 0)
                 out.push_back({ uint32_t(front.z() - idx_boundary_end), uint32_t(boundary_id), ClipperZUtils::from_zpath(path) });
         }
-        ++ iseed;
     }
 
     if (sorted)
