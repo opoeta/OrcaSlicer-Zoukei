@@ -230,7 +230,7 @@ void CrealityCfsAutoSync::tick()
         if (!reason.empty()) {
             if (!m_blocked_notified) {
                 DeviceActivity::sync(host, "write held: " + reason);
-                CrealityCfsAgent::notify("Creality CFS: filament change queued, " + reason + ".");
+                CrealityCfsAgent::notify(_u8L("Creality CFS: filament change queued, ") + reason + ".");
                 m_blocked_notified = true;
             }
             return;
@@ -309,9 +309,9 @@ void CrealityCfsAutoSync::tick()
             if (!bad.empty())
                 DeviceActivity::error(client->host(), "write FAILED: " + bad);
             if (!ok.empty())
-                CrealityCfsAgent::notify("Creality CFS updated: " + ok);
+                CrealityCfsAgent::notify(_u8L("Creality CFS updated: ") + ok);
             if (!bad.empty())
-                CrealityCfsAgent::notify("Creality CFS sync failed for " + bad, true);
+                CrealityCfsAgent::notify(_u8L("Creality CFS sync failed for ") + bad, true);
         }).detach();
     } catch (const std::exception& e) {
         BOOST_LOG_TRIVIAL(warning) << "Creality CFS auto-sync tick failed: " << e.what();

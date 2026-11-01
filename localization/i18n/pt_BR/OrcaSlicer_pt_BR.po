@@ -42218,8 +42218,8 @@ msgstr "Comprimento, em mm, dos sub-segmentos em que cada linha do preenchimento
 msgid "Libre Mode (True Objects, Snap & Drag)"
 msgstr "Modo Livre (Objetos Reais, Snap & Drag)"
 
-msgid "Experimental. Objects may float at any height and the slicer measures what is really under every surface: a face resting on another object prints as a normal contact surface and only the part over air is a bridge.\nAlso enables Snap & Drag (drag an object and it lands on the real surface below), the per-object \"Assembled boolean\" switch, per-part XY compensation and Copy / Paste Process Settings in the object list.\nSnap & Drag options are in the Align & Stack panel. Ported from OrcaFS-NeotkoCM (Neotko)."
-msgstr "Experimental. Os objetos podem flutuar em qualquer altura e o fatiador mede o que existe de fato sob cada superfície: uma face apoiada em outro objeto é impressa como superfície de contato normal e só a parte sobre o ar vira ponte.\nTambém ativa o Snap & Drag (arraste um objeto e ele pousa na superfície real abaixo), a chave \"Booleana montada\" por objeto, a compensação XY por peça e Copiar / Colar configurações de processo na lista de objetos.\nAs opções do Snap & Drag ficam no painel Alinhar e Empilhar. Portado do OrcaFS-NeotkoCM (Neotko)."
+msgid "Experimental. Objects may float at any height and the slicer measures what is really under every surface: a face resting on another object prints as a normal contact surface and only the part over air is a bridge.\nAlso enables Snap & Drag (drag an object and it lands on the real surface below), the per-object \"Assembled boolean\" switch, per-part XY compensation and Copy / Paste Process Settings in the object list.\nSnap & Drag options are in the Align & Construct panel. Ported from OrcaFS-NeotkoCM (Neotko)."
+msgstr "Experimental. Os objetos podem flutuar em qualquer altura e o fatiador mede o que existe de fato sob cada superfície: uma face apoiada em outro objeto é impressa como superfície de contato normal e só a parte sobre o ar vira ponte.\nTambém ativa o Snap & Drag (arraste um objeto e ele pousa na superfície real abaixo), a chave \"Booleana montada\" por objeto, a compensação XY por peça e Copiar / Colar configurações de processo na lista de objetos.\nAs opções do Snap & Drag ficam no painel Alinhar e construir. Portado do OrcaFS-NeotkoCM (Neotko)."
 
 msgid "True Objects mode (slice-time)"
 msgstr "Modo Objetos Reais (na hora de fatiar)"
@@ -44707,3 +44707,237 @@ msgstr ""
 
 msgid "ignored (BMCU)"
 msgstr "ignorado (BMCU)"
+
+msgid "Pick a face on #1 first."
+msgstr "Escolha primeiro uma face do #1."
+
+msgid "Height must be above 0."
+msgstr "A altura precisa ser maior que 0."
+
+msgid "That face has no usable outline."
+msgstr "Essa face não tem um contorno utilizável."
+
+msgid "That face has no holes."
+msgstr "Essa face não tem furos."
+
+msgid "With that offset nothing is left of the shape."
+msgstr "Com esse deslocamento não sobra nada da forma."
+
+msgid "Extruded surface"
+msgstr "Superfície extrudada"
+
+msgid "One of them is inside the other. Pick two different parts, or two objects."
+msgstr "Um está dentro do outro. Escolha duas peças diferentes ou dois objetos."
+
+msgid "The operation gave no result. The two objects may not overlap, or one of them is not a closed solid."
+msgstr "A operação não gerou resultado. Os dois objetos podem não se sobrepor, ou um deles não é um sólido fechado."
+
+msgid "Keeping the painting..."
+msgstr "Mantendo a pintura..."
+
+msgid "Just this part of its object."
+msgstr "Só esta peça do objeto."
+
+msgid "The whole object."
+msgstr "O objeto inteiro."
+
+msgid "Click to let it go."
+msgstr "Clique para soltar."
+
+msgid "#1 becomes #2 and #2 becomes #1."
+msgstr "O #1 vira #2 e o #2 vira #1."
+
+msgid "Let both go and start again."
+msgstr "Solta os dois e recomeça."
+
+msgid "Click an object: it becomes #1, the one that stays. Then click another: #2, the one that moves. Click an object made of several parts again to take just the part you touch."
+msgstr "Clique em um objeto: ele vira o #1, o que fica parado. Depois clique em outro: o #2, o que se move. Clique de novo em um objeto de várias peças para pegar só a peça que tocar."
+
+msgid "Click a second object to place it against #1, or pick a face of #1 below. Click #1 again to take just the part you touch."
+msgstr "Clique em um segundo objeto para posicioná-lo junto ao #1, ou escolha uma face do #1 abaixo. Clique de novo no #1 para pegar só a peça que tocar."
+
+msgid "Place #2"
+msgstr "Posicionar #2"
+
+msgid "Next to"
+msgstr "Ao lado"
+
+msgid "#2 ends up beside #1, touching it,\non the side you choose."
+msgstr "O #2 fica ao lado do #1, encostado nele,\nno lado que você escolher."
+
+msgid "Align edge"
+msgstr "Alinhar borda"
+
+msgid "#2 moves until its edge on the side you choose\nlines up with the same edge of #1."
+msgstr "O #2 se move até a borda do lado escolhido\nalinhar com a mesma borda do #1."
+
+msgid "Lines up this edge of #2 with #1's."
+msgstr "Alinha esta borda do #2 com a do #1."
+
+msgid "Puts #2 on this side of #1, touching it."
+msgstr "Coloca o #2 neste lado do #1, encostado nele."
+
+msgid "Centre"
+msgstr "Centralizar"
+
+msgid "Centres #2 on #1, seen from above."
+msgstr "Centraliza o #2 no #1, visto de cima."
+
+msgid "Align tops"
+msgstr "Alinhar topos"
+
+msgid "#2 moves up or down until its top\nis level with #1's."
+msgstr "O #2 sobe ou desce até o topo\nficar no nível do topo do #1."
+
+msgid "#2 goes up until it rests on top of #1,\nleaving the Z gap."
+msgstr "O #2 sobe até apoiar em cima do #1,\ndeixando a folga em Z."
+
+msgid "Centre Z"
+msgstr "Centralizar Z"
+
+msgid "Centres #2 on #1 in height."
+msgstr "Centraliza o #2 no #1 na altura."
+
+msgid "To bed"
+msgstr "Para a mesa"
+
+msgid "#2 drops to the bed."
+msgstr "O #2 desce até a mesa."
+
+msgid "Z gap"
+msgstr "Folga em Z"
+
+msgid "Air left between the two when one\nis put on top of the other, in mm."
+msgstr "Ar deixado entre os dois quando um\nfica em cima do outro, em mm."
+
+msgid "Face of #1"
+msgstr "Face do #1"
+
+msgid "Pick a face"
+msgstr "Escolher uma face"
+
+msgid "Then click a face of #1 in the scene.\nA flat face lights up whole."
+msgstr "Depois clique em uma face do #1 na cena.\nUma face plana acende por inteiro."
+
+msgid "Drop #2 on it"
+msgstr "Baixar o #2 sobre ela"
+
+msgid "#2 goes up or down until it rests\nat the height of that face."
+msgstr "O #2 sobe ou desce até apoiar\nna altura dessa face."
+
+msgid "Click a face of #1 in the scene."
+msgstr "Clique em uma face do #1 na cena."
+
+msgid "Extrude from the face"
+msgstr "Extrudar a partir da face"
+
+msgid "Pick a flat face first."
+msgstr "Escolha primeiro uma face plana."
+
+msgid "Extrudes the face as it is."
+msgstr "Extruda a face como ela está."
+
+msgid "Holes"
+msgstr "Furos"
+
+msgid "Extrudes only the holes of the face, filled.\nPick the flat face around a screw hole and\nraise Offset to make a bigger hole with\na Difference."
+msgstr "Extruda só os furos da face, preenchidos.\nEscolha a face plana em volta de um furo de parafuso e\naumente o Deslocamento para abrir um furo maior com\numa Diferença."
+
+msgid "How thick the new solid is, in mm.\nIt grows along the face's own direction."
+msgstr "Espessura do novo sólido, em mm.\nEle cresce na direção da própria face."
+
+msgid "Grows the outline of the face, in mm.\nNegative values shrink it."
+msgstr "Aumenta o contorno da face, em mm.\nValores negativos o reduzem."
+
+msgid "Both directions"
+msgstr "Duas direções"
+
+msgid "Off: the solid grows out of the face.\nOn: half the height grows out and half\ngoes into the object, so it passes through\nthe face (handy for booleans)."
+msgstr "Desligado: o sólido cresce para fora da face.\nLigado: metade da altura cresce para fora e metade\nentra no objeto, atravessando\na face (útil para booleanas)."
+
+msgid "A new part of #1's object, in place.\nIt shares that object's layer height."
+msgstr "Uma nova peça do objeto do #1, no lugar.\nUsa a altura de camada desse objeto."
+
+msgid "A separate object, with its own layer height."
+msgstr "Um objeto separado, com sua própria altura de camada."
+
+msgid "Boolean: #1 with #2"
+msgstr "Booleana: #1 com #2"
+
+msgid "#1 and #2 fused into one solid."
+msgstr "#1 e #2 fundidos em um só sólido."
+
+msgid "#1 with the shape of #2 carved out of it."
+msgstr "O #1 com a forma do #2 recortada."
+
+msgid "Only the volume that #1 and #2 share."
+msgstr "Só o volume comum ao #1 e ao #2."
+
+msgid "Keep #1 and #2"
+msgstr "Manter #1 e #2"
+
+msgid "Off: the result replaces both.\nOn: the result is added and both stay."
+msgstr "Desligado: o resultado substitui os dois.\nLigado: o resultado é adicionado e os dois ficam."
+
+msgid "Save to printer"
+msgstr "Salvar na impressora"
+
+msgid "The reserve slot of a filament in use holds another colour or material. The printer will not switch to it when the spool runs out, and the print will stop:"
+msgstr "O slot reserva de um filamento em uso tem outra cor ou material. A impressora não vai trocar para ele quando o carretel acabar, e a impressão vai parar:"
+
+msgid "Send anyway?"
+msgstr "Enviar mesmo assim?"
+
+msgid "Reserve slot mismatch"
+msgstr "Slot reserva diferente"
+
+msgid "Ignore ext filament when auto grouping"
+msgstr "Ignorar filamento externo no agrupamento automático"
+
+msgid "Remote API"
+msgstr "API remota"
+
+msgid "Remote Control API"
+msgstr "API de controle remoto"
+
+msgid "Enable Remote API"
+msgstr "Ativar API remota"
+
+msgid "Allow external tools (e.g. AI agents via MCP) to read and change slicer settings and trigger slicing on this machine."
+msgstr "Permite que ferramentas externas (por exemplo, agentes de IA via MCP) leiam e alterem as configurações e iniciem o fatiamento neste computador."
+
+msgid "Allow LAN access"
+msgstr "Permitir acesso pela rede local"
+
+msgid "Off: only this computer (127.0.0.1). On: other devices on your local network can control this slicer with the token."
+msgstr "Desligado: só este computador (127.0.0.1). Ligado: outros dispositivos da rede local podem controlar o fatiador com o token."
+
+msgid "Notify on API changes"
+msgstr "Avisar sobre alterações pela API"
+
+msgid "Show a notification in OrcaSlicer when an external tool changes settings, loads or edits objects, or switches presets. Slicing and arrange/orient use OrcaSlicer's own feedback."
+msgstr "Mostra uma notificação no OrcaSlicer quando uma ferramenta externa altera configurações, carrega ou edita objetos ou troca perfis. Fatiar, organizar e orientar usam o retorno do próprio OrcaSlicer."
+
+msgid "Allow script, G-code and connection edits"
+msgstr "Permitir edição de scripts, G-code e conexão"
+
+msgid "Off (recommended): the API cannot change post-processing scripts, custom G-code, the printer connection and its credentials, the printer model or the output filename format. These can run commands on this computer or the printer, and an AI agent can be steered by text it reads, so change them here in OrcaSlicer instead. Writing back a value that is already set is always allowed."
+msgstr "Desligado (recomendado): a API não pode alterar scripts de pós-processamento, G-code personalizado, a conexão da impressora e suas credenciais, o modelo da impressora nem o formato do nome do arquivo. Esses itens podem executar comandos neste computador ou na impressora, e um agente de IA pode ser influenciado pelo texto que lê; altere-os aqui no OrcaSlicer. Regravar um valor já definido é sempre permitido."
+
+msgid "TCP port for the Remote API (default 13130)"
+msgstr "Porta TCP da API remota (padrão 13130)"
+
+msgid "API token"
+msgstr "Token da API"
+
+msgid "Regenerate"
+msgstr "Gerar novamente"
+
+msgid "Creality CFS updated: "
+msgstr "CFS da Creality atualizado: "
+
+msgid "Creality CFS sync failed for "
+msgstr "Falha ao sincronizar o CFS da Creality em "
+
+msgid "Creality CFS: filament change queued, "
+msgstr "CFS da Creality: troca de filamento na fila, "
