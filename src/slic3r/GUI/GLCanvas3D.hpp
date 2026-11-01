@@ -948,6 +948,7 @@ public:
     size_t       m_shadow_map_key{ 0 };
     // Plate rectangle a shadow can reach, min xy then max xy.
     std::array<float, 4> m_shadow_plate_bounds{ { 0.0f, 0.0f, 0.0f, 0.0f } };
+    bool photo_free_orbit() const;
     // Orca Zoukei: Photo Mode capture (ported from OrcaFS-NeotkoCM, Neotko), see GUI/Zoukei/PhotoMode.cpp.
     // Only true while photo_capture() renders: forces the shadows on and aims the static light.
     bool         m_photo_active{ false };

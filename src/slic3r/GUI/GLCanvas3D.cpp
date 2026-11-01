@@ -99,6 +99,7 @@
 #include "WipeTowerDialog.hpp"
 #include "GUI_App.hpp"
 #include "Zoukei/GravitySnap.hpp" // ported from OrcaFS-NeotkoCM (Neotko): Snap & Drag
+#include "Zoukei/PhotoMode.hpp"
 #include "Shortcuts.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Colors.hpp"
@@ -5329,7 +5330,11 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                         camera.rotate_on_sphere(rot.x(), rot.y(), false);
                 }
                 else {
-                    if (wxGetApp().app_config->get_bool("use_free_camera"))
+                    // Orca Zoukei: with the photo panel open the view turns freely, also under the print.
+                    if (const std::optional<Vec3d> photo_target = get_camera_orbit_target(ECameraNavigationType::Mouse);
+                        photo_free_orbit() && photo_target.has_value())
+                        camera.rotate_local_with_target(Vec3d(rot.y(), rot.x(), 0.), *photo_target);
+                    else if (wxGetApp().app_config->get_bool("use_free_camera") || photo_free_orbit())
                         // Virtual track ball (similar to the 3DConnexion mouse).
                         camera.rotate_local_around_target(Vec3d(rot.y(), rot.x(), 0.));
                     else {
@@ -5381,7 +5386,7 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                 Camera& camera = wxGetApp().plater()->get_camera();
                 if (this->m_canvas_type != ECanvasType::CanvasAssembleView) {
                     // Orca: Use a constrained camera when navigating the 3D scene with a regular mouse, if the free camera is not selected
-                    if (!wxGetApp().app_config->get_bool("use_free_camera"))
+                    if (!wxGetApp().app_config->get_bool("use_free_camera") && !photo_free_orbit())
                         // Forces camera right vector to be parallel to XY plane in case it has been misaligned using the 3D mouse free rotation.
                         // It is cheaper to call this function right away instead of testing wxGetApp().plater()->get_mouse3d_controller().connected(),
                         // which checks an atomics (flushes CPU caches).

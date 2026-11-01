@@ -32,6 +32,11 @@ namespace Slic3r {
 namespace GUI {
 
 // -------------------------------------------------------------------------------------------------
+bool GLCanvas3D::photo_free_orbit() const
+{
+    return m_canvas_type == ECanvasType::CanvasPreview && Zoukei::photo_panel_open();
+}
+
 // The capture itself, a member of the preview canvas: it needs the shadow pass and the camera.
 // The picture is the toolpaths as they are on screen (view type, layer range, RealColor...), drawn
 // again into an off-screen buffer from the camera of the preview with the plate, the shells and the
@@ -133,7 +138,8 @@ bool GLCanvas3D::photo_capture(const Zoukei::PhotoOptions& options, ThumbnailDat
         const double az = double(options.light_azimuth) * PI / 180.0;
         const double el = double(options.light_elevation) * PI / 180.0;
         m_photo_light_dir = Vec3d(std::cos(el) * std::cos(az), std::cos(el) * std::sin(az), std::sin(el)).normalized();
-        m_photo_shadows   = options.shadows;
+        // The floor would sit between a camera under the print and the print, and a light under the floor casts nothing on it.
+        m_photo_shadows   = options.shadows && global_camera.is_looking_downward() && options.light_elevation > 0.f;
         m_photo_active    = true;
 
         auto render_pass = [&](float r, float g, float b, float a, std::vector<unsigned char>& pixels) {
@@ -291,7 +297,7 @@ void load_options()
     if (cfg->has(kSection, "photo_frame"))
         o.frame_print = cfg->get(kSection, "photo_frame") != "0";
     o.light_azimuth   = read_float("photo_light_az", o.light_azimuth, -180.f, 180.f);
-    o.light_elevation = read_float("photo_light_el", o.light_elevation, 5.f, 89.f);
+    o.light_elevation = read_float("photo_light_el", o.light_elevation, -89.f, 89.f);
     o.background[0]   = read_float("photo_bg_r", 1.f, 0.f, 1.f);
     o.background[1]   = read_float("photo_bg_g", 1.f, 0.f, 1.f);
     o.background[2]   = read_float("photo_bg_b", 1.f, 0.f, 1.f);
@@ -433,7 +439,7 @@ void render_photo_panel(ImGuiWrapper& imgui, GLCanvas3D& canvas, int canvas_widt
         ImGui::TextUnformatted(_u8L("Light height").c_str());
         ImGui::SameLine(110.f * scale);
         ImGui::SetNextItemWidth(width - 130.f * scale);
-        if (ImGui::SliderFloat("##zk_photo_el", &o.light_elevation, 5.f, 89.f, "%.0f deg"))
+        if (ImGui::SliderFloat("##zk_photo_el", &o.light_elevation, -89.f, 89.f, "%.0f deg"))
             changed = true;
         if (changed)
             save_options();
