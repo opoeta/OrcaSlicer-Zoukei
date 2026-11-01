@@ -76,7 +76,7 @@ public:
         const int gap = FromDIP(8);
         auto*     top = new wxBoxSizer(wxVERTICAL);
 
-        auto* heading = new wxStaticText(this, wxID_ANY, from_u8(release.title.empty() ? release.version : release.title));
+        auto* heading = new wxStaticText(this, wxID_ANY, wxControl::EscapeMnemonics(from_u8(release.title.empty() ? release.version : release.title)));
         heading->SetFont(heading->GetFont().Bold().Larger());
         top->Add(heading, 0, wxALL, gap * 2);
 
@@ -85,10 +85,10 @@ public:
         auto* list = new wxBoxSizer(wxVERTICAL);
         const int wrap = FromDIP(520);
         for (const Item& item : release.items) {
-            auto* title = new wxStaticText(scroll, wxID_ANY, from_u8(item.title));
+            auto* title = new wxStaticText(scroll, wxID_ANY, wxControl::EscapeMnemonics(from_u8(item.title)));
             title->SetFont(title->GetFont().Bold());
             list->Add(title, 0, wxTOP | wxLEFT | wxRIGHT, gap);
-            auto* text = new wxStaticText(scroll, wxID_ANY, from_u8(item.text));
+            auto* text = new wxStaticText(scroll, wxID_ANY, wxControl::EscapeMnemonics(from_u8(item.text)));
             text->Wrap(wrap);
             list->Add(text, 0, wxTOP | wxLEFT | wxRIGHT, gap / 2);
             if (!item.action.empty()) {
