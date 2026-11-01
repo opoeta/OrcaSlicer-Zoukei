@@ -250,6 +250,8 @@
 #include "ZoukeiUpdateUi.hpp"
 #include "Zoukei/LibreMode.hpp"
 #include "Zoukei/BackgroundWorkers.hpp"
+#include "Zoukei/CrealityCloud.hpp"
+#include "Zoukei/CrealityCloudUi.hpp"
 #include "slic3r/Utils/ZoukeiUpdate.hpp"
 #include "PrivacyUpdateDialog.hpp"
 #include "ModelMall.hpp"
@@ -5526,6 +5528,15 @@ bool GUI_App::is_bmcu_auto_retry_active(const std::string& dev_id)
     return dev_id == m_bmcu_auto_retry_dev_id;
 }
 
+// Orca Zoukei: the Creality Cloud row of the home page (own login, not a printer agent provider).
+static void send_creality_login_info()
+{
+    nlohmann::json j;
+    j["command"] = CrCloud::logged_in() ? "creality_userlogin" : "creality_useroffline";
+    j["data"]["name"] = CrCloud::nickname();
+    wxGetApp().run_script(wxString::Format("window.postMessage(%s)", from_u8(j.dump())));
+}
+
 void GUI_App::get_login_info(const std::string& provider/* = ORCA_CLOUD_PROVIDER*/)
 {
     if (m_agent) {
@@ -5685,11 +5696,13 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 "get_login_info",
                 "get_orca_login_info",
                 "get_bambu_login_info",
+                "get_creality_login_info",
             };
             static const std::unordered_set<std::string> stealth_blocked_login_commands = {
                 "homepage_login_or_register",
                 "homepage_orca_login_or_register",
                 "homepage_bambu_login_or_register",
+                "homepage_creality_login_or_register",
             };
             if (app_config->get_stealth_mode() && stealth_blocked_info_commands.count(command_str)) {
                 CallAfter([] {
@@ -5768,6 +5781,21 @@ std::string GUI_App::handle_web_request(std::string cmd)
                 CallAfter([this] {
                     BOOST_LOG_TRIVIAL(info) << "logout: homepage_bambu_logout";
                     request_user_logout(BBL_CLOUD_PROVIDER, /*user_initiated=*/true);
+                });
+            }
+            else if (command_str.compare("get_creality_login_info") == 0) {
+                CallAfter([] { send_creality_login_info(); });
+            }
+            else if (command_str.compare("homepage_creality_login_or_register") == 0) {
+                CallAfter([this] {
+                    CrCloudUi::show_login_dialog(mainframe);
+                    send_creality_login_info();
+                });
+            }
+            else if (command_str.compare("homepage_creality_logout") == 0) {
+                CallAfter([] {
+                    CrCloud::logout();
+                    send_creality_login_info();
                 });
             }
             else if (command_str.compare("homepage_orca_login_or_register") == 0) {

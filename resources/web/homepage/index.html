@@ -72,6 +72,35 @@
 			</div>
 		</div>
 
+		<!-- Creality Cloud, shown once the app answers (never in stealth mode) -->
+		<div id="CrealityCloudSection">
+			<div id="CrealityCloudHeader" tabindex="0" role="button" aria-expanded="false" aria-controls="CrealityCloudBody"
+				 onClick="ToggleCrealitySection()">
+				<svg class="SectionChevron" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+					<path d="M4.5 2.5L8 6L4.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="SectionLabel">Creality Cloud</span>
+				<span id="CrealityStatusDot"></span>
+			</div>
+
+			<div id="CrealityCloudBody">
+				<div id="CrealityAccount" class="AccountRow AccountRowCompact" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false"
+					 onClick="OnAccountRowClick('creality')">
+					<span class="AccountAvatar">
+						<img id="CrealityAvatarIcon" class="AccountAvatarImg" alt="" onerror="OnAvatarLoadError(this)" />
+					</span>
+					<span class="AccountText">
+						<span id="CrealityUserName" class="AccountName"></span>
+						<span class="AccountSecondary" data-i18n="not_signed_in">Not signed in</span>
+					</span>
+					<span class="AccountSignIn" data-i18n="login">Login</span>
+					<svg class="AccountChevron" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+						<path d="M3 4.75L6 7.75L9 4.75" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</div>
+			</div>
+		</div>
+
 		<!-- Shared account menu, anchored under the row it was opened from.
 		     The row already carries the avatar, name and provider, so the menu only
 		     adds the account handle. -->

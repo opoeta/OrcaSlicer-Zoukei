@@ -13,6 +13,7 @@ function OnInit()
 
 	SendMsg_GetLoginInfo();
 	SendMsg_GetBambuLoginInfo();
+	SendSimpleCommand("get_creality_login_info");
 	SendMsg_GetRecentFile();
 	SendMsg_GetStaffPick();
 
@@ -119,6 +120,12 @@ function HandleStudio( pVal )
     SetBambuLoginInfo(pVal["data"]["avatar"], pVal["data"]["name"]);
   } else if (strCmd == "studio_bambu_useroffline") {
     SetBambuUserOffline();
+  } else if (strCmd == "creality_userlogin") {
+    $("#CrealityCloudSection").show();
+    SetAccountSignedIn("creality", "", pVal["data"]["name"], pVal["data"]["name"]);
+  } else if (strCmd == "creality_useroffline") {
+    $("#CrealityCloudSection").show();
+    SetAccountSignedOut("creality");
   } else if (strCmd == "studio_set_mallurl") {
     SetMallUrl(pVal["data"]["url"]);
   } else if (strCmd == "studio_clickmenu") {
@@ -223,10 +230,13 @@ var AccountRows = {
   orca:  { row: "#OrcaAccount",  name: "#UserName",      avatar: "#UserAvatarIcon",  dot: null,
            loginCmd: "homepage_orca_login_or_register",  logoutCmd: "homepage_orca_logout" },
   bambu: { row: "#BambuAccount", name: "#BambuUserName", avatar: "#BambuAvatarIcon", dot: "#BambuStatusDot",
-           loginCmd: "homepage_bambu_login_or_register", logoutCmd: "homepage_bambu_logout" }
+           loginCmd: "homepage_bambu_login_or_register", logoutCmd: "homepage_bambu_logout" },
+  creality: { row: "#CrealityAccount", name: "#CrealityUserName", avatar: "#CrealityAvatarIcon", dot: "#CrealityStatusDot",
+           loginCmd: "homepage_creality_login_or_register", logoutCmd: "homepage_creality_logout" }
 };
 
 var BAMBU_FOLD_KEY = "OrcaHome_BambuCloudExpanded";
+var CREALITY_FOLD_KEY = "OrcaHome_CrealityCloudExpanded";
 
 var m_OpenAccountMenu = null;
 
@@ -318,7 +328,23 @@ function ToggleBambuSection() {
   SetBambuSectionExpanded(!$("#BambuCloudBody").hasClass("Expanded"), true);
 }
 
+function SetCrealitySectionExpanded(bExpanded, bPersist) {
+  $("#CrealityCloudBody").toggleClass("Expanded", bExpanded);
+  $("#CrealityAccount").attr("tabindex", bExpanded ? "0" : "-1");
+  $("#CrealityCloudHeader").toggleClass("Expanded", bExpanded).attr("aria-expanded", bExpanded ? "true" : "false");
+  if (!bExpanded && m_OpenAccountMenu === "creality") CloseAccountMenu();
+  if (bPersist) { try { localStorage.setItem(CREALITY_FOLD_KEY, bExpanded ? "1" : "0"); } catch (e) {} }
+}
+
+function ToggleCrealitySection() {
+  SetCrealitySectionExpanded(!$("#CrealityCloudBody").hasClass("Expanded"), true);
+}
+
 function Set_AccountMenu_Event() {
+  var bCrealityExpanded = false;
+  try { bCrealityExpanded = localStorage.getItem(CREALITY_FOLD_KEY) === "1"; } catch (e) {}
+  SetCrealitySectionExpanded(bCrealityExpanded, false);
+
   var bExpanded = false;
   try { bExpanded = localStorage.getItem(BAMBU_FOLD_KEY) === "1"; } catch (e) {}
   SetBambuSectionExpanded(bExpanded, false);
