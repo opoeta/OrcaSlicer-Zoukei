@@ -41518,8 +41518,8 @@ msgstr "Por ferramenta"
 msgid "end"
 msgstr "fim"
 
-msgid "Align & Stack"
-msgstr "Alinhar e empilhar"
+msgid "Align & Construct"
+msgstr "Alinhar e construir"
 
 msgid "#1 stays where it is."
 msgstr "O #1 fica onde está."

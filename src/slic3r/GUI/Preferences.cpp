@@ -2598,7 +2598,7 @@ void PreferencesDialog::create_items()
            "on another object prints as a normal contact surface and only the part over air is a bridge.\n"
            "Also enables Snap & Drag (drag an object and it lands on the real surface below), the per-object \"Assembled boolean\" "
            "switch, per-part XY compensation and Copy / Paste Process Settings in the object list.\n"
-           "Snap & Drag options are in the Align & Stack panel. Ported from OrcaFS-NeotkoCM (Neotko)."),
+           "Snap & Drag options are in the Align & Construct panel. Ported from OrcaFS-NeotkoCM (Neotko)."),
         "zoukei_libre_mode");
     g_sizer->Add(item_libre_mode);
 

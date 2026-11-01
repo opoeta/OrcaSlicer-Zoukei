@@ -14,6 +14,7 @@
 #include "libslic3r/PaintTransfer.hpp"
 #include <wx/busyinfo.h>
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/Zoukei/LibreMode.hpp"
 
 #include <imgui/imgui.h>
 
@@ -1189,6 +1190,15 @@ void GLGizmoAlignStack::apply_op(Op op)
     if (!op_delta(op, delta))
         return;
     Plater::TakeSnapshot snap(wxGetApp().plater(), "Align & Construct: place");
+    // do_move() drops auto-drop objects back onto the bed, which would undo a stack: with Libre Mode
+    // an object left above the bed gets Auto drop OFF; "To bed" turns it back on.
+    if (ModelObject* mo = const_cast<ModelObject*>(pick_object(m_ordered[1])); mo != nullptr && !m_ordered[1].is_part()) {
+        const BoundingBoxf3 b = world_bbox_of(m_ordered[1]);
+        if (op == Op::Bed)
+            mo->auto_drop = true;
+        else if (LibreMode::enabled() && b.defined && b.min.z() + delta.z() > 0.001)
+            mo->auto_drop = false;
+    }
     translate_pick(m_ordered[1], delta);
 }
 
@@ -1479,6 +1489,10 @@ void GLGizmoAlignStack::render_panel_body()
         ImGui::TextWrapped("%s", m_bool_error.c_str());
         ImGui::PopStyleColor();
     }
+
+    // Libre Mode: the opt-in switch and the Snap & Drag options live here.
+    ImGui::Separator();
+    LibreMode::render_imgui_options();
 
     // The ghost follows the button under the mouse: tell the scene when that changes.
     if (hovered != m_hover_op) {
