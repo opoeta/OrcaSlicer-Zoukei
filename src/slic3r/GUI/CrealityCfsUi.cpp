@@ -376,7 +376,9 @@ std::vector<const Entry*> assign_slots(const std::vector<Entry>& es, bool positi
                     break;
                 }
     const auto* cols = b->project_config.option<ConfigOptionStrings>("filament_colour");
-    for (size_t i = 0; i < n; ++i) {
+    // Creality CFS keeps the list in slot order (owner's call); the print dialog does its own colour mapping.
+    const bool fixed_order = positional && bambu_obj() == nullptr && !flashforge_agent() && !snapmaker_agent();
+    for (size_t i = 0; i < n && !fixed_order; ++i) {
         if (out[i] != nullptr || chosen_slot(int(i)))
             continue;
         std::string type;
