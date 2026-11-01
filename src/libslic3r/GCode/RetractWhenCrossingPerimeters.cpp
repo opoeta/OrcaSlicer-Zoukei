@@ -2,6 +2,7 @@
 #include "../Layer.hpp"
 #include "../Polyline.hpp"
 #include "libslic3r/Surface.hpp"
+#include <algorithm>
 #include <vector>
 #include "libslic3r/AABBTreeIndirect.hpp"
 #include <cstddef>
@@ -60,6 +61,65 @@ bool RetractWhenCrossingPerimeters::travel_inside_internal_regions(const Layer &
             return true;
         });
     return result != -1;
+}
+
+bool RetractWhenCrossingPerimeters::travel_near_perimeters_too_long(const Layer &layer, const Polyline &travel, coord_t wall_distance, coord_t max_near_wall_travel)
+{
+    if (wall_distance <= 0 || max_near_wall_travel <= 0 || travel.length() <= max_near_wall_travel)
+        return false;
+
+    if (m_walls_layer != &layer) {
+        m_walls_layer = &layer;
+        Polylines walls;
+        for (const LayerRegion *layerm : layer.regions())
+            layerm->perimeters.collect_polylines(walls);
+        Lines lines;
+        for (const Polyline &wall : walls)
+            append(lines, wall.lines());
+        m_walls = AABBTreeLines::LinesDistancer<Line>{ std::move(lines) };
+    }
+    if (m_walls.get_lines().empty())
+        return false;
+
+    // Walk the travel: small steps near a wall, far from it jump by the safety margin (the distance
+    // to the walls cannot change faster than the distance walked, so no near stretch is skipped).
+    const double near_step = 0.5 * double(max_near_wall_travel);
+    size_t segment = 0;
+    double offset  = 0.;
+    Vec2d  sample  = travel.points.front().cast<double>();
+    auto advance = [&](double distance) {
+        while (segment + 1 < travel.points.size()) {
+            const Vec2d  a   = travel.points[segment].cast<double>();
+            const Vec2d  v   = travel.points[segment + 1].cast<double>() - a;
+            const double len = v.norm();
+            if (len > 0. && distance <= len - offset) {
+                offset += distance;
+                sample = a + v * (offset / len);
+                return true;
+            }
+            distance -= len - offset;
+            ++ segment;
+            offset = 0.;
+            sample = travel.points[segment].cast<double>();
+        }
+        return false;
+    };
+
+    bool   was_near = false;
+    double step     = 0.;
+    double run      = 0.;
+    for (;;) {
+        const double distance = m_walls.distance_from_lines<false>(sample.cast<coord_t>());
+        const bool   is_near  = distance <= wall_distance;
+        // Only samples that are both near count: separate near stretches do not add up.
+        run = is_near && was_near ? run + step : 0.;
+        if (run >= max_near_wall_travel)
+            return true;
+        step     = is_near ? near_step : std::max(near_step, distance - double(wall_distance));
+        was_near = is_near;
+        if (! advance(step))
+            return false;
+    }
 }
 
 } // namespace Slic3r
