@@ -6,6 +6,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/Camera.hpp"
 #include "slic3r/GUI/ImGuiWrapper.hpp"
+#include "slic3r/GUI/GUI.hpp"
 #include "slic3r/GUI/I18N.hpp"
 
 #include "libslic3r/Model.hpp"
@@ -81,7 +82,6 @@ GLGizmoAlignStack::GLGizmoAlignStack(GLCanvas3D& parent, const std::string& icon
 
 bool GLGizmoAlignStack::on_init()
 {
-    m_shortcut_key = 0; // no global shortcut by default
     return true;
 }
 
