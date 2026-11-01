@@ -7413,7 +7413,7 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->min = 0;
     def->max = 2;
-    def->set_default_value(new ConfigOptionFloat(0.0));
+    def->set_default_value(new ConfigOptionFloat(0.18));
 
     def = this->add("wave_overhang_corner_taper_distance", coFloat);
     def->label = L("Corner taper distance");
@@ -7426,7 +7426,7 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->min = 0;
     def->max = 20;
-    def->set_default_value(new ConfigOptionFloat(0.0));
+    def->set_default_value(new ConfigOptionFloat(3.0));
 
     def = this->add("wave_overhang_corner_angle_threshold", coFloat);
     def->label = L("Corner angle threshold");
