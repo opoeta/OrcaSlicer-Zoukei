@@ -597,7 +597,7 @@ std::vector<std::pair<int, ExtrusionEntityCollection>> ColorStitch::split_by_too
     for (RawLine &rl : lines)
         rl.short_line = p.min_length_mm > 0.0 && polyline3_length_mm(rl.pl) < p.min_length_mm;
 
-    // The colourable lines (short ones keep the fallback filament).
+    // The colourable lines (short ones take the recipe's first filament).
     std::vector<size_t> idx;
     for (size_t i = 0; i < lines.size(); ++i)
         if (!lines[i].short_line)
@@ -625,7 +625,14 @@ std::vector<std::pair<int, ExtrusionEntityCollection>> ColorStitch::split_by_too
     }
 
     const bool too_few = colourable.size() < 2 || (p.min_lines > 0 && int(colourable.size()) < p.min_lines);
-    const int  tool_a  = p.tool[0] >= 0 ? p.tool[0] : std::max(0, fallback_tool);
+    int        tool_a  = p.tool[0] >= 0 ? p.tool[0] : std::max(0, fallback_tool);
+    // A pattern names its filaments itself: its first one, not the profile's, leads the recipe.
+    if (p.mode == csmPattern)
+        for (char c : p.pattern)
+            if (c >= '1' && c <= '9') {
+                tool_a = int(c - '1');
+                break;
+            }
 
     if (too_few) {
         tools.push_back(tool_a);
@@ -727,7 +734,8 @@ std::vector<std::pair<int, ExtrusionEntityCollection>> ColorStitch::split_by_too
     for (int t : tools)
         if (std::find(order.begin(), order.end(), t) == order.end())
             order.push_back(t);
-    const int fallback = std::max(0, fallback_tool >= 0 ? fallback_tool : tool_a);
+    // Lines too short to alternate take the recipe's first filament, not the object's.
+    const int fallback = tools.front();
 
     std::vector<std::pair<int, ExtrusionEntityCollection>> buckets;
     auto bucket_of = [&buckets](int tool) -> ExtrusionEntityCollection & {
