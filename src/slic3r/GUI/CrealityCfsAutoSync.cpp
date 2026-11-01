@@ -85,17 +85,17 @@ std::vector<std::string> signatures(const std::vector<ProjectFilament>& project)
     return out;
 }
 
-// The sidebar badge's mapping without its positional fallback, as slot keys; empty while the CFS reports nothing.
+// The sidebar badge's mapping as slot keys, so a sync writes where the badge says; empty while the CFS reports nothing.
 std::vector<int> matched_keys(std::size_t n)
 {
-    const auto matched = CfsUi::matched_slots();
-    if (matched.empty())
-        return {};
     std::vector<int> out(n, NO_SLOT);
-    for (std::size_t i = 0; i < n && i < matched.size(); ++i)
-        if (matched[i])
-            out[i] = slot_key(matched[i]->first, matched[i]->second);
-    return out;
+    bool             any = false;
+    for (std::size_t i = 0; i < n; ++i)
+        if (const auto shown = CfsUi::mapped_slot(int(i))) {
+            out[i] = slot_key(shown->first, shown->second);
+            any    = true;
+        }
+    return any ? out : std::vector<int>{};
 }
 
 std::vector<int> chosen_keys(std::size_t n)
@@ -253,12 +253,12 @@ void CrealityCfsAutoSync::tick()
                 const int target = i < targets.write.size() ? targets.write[i] : NO_SLOT;
                 std::string why;
                 if (target != NO_SLOT)
-                    why = chosen[i] != NO_SLOT ? "explicit choice" : (i < matched.size() && matched[i] == target) ? "matched (loaded slot of same type+colour)" :
+                    why = chosen[i] != NO_SLOT ? "explicit choice" : (i < matched.size() && matched[i] == target) ? "slot shown in the sidebar" :
                                                                                                                    "slot it held before the edit";
                 else if (std::find(m_last_sigs.begin(), m_last_sigs.end(), sigs[i]) != m_last_sigs.end())
                     why = "unchanged (same filament as at the last sync)";
                 else if (chosen[i] == NO_SLOT && (i >= matched.size() || matched[i] == NO_SLOT))
-                    why = "not mapped to any slot (no explicit choice, no loaded slot of same type+colour)";
+                    why = "not mapped to any slot";
                 else
                     why = "target slot already used by another filament";
                 DeviceActivity::sync(host, filament_text(m_pending_project, i) + " -> " + (target == NO_SLOT ? std::string("no write") : slot_text(target)) +
