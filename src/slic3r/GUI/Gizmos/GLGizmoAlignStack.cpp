@@ -18,7 +18,7 @@
 
 #include <imgui/imgui.h>
 
-#include <GL/glew.h>
+#include <glad/gl.h>
 #include <wx/glcanvas.h>
 
 #include <algorithm>
