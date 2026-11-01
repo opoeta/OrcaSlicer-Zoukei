@@ -1056,7 +1056,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/GeneratedConfig.hpp.in
 # past MSVC's 4 GB archive limit. New Zoukei GUI files go under GUI/Zoukei/ or match the pattern below.
 set(SLIC3R_GUI_ZOUKEI_SOURCES ${SLIC3R_GUI_SOURCES})
 list(FILTER SLIC3R_GUI_ZOUKEI_SOURCES INCLUDE REGEX
-    "^(GUI/RemoteAPI/|GUI/Zoukei/|GUI/Creality|GUI/Flashforge|GUI/Snapmaker|GUI/Spoolman|GUI/ColorMix|GUI/ColorDecompose|GUI/ParamTipCard|GUI/GCodeReprocessor|GUI/TextureImport|GUI/Gizmos/GLGizmo(AlignStack|PrecisionALH|HeightAdaptiveEffects|Neotko)|Utils/Creality|Utils/Flashforge|Utils/Snapmaker|Utils/Spoolman)")
+    "^(GUI/RemoteAPI/|GUI/Zoukei/|GUI/Creality|GUI/Flashforge|GUI/Snapmaker|GUI/Spoolman|GUI/ColorMix|GUI/ColorDecompose|GUI/ParamTipCard|GUI/GCodeReprocessor|GUI/TextureImport|GUI/Gizmos/GLGizmo(PrecisionALH|HeightAdaptiveEffects|Neotko)|Utils/Creality|Utils/Flashforge|Utils/Snapmaker|Utils/Spoolman)")
 list(REMOVE_ITEM SLIC3R_GUI_SOURCES ${SLIC3R_GUI_ZOUKEI_SOURCES})
 
 if (WIN32)
