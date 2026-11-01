@@ -804,7 +804,7 @@ std::string CoolingBuffer::apply_layer_cooldown(
     bool wave_aux_override_active = false;
     // Orca: true only while the main fan is overridden (aux-only overrides must not touch the main fan).
     bool wave_main_override_active = false;
-    auto change_extruder_set_fan = [ this, layer_id, layer_time, &new_gcode,
+    auto change_extruder_set_fan = [ this, layer_id, layer_time, &new_gcode, part_cooling_fan_min_pwm,
         &overhang_fan_control, &overhang_fan_speed,
         &internal_bridge_fan_control, &internal_bridge_fan_speed,
         &supp_interface_fan_control, &supp_interface_fan_speed,
