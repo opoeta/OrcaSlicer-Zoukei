@@ -34,6 +34,7 @@
 #include "libslic3r_version.h"
 #include "BuildCommit.hpp"
 #include "zoukei_version.h"
+#include "Zoukei/WhatsNewDialog.hpp"
 #include "Downloader.hpp"
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -1164,8 +1165,10 @@ void GUI_App::post_init()
             }
 
             this->check_new_version_sf();
-            if (!cw_showed)
+            if (!cw_showed) {
                 this->check_legacy_user_filament_presets(false);
+                Zoukei::show_whats_new_if_unseen();
+            }
             const auto cloud_provider = get_printer_cloud_provider();
             if (is_user_login(cloud_provider) && !app_config->get_stealth_mode()) {
               // this->check_privacy_version(0);

@@ -1,4 +1,5 @@
 #include "MainFrame.hpp"
+#include "Zoukei/WhatsNewDialog.hpp"
 #include "GCodeReprocessorDialog.hpp"
 
 #include <wx/event.h>
@@ -3085,6 +3086,8 @@ wxMenu* MainFrame::generate_help_menu()
             [](wxCommandEvent&) { run_scene_benchmark(); });
 
     helpMenu->AppendSeparator();
+
+    append_menu_item(helpMenu, wxID_ANY, _L("What's new"), _L("What's new"), [](wxCommandEvent&) { Zoukei::show_whats_new(); });
 
     append_menu_item(helpMenu, wxID_ANY, _L("Show Tip of the Day"), _L("Show Tip of the Day"), [](wxCommandEvent&) {
         wxGetApp().plater()->get_dailytips()->open();

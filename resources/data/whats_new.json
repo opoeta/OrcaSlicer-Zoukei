@@ -1,0 +1,48 @@
+{
+  "releases": [
+    {
+      "version": "2026.11.01",
+      "title": "Novidades de novembro de 2026",
+      "items": [
+        {
+          "title": "Base OrcaSlicer 2.5",
+          "text": "O app agora usa a base mais recente do OrcaSlicer oficial. As rotas ficaram mais curtas: nos modelos que testamos, a viagem caiu de 3% a 12% em relação à versão de 30/10."
+        },
+        {
+          "title": "Align & Construct",
+          "text": "Substitui o Align & Stack. Além de alinhar e empilhar, agora extruda uma face plana, abre furos maiores e faz união, diferença e interseção entre objetos ou peças, sem CAD. O resultado mantém a pintura.",
+          "action": "align_construct",
+          "action_label": "Abrir Align & Construct"
+        },
+        {
+          "title": "Mesh Boolean mantém a pintura",
+          "text": "A ferramenta Mesh Boolean agora preserva a pintura dos dois objetos, e o resultado fica no lugar em que eles estavam. Segue a preferência de manter pintura."
+        },
+        {
+          "title": "Modo foto em 360°",
+          "text": "Com o painel do Modo foto aberto, a câmera gira livre em qualquer direção, inclusive por baixo da peça. A altura da luz aceita valores negativos, para iluminar a peça por baixo. Com a câmera por baixo, a sombra no piso é desligada."
+        },
+        {
+          "title": "CFS da Creality",
+          "text": "A lista de filamentos segue a ordem fixa dos slots: filamento 1 no 1A, filamento 2 no 1B, e assim por diante, salvo escolha manual. A edição de um filamento é gravada no slot mostrado na lista."
+        },
+        {
+          "title": "Wave overhangs atualizados",
+          "text": "Correções do projeto oficial de Wave overhangs: temperatura restaurada ao fim do trecho, ventilação mais estável e reforço de cantos com novos padrões."
+        },
+        {
+          "title": "Menos fios perto das paredes",
+          "text": "Viagens longas coladas na parede voltam a retrair, mesmo dentro da peça."
+        },
+        {
+          "title": "ColorStitch",
+          "text": "Linhas muito curtas e padrões de um só filamento agora usam o primeiro filamento da receita, e não a cor do objeto."
+        },
+        {
+          "title": "Mais textos em português",
+          "text": "Dezenas de mensagens passaram a aparecer em português, como o aviso de slot reserva, a API remota e o Align & Construct."
+        }
+      ]
+    }
+  ]
+}

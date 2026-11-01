@@ -85,6 +85,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ZoukeiUpdateUi.hpp
     GUI/Zoukei/PrepareMultiColor.cpp
     GUI/Zoukei/PrepareMultiColor.hpp
+    GUI/Zoukei/WhatsNewDialog.cpp
+    GUI/Zoukei/WhatsNewDialog.hpp
     GUI/Zoukei/ToolpathGlbExport.cpp
     GUI/Zoukei/ToolpathGlbExport.hpp
     GUI/Zoukei/RealColorView.cpp

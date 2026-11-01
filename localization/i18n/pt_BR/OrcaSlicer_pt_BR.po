@@ -44941,3 +44941,6 @@ msgstr "Falha ao sincronizar o CFS da Creality em "
 
 msgid "Creality CFS: filament change queued, "
 msgstr "CFS da Creality: troca de filamento na fila, "
+
+msgid "What's new"
+msgstr "Novidades"
