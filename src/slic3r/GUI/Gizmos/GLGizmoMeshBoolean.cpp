@@ -509,7 +509,7 @@ void GLGizmoMeshBoolean::generate_new_volume(const bool delete_input, TriangleMe
     // Keep the painting of both inputs. Where the result has the tool's skin it keeps the tool's
     // painting and filament, except in a Difference, where that skin is the wall of the cut and
     // stays unpainted.
-    {
+    if (wxGetApp().app_config->get_bool("keep_painting")) {
         std::vector<PaintTransfer::Source> sources(2);
         sources[0].volume   = m_src.mv;
         sources[0].to_world = m_src.trafo;
