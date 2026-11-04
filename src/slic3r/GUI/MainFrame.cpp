@@ -1770,17 +1770,7 @@ void MainFrame::show_device(bool should_use_native) {
     }
 
     if (use_printer_agents) {
-        // Orca Zoukei: the Creality, Flashforge and U1 panels are the Device tab whatever the agent says.
-        if (!want_native_device_tabs && device_page == m_monitor_page) {
-            if ((idx = m_tabpanel->FindPage(m_monitor_page)) != wxNOT_FOUND) {
-                m_monitor_page->Show(false);
-                m_tabpanel->RemovePage(idx);
-            }
-            if ((idx = m_tabpanel->FindPage(m_calibration_page)) != wxNOT_FOUND) {
-                m_calibration_page->Show(false);
-                m_tabpanel->RemovePage(idx);
-            }
-        } else if (m_tabpanel->FindPage(device_page) == wxNOT_FOUND) {
+        if (m_tabpanel->FindPage(device_page) == wxNOT_FOUND) {
             if ((idx = m_tabpanel->FindPage(m_printer_view_page)) != wxNOT_FOUND) {
                 m_printer_view_page->Show(false);
                 m_tabpanel->RemovePage(idx);
