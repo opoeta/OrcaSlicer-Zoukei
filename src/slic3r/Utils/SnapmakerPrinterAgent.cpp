@@ -6,6 +6,7 @@
 #include "IPrinterAgent.hpp"
 #include "NetworkAgent.hpp"
 #include "bambu_networking.hpp"
+#include "NetworkAgentFactory.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/I18N.hpp"
