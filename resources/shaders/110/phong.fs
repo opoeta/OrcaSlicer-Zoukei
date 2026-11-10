@@ -272,7 +272,7 @@ void main()
         color = uniform_color;
 
     // Orca Zoukei: multi-colour filament (approximation, see zk_multicolor)
-    if (mc_mode > 0 && !use_color_clip_plane && !is_outline)
+    if (mc_mode > 0 && !use_color_clip_plane)
         color.rgb = zk_multicolor(mc_normal, world_pos.xyz);
 
     if (slope.actived) {
