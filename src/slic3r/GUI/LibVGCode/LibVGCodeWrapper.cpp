@@ -390,7 +390,7 @@ GCodeInputData convert(const Slic3r::GCodeProcessorResult& result, const std::ve
     // model bounding box. Nothing extra to do here.
 
     ret.spiral_vase_mode = result.spiral_vase_mode;
-    ret.layers_closed = closed_layers.finish(moves.size() > 1 ? static_cast<size_t>(layer_id) + 1 : 0);
+    (void)closed_layers.finish(moves.size() > 1 ? static_cast<size_t>(layer_id) + 1 : 0);
 
     return ret;
 }

@@ -39,15 +39,6 @@ static constexpr float MAX_WIPES_RADIUS_MM = 1.0f;
 // Used for positions, displacements and so on.
 //
 using Vec3 = std::array<float, 3>;
-
-// A rectangle of the XY plane, by its corners; the default takes in everything.
-struct XYBox
-{
-    std::array<float, 2> min{ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
-    std::array<float, 2> max{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-
-    bool contains(const Vec3& p) const { return min[0] <= p[0] && p[0] <= max[0] && min[1] <= p[1] && p[1] <= max[1]; }
-};
 // ORCA: the per vertex data uploaded as GL_RGBA32F, see extract_pos_and_or_hwa().
 using Vec4 = std::array<float, 4>;
 
@@ -72,6 +63,15 @@ using Color = std::array<uint8_t, 3>;
 // Color palette
 //
 using Palette = std::vector<Color>;
+
+// shortcut: stubs for the official reduced-detail preview (#15818); our renderer draws the full set. Port it to replace them.
+enum class EReducedDetailMode : uint8_t { Off, EndLayersOnly, ShellOnly };
+struct XYBox
+{
+    std::array<float, 2> min{ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
+    std::array<float, 2> max{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+    bool contains(const Vec3& p) const { return min[0] <= p[0] && p[0] <= max[0] && min[1] <= p[1] && p[1] <= max[1]; }
+};
 
 //
 // Orca Zoukei: multi-colour filament of a tool. Coextruded (side by side) colours are picked per segment from
@@ -237,21 +237,6 @@ enum class EGCodeExtrusionRole : uint8_t
 };
 
 static constexpr std::size_t GCODE_EXTRUSION_ROLES_COUNT = static_cast<std::size_t>(EGCodeExtrusionRole::COUNT);
-
-//
-// What the reduced set, drawn while the user is dragging, holds in place of the full toolpaths
-//
-enum class EReducedDetailMode : uint8_t
-{
-    // nothing: no reduced set is built
-    Off,
-    // only the bottom and top layers of the visible range, and the supports, for a caller that
-    // draws the print itself some other way
-    EndLayersOnly,
-    // every role but the infill under the skins and the gap fill: what can be seen from outside
-    ShellOnly,
-    COUNT
-};
 
 //
 // Option types

@@ -14,6 +14,7 @@
 
 #include "IPrinterAgent.hpp"
 #include "MoonrakerPrinterAgent.hpp"
+#include "NetworkAgentFactory.hpp"
 
 #include <atomic>
 #include <functional>
@@ -28,7 +29,6 @@
 
 namespace Slic3r {
 
-#define SNAPMAKER_PRINTER_AGENT_ID "snapmaker"
 
 class SnapmakerPrinterAgent final : public MoonrakerPrinterAgent, public std::enable_shared_from_this<SnapmakerPrinterAgent>
 {

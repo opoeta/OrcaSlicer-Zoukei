@@ -353,7 +353,7 @@ bool CrealityPrintAgent::fetch_filament_info(std::string, FilamentSyncMode /*syn
 
     if (info.no_cfs) {
         BOOST_LOG_TRIVIAL(info) << "CrealityPrintAgent: " << info.model_name << " reports no CFS connected, deferring to base agent";
-        return MoonrakerPrinterAgent::fetch_filament_info(std::move(dev_id));
+        return fetch_standard_filament_info();
     }
 
     BOOST_LOG_TRIVIAL(info)
