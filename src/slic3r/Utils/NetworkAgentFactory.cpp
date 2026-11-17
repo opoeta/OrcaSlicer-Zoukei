@@ -190,8 +190,8 @@ void NetworkAgentFactory::register_all_agents()
     // Native port of the "Creality CFS Sync" plugin; registered before any Python plugin, so an
     // installed copy of that plugin (same agent id) is skipped rather than clashing.
     register_agent<CrealityCfsAgent>();
-    register_agent<CrealityPrintAgent>();  // Must come BEFORE MoonrakerPrinterAgent —
-                                            // CrealityPrintAgent extends Moonraker behaviour
+    // Zoukei: the official CrealityPrintAgent is not registered; "crealityprint" resolves to
+    // the native creality_cfs agent (GUI_App::resolve_printer_agent_id).
                                             // for K-series boards with CFS support.
     register_agent<FlashforgePrinterAgent>(); // extends the Moonraker agent (ZMOD) and adds the stock-firmware API
     register_agent<MoonrakerPrinterAgent>();
