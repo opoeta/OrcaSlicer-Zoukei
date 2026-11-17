@@ -1688,7 +1688,7 @@ PRINT_CONFIG_CLASS_DEFINE(
 )
 
 // This object is mapped to Perl as Slic3r::Config::PrintRegion.
-PRINT_CONFIG_CLASS_DEFINE(
+PRINT_CONFIG_CLASS_DEFINE2(
     PrintRegionConfig,
 
     ((ConfigOptionInts,  print_extruder_id))
@@ -1816,6 +1816,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,                       wave_overhang_floor_speed_ramp))
     ((ConfigOptionInt,                       wave_overhang_floor_fan_speed))
     ((ConfigOptionInt,                       wave_overhang_floor_aux_fan_speed))
+    , // end of the first option list of PrintRegionConfig (PRINT_CONFIG_CLASS_DEFINE2)
     ((ConfigOptionInt,                       wave_overhang_nozzle_temp))
     ((ConfigOptionFloat,                     wave_overhang_min_wave_time))
     ((ConfigOptionFloat,                     wave_overhang_min_layer_time))
