@@ -257,6 +257,7 @@
 #include "HintNotification.hpp"
 
 #include "slic3r/Utils/NetworkAgentFactory.hpp"
+#include "slic3r/Utils/CrealityCfsAgent.hpp"
 #include "slic3r/Utils/BBLNetworkPlugin.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
 
@@ -4402,6 +4403,12 @@ void GUI_App::set_live_printer_agent(std::shared_ptr<IPrinterAgent> agent)
 
 std::string GUI_App::resolve_printer_agent_id(const std::string& stored_id) const
 {
+    // Zoukei: official Creality K profiles (and projects saved with them) name the "crealityprint"
+    // agent; K-series printers here are driven by the native "creality_cfs" agent, so the send
+    // dialog would otherwise find no printer.
+    if (stored_id == CREALITYPRINT_PRINTER_AGENT_ID && preset_bundle &&
+        boost::starts_with(preset_bundle->printers.get_edited_preset().config.opt_string("printer_model"), "Creality K"))
+        return CREALITY_CFS_PRINTER_AGENT_ID;
     if (!stored_id.empty())
         return stored_id;
     return (preset_bundle && preset_bundle->is_bbl_vendor()) ? BBL_PRINTER_AGENT_ID : ORCA_PRINTER_AGENT_ID;
