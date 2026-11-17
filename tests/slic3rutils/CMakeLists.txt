@@ -4,6 +4,9 @@ add_executable(${_TEST_NAME}_tests
     test_bambu_filament_ids.cpp
     test_bmcu_flasher.cpp
     test_bmcu_hms.cpp
+    test_bbl_cert_dir.cpp
+    test_bed_exclusion_fields.cpp
+    test_cloud_delete_queue.cpp
     test_config_value_formatter.cpp
     test_creality_cfs_match.cpp
     test_creality_cfs_sync.cpp
@@ -49,6 +52,7 @@ add_executable(${_TEST_NAME}_tests
     test_printer_agent.cpp
     test_qidi_printer_agent.cpp
     test_plugin_install.cpp
+    test_plugin_update.cpp
     test_plugin_lifecycle.cpp
     test_plugin_resource_texture.cpp
     test_plugin_printer_agent.cpp
@@ -95,8 +99,10 @@ orcaslicer_copy_test_dlls(${_TEST_NAME}_tests)
 
 if (WIN32)
     add_custom_command(TARGET ${_TEST_NAME}_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/python"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_PREFIX_PATH}/libpython" "$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/python"
+        COMMAND ${CMAKE_COMMAND} "-DSOURCE=${CMAKE_PREFIX_PATH}/libpython"
+            "-DDESTINATION=$<TARGET_FILE_DIR:${_TEST_NAME}_tests>/python"
+            "-DSTAMP=${CMAKE_CURRENT_BINARY_DIR}/python_runtime_$<CONFIG>.stamp"
+            -P "${CMAKE_SOURCE_DIR}/cmake/modules/StagePythonRuntime.cmake"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_PREFIX_PATH}/libpython/python${_bundled_python_abi}.dll"
             "${CMAKE_PREFIX_PATH}/libpython/vcruntime140.dll"
