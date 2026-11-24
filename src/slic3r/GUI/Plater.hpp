@@ -446,6 +446,8 @@ public:
     // base_flow: pass 2 (not YOLO) is made around this multiplier of the filament's flow ratio (the pass 1 winner,
     // 1 + modifier / 100), like Creality Print; 1 = around the filament's current flow.
     void calib_flowrate(bool is_linear, int pass, InfillPattern pattern = ipArchimedeanChords, float base_flow = 1.0f, int filament_id = 0, int extruder_id = 0);
+    // True from calib_flowrate() until other files are loaded, like the print's calibration mode
+    bool is_flowrate_calib() const;
     void calib_temp(const Calib_Params& params);
     void calib_max_vol_speed(const Calib_Params& params);
     void calib_retraction(const Calib_Params& params);
