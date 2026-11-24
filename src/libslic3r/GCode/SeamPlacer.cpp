@@ -2416,7 +2416,7 @@ void SeamPlacer::init(const Print &print, std::function<void(void)> throw_if_can
     const PrintObject *po = object.po;
     throw_if_canceled_func();
     if (m_placer29 && m_placer29->handles(po))
-      continue;
+      return;
     SeamPosition configured_seam_preference = po->config().seam_position.value;
     SeamComparator comparator { configured_seam_preference };
 
